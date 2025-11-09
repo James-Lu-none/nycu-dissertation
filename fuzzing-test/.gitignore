@@ -1,0 +1,6 @@
+*/*build*
+*/seeds
+/.vscode
+*.srctrlbm
+*.srctrldb
+*.srctrlprj
