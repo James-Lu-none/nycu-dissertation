@@ -50,3 +50,12 @@ objdump -x simple_crash > simple_crash_all_header.txt
 # Displaying the hexadecimal contents of all sections
 objdump -s simple_crash > simple_crash_section_hex.txt
 ```
+
+## analysis with gdb
+
+```bash
+# analyze simple_crash with gdb
+cd /src/build
+gdb ./simple_crash
+``` 
+![alt text](image.png)
