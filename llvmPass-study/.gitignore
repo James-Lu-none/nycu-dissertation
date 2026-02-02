@@ -1,0 +1,7 @@
+*.out
+*.ll
+*.bc
+*.s
+*.o
+*.so
+output
