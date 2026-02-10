@@ -13,16 +13,16 @@
   "constraints": [
     {
       "id": "C1",
-      "description": "\"length < width * height\" must be satisfied",
+      "description": "length < width * height must be satisfied",
       "status": "unsatisfied"
     },
     {
       "id": "C2",
-      "description": "\"type == 2\" must be satisfied",
+      "description": "type == 2 must be satisfied",
       "status": "unsatisfied"
     }
   ],
-  "code_context": "if (type == 2 && length < width * height) { memcpy(...); }",
+  "code_context": "if (type == 2 && length < width * height) { memcpy(...); }...",
   "sanitizer_report": null
 }
 

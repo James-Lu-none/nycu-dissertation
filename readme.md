@@ -1,11 +1,18 @@
 # 12/08
+https://github.com/google/fuzzer-test-suite
+https://github.com/google/fuzzbench
 
+## 實驗設計
+覆蓋率
+實際漏洞數
+使用含已知弱點的基準套件
+- LAVA-M 套件在程式中埋入多種類型的 bug，可測試fuzzer對不同 CWE 的覆蓋情況
+- 提出了7個包含真實漏洞的程式，並定義了一組漏洞導向的評估指標，透過給每個 target 標註 ground-truth 漏洞位置，評估中可以量化 fuzzer 是否以及多快觸達這些漏洞
 
 ## 比起讓產生LLM生成seed，讓LLM生成產生seeds的code
 
 1. LLM 產的 seed generation code 本身可能不正確
 2. LLM 會變成學到的是如何寫 seed generation code，不是如何針對漏洞產生特定輸入 (多了一層抽象)
-3. 
 
 ## 我在猶豫的點
 
@@ -37,3 +44,9 @@ CWE-119/120 (Buffer Overflow): 在特定欄位放超長 payload 使用重複 pat
 CWE-79 (Cross-Site Scripting): 注入常見 XSS payloads 如 <script>alert(1)</script>
 
 4. 要如何形成一個強力的feedback loop
+
+
+Fuzzer 執行，sanitizer 噴出 error trace（ASan/UBSan）
+LLM 認知漏洞語意（CWE classification）
+LLM 生成下一步最可能觸發更深漏洞的 mutation
+將 LLM 推薦的變異策略交回 fuzzer 做下一輪探索
