@@ -28,6 +28,11 @@ public:
     // main function that runs on each function in the module
     // this is the function that we will override to implement our pass logic
     PreservedAnalyses run(Function &F, FunctionAnalysisManager &) { // F is the object that contains llvmir instruction sequence for the current compiling function
+        // if (F.isDeclaration())
+        //     return PreservedAnalyses::all();
+        // if (F.getName() == "main")
+        //     return PreservedAnalyses::all();
+
         // Get the llvm compile information context
         LLVMContext &context = F.getContext();
         // Get the parent module of the function (see what module we are in??)
