@@ -1,0 +1,9 @@
+services:
+  afl:
+    container_name: afl
+    image: aflplusplus/aflplusplus
+    command: sleep infinity
+    volumes:
+      - ./llm_mutator.py:/afl/llm_mutator.py
+      - ./workspace:/workspace
+    
