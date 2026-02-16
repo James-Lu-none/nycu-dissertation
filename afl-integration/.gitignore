@@ -1,3 +1,6 @@
 in
 out
 target_*
+profraws
+*.profraw
+*.profdata
