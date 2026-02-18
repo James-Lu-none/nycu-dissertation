@@ -1,0 +1,149 @@
+FROM aflplusplus/aflplusplus:latest
+
+# 1. 安裝必要依賴 (參考 OSS-Fuzz)
+RUN apt-get update && apt-get install -y \
+    make autoconf libtool pkg-config wget curl git \
+    libbz2-dev liblzo2-dev liblzma-dev liblz4-dev libz-dev \
+    libssl-dev libacl1-dev libattr1-dev sharutils
+
+WORKDIR /src
+
+COPY libarchive_fuzzer.cc .
+RUN git clone --depth 1 https://github.com/libarchive/libarchive.git
+RUN git clone --depth 1 https://gitlab.gnome.org/GNOME/libxml2.git
+
+RUN mkdir -p /deps
+
+# ================= build libarchive with AFL instrumentation =================
+# build libxml2 with AFL instrumentation
+WORKDIR /src/libxml2
+RUN ./autogen.sh
+
+RUN CC=afl-clang-lto CXX=afl-clang-lto++ ./configure \
+    --without-debug \
+    --without-ftp \
+    --without-http \
+    --without-legacy \
+    --without-python \
+    --enable-static \
+    --disable-shared
+
+RUN make -j$(nproc)
+RUN cp .libs/libxml2.a /deps/libxml2_normal.a
+
+RUN make clean
+
+# build libarchive with AFL instrumentation and normal libxml2
+WORKDIR /src/libarchive
+RUN make clean || true
+RUN mkdir build_normal && cd build_normal && \
+    CC=afl-clang-lto CXX=afl-clang-lto++ \
+    cmake -DDONT_FAIL_ON_CRC_ERROR=ON \
+    -DENABLE_WERROR=OFF \
+    -DENABLE_XATTR=OFF \
+    -DENABLE_ACL=ON \
+    -DLIBXML2_INCLUDE_DIR=/src/libxml2/include \
+    -DLIBXML2_LIBRARIES=/deps/libxml2_normal.a \
+    -DBUILD_SHARED_LIBS=OFF \
+    -DCMAKE_EXE_LINKER_FLAGS="-lm -ldl -lpthread" ../ && \
+    make -j$(nproc)
+
+RUN cp build_normal/libarchive/libarchive.a /deps/libarchive_normal.a
+
+WORKDIR /workspace
+# build harness
+RUN afl-clang-lto++ -I/src/libarchive/libarchive -I/src/libarchive/build_normal/libarchive \
+    /src/libarchive_fuzzer.cc -o /workspace/target_normal \
+    /deps/libarchive_normal.a \
+    /deps/libxml2_normal.a \
+    -Wl,-Bstatic -llzo2 -llzma -llz4 -lbz2 -lz -lzstd \
+    -Wl,-Bdynamic -lcrypto -lacl -lm -ldl -lpthread \
+    /usr/local/lib/afl/libAFLDriver.a
+
+# ================= build libarchive with AFL instrumentation and ASAN =================
+
+# build libxml2 with AFL instrumentation and ASAN
+WORKDIR /src/libxml2
+RUN make clean
+RUN CC=afl-clang-lto CXX=afl-clang-lto++ AFL_USE_ASAN=1 ./configure \
+    --without-debug \
+    --without-ftp \
+    --without-http \
+    --without-legacy \
+    --without-python \
+    --enable-static \
+    --disable-shared
+
+RUN AFL_USE_ASAN=1 make -j$(nproc)
+RUN cp .libs/libxml2.a /deps/libxml2_asan.a
+
+WORKDIR /src/libarchive
+RUN make clean || true
+RUN mkdir -p build_asan && cd build_asan && \
+    CC=afl-clang-lto CXX=afl-clang-lto++ AFL_USE_ASAN=1 \
+    cmake -DDONT_FAIL_ON_CRC_ERROR=ON \
+    -DENABLE_WERROR=OFF \
+    -DENABLE_XATTR=OFF \
+    -DENABLE_ACL=ON \
+    -DLIBXML2_INCLUDE_DIR=/src/libxml2/include \
+    -DLIBXML2_LIBRARIES=/deps/libxml2_asan.a \
+    -DBUILD_SHARED_LIBS=OFF \
+    -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address -lm -ldl -lpthread" ../ && \
+    AFL_USE_ASAN=1 make -j$(nproc)
+RUN cp build_asan/libarchive/libarchive.a /deps/libarchive_asan.a
+
+# build asan harness
+WORKDIR /workspace
+RUN AFL_USE_ASAN=1 afl-clang-lto++ -fsanitize=address \
+    -I/src/libarchive/libarchive -I/src/libarchive/build_asan/libarchive \
+    /src/libarchive_fuzzer.cc -o /workspace/target_asan \
+    /deps/libarchive_asan.a \
+    /deps/libxml2_asan.a \
+    -Wl,-Bstatic -llzo2 -llzma -llz4 -lbz2 -lz -lzstd \
+    -Wl,-Bdynamic -lcrypto -lacl -lm -ldl -lpthread \
+    /usr/local/lib/afl/libAFLDriver.a
+
+# ================= build libarchive with AFL instrumentation and cmplog =================
+
+# build libarchive with AFL instrumentation and cmplog
+WORKDIR /src/libxml2
+RUN make clean
+RUN CC=afl-clang-lto CXX=afl-clang-lto++ AFL_LLVM_CMPLOG=1 ./configure \
+    --without-debug \
+    --without-ftp \
+    --without-http \
+    --without-legacy \
+    --without-python \
+    --enable-static \
+    --disable-shared
+
+RUN AFL_LLVM_CMPLOG=1 make -j$(nproc)
+RUN cp .libs/libxml2.a /deps/libxml2_cmplog.a
+
+# build libarchive with AFL instrumentation and cmplog
+WORKDIR /src/libarchive
+RUN make clean || true
+RUN mkdir -p build_cmplog && cd build_cmplog && \
+    CC=afl-clang-lto CXX=afl-clang-lto++ AFL_LLVM_CMPLOG=1 \
+    cmake -DDONT_FAIL_ON_CRC_ERROR=ON \
+    -DENABLE_WERROR=OFF \
+    -DENABLE_XATTR=OFF \
+    -DENABLE_ACL=ON \
+    -DLIBXML2_INCLUDE_DIR=/src/libxml2/include \
+    -DLIBXML2_LIBRARIES=/deps/libxml2_cmplog.a \
+    -DBUILD_SHARED_LIBS=OFF \
+    -DCMAKE_EXE_LINKER_FLAGS="-lm -ldl -lpthread" ../ && \
+    AFL_LLVM_CMPLOG=1 make -j$(nproc)
+
+RUN cp build_cmplog/libarchive/libarchive.a /deps/libarchive_cmplog.a
+
+# build cmplog harness
+WORKDIR /workspace
+RUN AFL_LLVM_CMPLOG=1 afl-clang-lto++ \
+    -I/src/libarchive/libarchive -I/src/libarchive/build_cmplog/libarchive \
+    /src/libarchive_fuzzer.cc -o /workspace/target_cmplog \
+    /deps/libarchive_cmplog.a \
+    /deps/libxml2_cmplog.a \
+    -Wl,-Bstatic -llzo2 -llzma -llz4 -lbz2 -lz -lzstd \
+    -Wl,-Bdynamic -lcrypto -lacl -lm -ldl -lpthread \
+    /usr/local/lib/afl/libAFLDriver.a
