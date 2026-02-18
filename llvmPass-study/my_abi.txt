@@ -1,0 +1,2 @@
+fun:printf=uninstrumented
+fun:printf=discard
