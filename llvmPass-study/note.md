@@ -6,6 +6,33 @@
 2. Each instruction represents a low-level operation, such as arithmetic operations, memory access, control flow, etc.
 3. LLVM ir is in static single assignment (SSA) form, meaning each variable is assigned exactly once and defined before use, so we can't set the previous register to itself plus one directly. instead, we need to load the value from memory, add one to it, and store it back to memory.
 
+## AFL++執行前置作業
+
+1. 讓程式崩潰時直接在當前目錄產生一個名為 core 的檔案，而不是啟動 Ubuntu 的錯誤報告產生器(Apport)，以此可以提升效能並確保 AFL++ 能夠正確偵測到程式崩潰的訊號。
+
+    原本的設定:
+
+    ```bash
+    (.venv) user@super:~/workspace$ cat /proc/sys/kernel/core_pattern
+    |/usr/share/apport/apport -p%p -s%s -c%c -d%d -P%P -u%u -g%g -F%F -- %E
+    ```
+
+    ```bash
+    echo core | sudo tee /proc/sys/kernel/core_pattern
+    ```
+
+2. 確保核心轉儲（Core Dump）功能關閉，這樣當程式崩潰時不會產生數MB的 core 檔案。AFL++ 也不會去分析core檔案，而是直接監控程式的訊號（Signal）。
+
+    ```bash
+    ulimit -c 0
+    ```
+
+3. 切換 CPU 效能模式 (AFL++ 非常強烈建議，否則速度會很慢)
+
+    ```bash
+    sudo cpupower frequency-set -g performance
+    ```
+
 ## compile and use llvm pass
 
 ```bash
@@ -82,3 +109,46 @@ output: rpfcc.so main.cpp
 clean:
 	rm -f rpfcc.so output
 ```
+
+## 單純使用 dfsan 而不使用我自己寫的 pass plugin
+
+```bash
+# 比較用
+clang++-18 -O0 -fno-inline -S -emit-llvm main.cpp -o output.ll
+
+# 直接編譯成可執行檔，讓 Clang 處理 DFSAN 的 Runtime
+clang++-18 -O0 -fno-inline -fsanitize=dataflow -no-pie main.cpp -o output.df
+# 輸出llvm ir
+clang++-18 -O0 -fno-inline -fsanitize=dataflow -S -emit-llvm main.cpp -o output.df.ll
+
+# exclude printf function
+clang++-18 -O0 -fno-inline -fsanitize=dataflow -no-pie -fsanitize-ignorelist=my_abi.txt main.cpp -o output.df.no_printf
+# 輸出llvm ir
+clang++-18 -O0 -fno-inline -fsanitize=dataflow -fsanitize-ignorelist=my_abi.txt -S -emit-llvm main.cpp -o output.df.no_printf.ll
+```
+
+### 問題與發現
+
+1. 當執行 output 時，會出現錯誤訊息 FATAL: Code 0x628f21d85630 is out of application range. Non-PIE build? Segmentation fault (core dumped)
+
+原因是 Linux 的 ASLR（位址空間隨機化）機制與 DFSan 的 Shadow Memory 佈局在「搶地盤」，需要透過 setarch -R 來關閉 ASLR，讓 DFSan 的 Shadow Memory 能夠成功劃分出它需要的標籤空間。
+```bash
+setarch `uname -m` -R ./output
+```
+
+官方文件的「間接說明」
+在 LLVM DFSan 官方文件 中，雖然沒有直接寫「請執行 setarch -R」，但它提到了：
+
+"DataFlowSanitizer uses a fixed memory mapping... The shadow memory is located at a fixed offset from the application memory."
+
+這句話背後的含意是：DFSan 的運作依賴於硬編碼（Hard-coded）的虛擬位址區間。 * 衝突點： 如果系統開啟了 ASLR，Linux 核心可能會隨機地把堆疊（Stack）或共享函式庫（vDSO）放在 DFSan 預先定義好的「標籤區（Shadow Memory）」或「保留區（Reserved Space）」裡。
+
+後果： 當 DFSan Runtime 啟動並檢查發現「這塊地已經被佔用了」，它就會報錯並結束.
+
+2. 不論有沒有透過 -fsanitize-ignorelist=my_abi.txt 來排除 printf 函式，編譯出來的 output.ll 中， printf 函式都會被轉換成 printf.dfsan
+
+當編譯器看到 printf 時，它會強制將其改名為 printf.dfsan。這個 printf.dfsan 其實是一個由 DFSan Runtime 提供的 Wrapper。
+
+如果它是 uninstrumented： 這個 Wrapper 會負責把 DFSan 特有的標籤參數「剝離」，然後呼叫原始的、標準的 printf。
+如果它是 custom： 這個 Wrapper 不僅會呼叫原始函式，還會根據預設規則（或你寫的規則）來計算並傳遞標籤（例如：讓輸出的回傳值也帶有汙點）。
+之所以一定要更名，是因為 DFSan 必須確保所有的呼叫點（Call sites）在二進位層級上是統一的，避免直接撞上簽名不符的原始函式。
