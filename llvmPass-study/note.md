@@ -131,6 +131,10 @@ clang++-18 -O0 -fno-inline -fsanitize=dataflow -fsanitize-ignorelist=my_abi.txt 
 
 1. 當執行 output 時，會出現錯誤訊息 FATAL: Code 0x628f21d85630 is out of application range. Non-PIE build? Segmentation fault (core dumped)
 
+[範例](dfsan_coredump)
+
+透過 gdb ./output dfsan_coredump 後 bt 來分析
+
 原因是 Linux 的 ASLR（位址空間隨機化）機制與 DFSan 的 Shadow Memory 佈局在「搶地盤」，需要透過 setarch -R 來關閉 ASLR，讓 DFSan 的 Shadow Memory 能夠成功劃分出它需要的標籤空間。
 ```bash
 setarch `uname -m` -R ./output
