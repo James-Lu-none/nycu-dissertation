@@ -147,3 +147,56 @@ RUN AFL_LLVM_CMPLOG=1 afl-clang-lto++ \
     -Wl,-Bstatic -llzo2 -llzma -llz4 -lbz2 -lz -lzstd \
     -Wl,-Bdynamic -lcrypto -lacl -lm -ldl -lpthread \
     /usr/local/lib/afl/libAFLDriver.a
+
+# ================= Build Coverage Version (target_cov) =================
+
+WORKDIR /src/libxml2
+RUN make clean
+RUN CC=afl-clang-lto CXX=afl-clang-lto++ ./configure \
+    --without-debug \
+    --without-ftp \
+    --without-http \
+    --without-legacy \
+    --without-python \
+    --enable-static \
+    --disable-shared \
+    CFLAGS="-fprofile-instr-generate -fcoverage-mapping" \
+    CXXFLAGS="-fprofile-instr-generate -fcoverage-mapping"
+
+RUN make -j$(nproc)
+RUN cp .libs/libxml2.a /deps/libxml2_cov.a
+
+# build libarchive with AFL instrumentation and libxml2_cov
+WORKDIR /src/libarchive
+RUN make clean || true
+RUN mkdir -p build_cov && cd build_cov && \
+    CC=afl-clang-lto CXX=afl-clang-lto++ \
+    cmake -DDONT_FAIL_ON_CRC_ERROR=ON \
+    -DCMAKE_C_FLAGS="-fprofile-instr-generate -fcoverage-mapping" \
+    -DCMAKE_CXX_FLAGS="-fprofile-instr-generate -fcoverage-mapping" \
+    -DENABLE_WERROR=OFF \
+    -DENABLE_XATTR=OFF \
+    -DENABLE_ACL=ON \
+    -DLIBXML2_INCLUDE_DIR=/src/libxml2/include \
+    -DLIBXML2_LIBRARIES=/deps/libxml2_cov.a \
+    -DBUILD_SHARED_LIBS=OFF \
+    # -lm -ldl -lpthread for math, dynamic loading, and threading functions used by libarchive
+    -DCMAKE_EXE_LINKER_FLAGS="-fprofile-instr-generate -fcoverage-mapping -lm -ldl -lpthread" ../ && \
+    make -j$(nproc)
+
+RUN cp build_cov/libarchive/libarchive.a /deps/libarchive_cov.a
+
+COPY libarchive_fuzzer_cov.cc /src/libarchive_fuzzer_cov.cc
+# build coverage harness
+WORKDIR /workspace
+RUN afl-clang-lto++ -fprofile-instr-generate -fcoverage-mapping \
+    -I/src/libarchive/libarchive -I/src/libarchive/build_cov/libarchive \
+    /src/libarchive_fuzzer.cc -o /workspace/target_cov \
+    /deps/libarchive_cov.a \
+    /deps/libxml2_cov.a \
+    -Wl,-Bstatic -llzo2 -llzma -llz4 -lbz2 -lz -lzstd \
+    -Wl,-Bdynamic -lcrypto -lacl -lm -ldl -lpthread \
+    /usr/local/lib/afl/libAFLDriver.a
+
+COPY run_fuzz.sh /workspace/
+COPY inspect_fuzz_result.sh /workspace/
