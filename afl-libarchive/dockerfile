@@ -198,5 +198,29 @@ RUN afl-clang-lto++ -fprofile-instr-generate -fcoverage-mapping \
     -Wl,-Bdynamic -lcrypto -lacl -lm -ldl -lpthread \
     /usr/local/lib/afl/libAFLDriver.a
 
+# ================= Prepare Seed Corpus =================
+
+# 假設 libarchive 源碼已經在 /src/libarchive (通常透過 COPY 或之前的 git clone)
+# 這裡建立輸出的種子目錄
+RUN mkdir -p /workspace/in
+
+# 1. 處理基礎語料庫 (如果 zip 存在則解壓到 /workspace/in)
+# 注意：AFL++ 需要資料夾，所以我們直接解壓縮到目的地
+RUN unzip -q /src/libarchive/contrib/oss-fuzz/corpus.zip -d /workspace/in || true; 
+# 2. 處理 uuencoded 測試文件
+RUN mkdir -p /src/uudecoded && \
+    find /src/libarchive/ -type f -name "test_extract.*.uu" -print0 | xargs -0 -I % cp -f % /src/uudecoded/ && \
+    cd /src/uudecoded && \
+    # 執行 uudecode，並忽略可能發生的錯誤
+    find . -name "*.uu" -exec uudecode {} \; && \
+    # 移除原始 .uu 檔，只留下解碼後的二進制檔
+    rm -f *.uu && \
+    # 搬移到 AFL++ 的輸入目錄
+    cp * /workspace/in/ || true
+
+# 3. 引入 Corkami 的「怪異」檔案 (Weird Archives)
+RUN git clone --depth=1 https://github.com/corkami/pocs /src/pocs && \
+    find /src/pocs/ -type f -not -path '*/.*' -exec cp {} /workspace/in/ \;
+
 COPY run_fuzz.sh /workspace/
 COPY inspect_fuzz_result.sh /workspace/
