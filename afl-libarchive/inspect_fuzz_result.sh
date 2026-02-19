@@ -1,15 +1,10 @@
 #!/bin/bash
 
-# clang++ --coverage -o target_gcov target.c
-
-# afl-cov -d ./out --live --code-dir ./src_code/ -c "./target_gcov @@" --all-tests
-clang -fprofile-instr-generate -fcoverage-mapping -O0 target.c -o target_cov
-
 mkdir -p profraws
-export LLVM_PROFILE_FILE="profraws/code-%p.profraw"
+# export LLVM_PROFILE_FILE="profraws/code-%p.profraw" # 這個指令會讓每個執行的實例產生一個獨立的 profraw 檔案，結果塞爆了硬碟
 
 for file in /workspace/out/*/queue/id*; do
-    LLVM_PROFILE_FILE="/workspace/profraws/code-%m-%p.profraw" /workspace/target_cov "$file"
+    LLVM_PROFILE_FILE="profraws/merged-%m.profraw" /workspace/target_cov "$file"
 done
 
 # 3. 合併數據
