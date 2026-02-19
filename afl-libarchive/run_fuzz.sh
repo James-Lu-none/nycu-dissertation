@@ -6,7 +6,6 @@ OUTPUT_DIR="./out"
 
 mkdir -p $INPUT_DIR
 mkdir -p $OUTPUT_DIR
-echo "init_seed" > $INPUT_DIR/seed
 
 # 1. 建立 Session 並啟動 Main 實例
 tmux new-session -d -s $SESSION -n "main" "afl-fuzz -i $INPUT_DIR -o $OUTPUT_DIR -M main -- ./target_normal @@"
