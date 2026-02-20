@@ -222,5 +222,4 @@ RUN mkdir -p /src/uudecoded && \
 RUN git clone --depth=1 https://github.com/corkami/pocs /src/pocs && \
     find /src/pocs/ -type f -not -path '*/.*' -exec cp {} /workspace/in/ \;
 
-COPY run_fuzz.sh /workspace/
-COPY inspect_fuzz_result.sh /workspace/
+COPY *.sh /workspace/
