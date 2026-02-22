@@ -1,6 +1,6 @@
 services:
   afl:
-    container_name: afl
+    container_name: afl-integration
     image: aflplusplus/aflplusplus
     command: sleep infinity
     volumes:
