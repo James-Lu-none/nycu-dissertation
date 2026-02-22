@@ -27,6 +27,7 @@ void process_data(char *buf, size_t len)
             // 邏輯層級 4: 另一個崩潰路徑 (Null Pointer)
             if (buf[4] == '!')
             {
+                printf("Target hit!\n");
                 char *ptr = NULL;
                 *ptr = 'X';
             }
