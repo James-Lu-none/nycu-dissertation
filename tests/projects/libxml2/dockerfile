@@ -1,0 +1,76 @@
+FROM my-aflplusplus:latest
+
+RUN apt-get update && apt-get install -y \
+    make autoconf libtool pkg-config wget curl git \
+    liblzma-dev libz-dev libssl-dev libicu-dev \
+    python3-dev python3-pip
+
+WORKDIR /src
+
+RUN git clone --depth 1 https://gitlab.gnome.org/GNOME/libxml2.git
+
+RUN mkdir -p /deps
+
+# ================= build libxml2 with AFL instrumentation (Normal) =================
+WORKDIR /src/libxml2
+RUN ./autogen.sh
+
+RUN CC=afl-clang-lto CXX=afl-clang-lto++ ./configure \
+    --without-debug \
+    --without-ftp \
+    --without-http \
+    --without-python \
+    --enable-static \
+    --disable-shared \
+    --with-icu
+
+RUN make -j$(nproc)
+RUN cp .libs/libxml2.a /deps/libxml2_normal.a
+
+# ================= build libxml2 with AFL instrumentation and ASAN =================
+RUN make clean
+RUN CC=afl-clang-lto CXX=afl-clang-lto++ AFL_USE_ASAN=1 ./configure \
+    --without-debug \
+    --without-ftp \
+    --without-http \
+    --without-python \
+    --enable-static \
+    --disable-shared \
+    --with-icu
+
+RUN AFL_USE_ASAN=1 make -j$(nproc)
+RUN cp .libs/libxml2.a /deps/libxml2_asan.a
+
+# ================= build libxml2 with AFL instrumentation and cmplog =================
+RUN make clean
+RUN CC=afl-clang-lto CXX=afl-clang-lto++ AFL_LLVM_CMPLOG=1 ./configure \
+    --without-debug \
+    --without-ftp \
+    --without-http \
+    --without-python \
+    --enable-static \
+    --disable-shared \
+    --with-icu
+
+RUN AFL_LLVM_CMPLOG=1 make -j$(nproc)
+RUN cp .libs/libxml2.a /deps/libxml2_cmplog.a
+
+# ================= Build Coverage Version (for llvm-cov) =================
+RUN make clean
+RUN CC=afl-clang-lto CXX=afl-clang-lto++ ./configure \
+    --without-debug \
+    --without-ftp \
+    --without-http \
+    --without-python \
+    --enable-static \
+    --disable-shared \
+    --with-icu \
+    CFLAGS="-fprofile-instr-generate -fcoverage-mapping" \
+    CXXFLAGS="-fprofile-instr-generate -fcoverage-mapping" \
+    LDFLAGS="-fprofile-instr-generate -fcoverage-mapping"
+
+RUN make -j$(nproc)
+RUN cp .libs/libxml2.a /deps/libxml2_cov.a
+
+WORKDIR /workspace
+COPY *.sh /workspace/
