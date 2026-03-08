@@ -25,52 +25,20 @@ RUN CC=afl-clang-lto CXX=afl-clang-lto++ ./configure \
     --with-icu
 
 RUN make -j$(nproc)
-RUN cp .libs/libxml2.a /deps/libxml2_normal.a
+RUN rm cfg_edges.txt
 
-# ================= build libxml2 with AFL instrumentation and ASAN =================
-RUN make clean
-RUN CC=afl-clang-lto CXX=afl-clang-lto++ AFL_USE_ASAN=1 ./configure \
-    --without-debug \
-    --without-ftp \
-    --without-http \
-    --without-python \
-    --enable-static \
-    --disable-shared \
-    --with-icu
+COPY harness.c .
 
-RUN AFL_USE_ASAN=1 make -j$(nproc)
-RUN cp .libs/libxml2.a /deps/libxml2_asan.a
+RUN afl-clang-lto -O3 harness.c -o target_normal \
+    -I/src/libxml2/include \
+    /src/libxml2/.libs/libxml2.a \
+    -lz -lm -lpthread -licuuc -licudata -lpthread \
+    /usr/local/lib/afl/libAFLDriver.a
+RUN cp target_normal /workspace/target_normal
+RUN cp cfg_edges.txt /workspace/cfg_edges.txt
 
-# ================= build libxml2 with AFL instrumentation and cmplog =================
-RUN make clean
-RUN CC=afl-clang-lto CXX=afl-clang-lto++ AFL_LLVM_CMPLOG=1 ./configure \
-    --without-debug \
-    --without-ftp \
-    --without-http \
-    --without-python \
-    --enable-static \
-    --disable-shared \
-    --with-icu
-
-RUN AFL_LLVM_CMPLOG=1 make -j$(nproc)
-RUN cp .libs/libxml2.a /deps/libxml2_cmplog.a
-
-# ================= Build Coverage Version (for llvm-cov) =================
-RUN make clean
-RUN CC=afl-clang-lto CXX=afl-clang-lto++ ./configure \
-    --without-debug \
-    --without-ftp \
-    --without-http \
-    --without-python \
-    --enable-static \
-    --disable-shared \
-    --with-icu \
-    CFLAGS="-fprofile-instr-generate -fcoverage-mapping" \
-    CXXFLAGS="-fprofile-instr-generate -fcoverage-mapping" \
-    LDFLAGS="-fprofile-instr-generate -fcoverage-mapping"
-
-RUN make -j$(nproc)
-RUN cp .libs/libxml2.a /deps/libxml2_cov.a
+RUN mkdir -p /workspace/in
+RUN find /src/libxml2/test -name "*.xml" -exec cp {} /workspace/in/ \;
 
 WORKDIR /workspace
 COPY *.sh /workspace/
