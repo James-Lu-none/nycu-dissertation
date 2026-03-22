@@ -25,11 +25,11 @@ RUN afl-clang-lto -O3 harness.c -o target_normal \
     /src/cJSON/build/libcjson.a \
     /usr/local/lib/afl/libAFLDriver.a
 RUN cp target_normal /workspace/target_normal
-RUN cp build/cfg_edges.txt /workspace/cfg_edges.txt || true
+RUN cp cfg_edges.txt /workspace/cfg_edges.txt || true
 
 RUN mkdir -p /workspace/in
 # Seed with some JSON files if available
-RUN find /src/cJSON/tests/test-data -name "*.json" -exec cp {} /workspace/in/ \; || true
+RUN find /src/cJSON/tests/inputs -type f -exec cp {} /workspace/in/ \; || true
 
 WORKDIR /workspace
 COPY *.sh /workspace/
