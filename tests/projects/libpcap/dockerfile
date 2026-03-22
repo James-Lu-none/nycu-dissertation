@@ -1,0 +1,31 @@
+FROM my-aflplusplus:latest
+
+RUN apt-get update && apt-get install -y \
+    make autoconf automake libtool pkg-config wget curl git \
+    flex bison
+
+WORKDIR /src
+
+RUN git clone --depth 1 https://github.com/the-tcpdump-group/libpcap.git
+
+# ================= build libpcap with AFL instrumentation =================
+WORKDIR /src/libpcap
+RUN ./configure --enable-static --disable-shared
+RUN make -j$(nproc)
+RUN rm -f cfg_edges.txt
+
+COPY harness.c .
+
+RUN afl-clang-lto -O3 harness.c -o target_normal \
+    -I/src/libpcap \
+    /src/libpcap/libpcap.a \
+    /usr/local/lib/afl/libAFLDriver.a
+RUN cp target_normal /workspace/target_normal
+RUN cp cfg_edges.txt /workspace/cfg_edges.txt || true
+
+RUN mkdir -p /workspace/in
+# Seed with some pcap files if available
+RUN find /src/libpcap/tests -name "*.pcap" -exec cp {} /workspace/in/ \; || true
+
+WORKDIR /workspace
+COPY *.sh /workspace/

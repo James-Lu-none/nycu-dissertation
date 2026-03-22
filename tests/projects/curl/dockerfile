@@ -1,0 +1,39 @@
+FROM my-aflplusplus:latest
+
+RUN apt-get update && apt-get install -y \
+    make autoconf automake libtool pkg-config wget curl git \
+    libssl-dev zlib1g-dev
+
+WORKDIR /src
+
+RUN git clone --depth 1 https://github.com/curl/curl.git
+
+# ================= build curl with AFL instrumentation =================
+WORKDIR /src/curl
+RUN ./buildconf
+RUN CC=afl-clang-lto CXX=afl-clang-lto++ ./configure \
+    --with-openssl \
+    --enable-debug \
+    --enable-static \
+    --disable-shared \
+    --without-libpsl
+
+RUN make -j$(nproc)
+RUN rm cfg_edges.txt
+
+COPY harness.c .
+
+RUN afl-clang-lto -O3 harness.c -o target_normal \
+    -I/src/curl/include \
+    /src/curl/lib/.libs/libcurl.a \
+    -lssl -lcrypto -lz -lpthread \
+    /usr/local/lib/afl/libAFLDriver.a
+RUN cp target_normal /workspace/target_normal
+RUN cp cfg_edges.txt /workspace/cfg_edges.txt
+
+RUN mkdir -p /workspace/in
+# Use some existing curl test data as seeds
+RUN find /src/curl/tests/data -name "test*" -exec cp {} /workspace/in/ \; || true
+
+WORKDIR /workspace
+COPY *.sh /workspace/

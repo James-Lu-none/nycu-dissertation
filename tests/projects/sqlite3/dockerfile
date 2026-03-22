@@ -1,0 +1,35 @@
+FROM my-aflplusplus:latest
+
+RUN apt-get update && apt-get install -y \
+    make autoconf automake libtool pkg-config wget curl git \
+    tcl-dev libreadline-dev
+
+WORKDIR /src
+
+RUN git clone --depth 1 https://github.com/sqlite/sqlite.git
+
+# ================= build sqlite3 with AFL instrumentation =================
+WORKDIR /src/sqlite
+RUN ./configure --enable-static --disable-shared
+RUN make -j$(nproc)
+# AFL++ LTO mode produces cfg_edges.txt
+RUN rm -f cfg_edges.txt 
+
+COPY harness.c .
+
+# Linking against sqlite3.o or libsqlite3.a. 
+# In many builds, sqlite3.o is simpler for the fuzzer.
+RUN afl-clang-lto -O3 harness.c -o target_normal \
+    -I/src/sqlite \
+    /src/sqlite/sqlite3.o \
+    -lpthread -ldl -lm \
+    /usr/local/lib/afl/libAFLDriver.a
+RUN cp target_normal /workspace/target_normal
+RUN cp cfg_edges.txt /workspace/cfg_edges.txt || true
+
+RUN mkdir -p /workspace/in
+# Seed with some SQL tests if available
+RUN find /src/sqlite/test -name "*.test" -exec cp {} /workspace/in/ \; || true
+
+WORKDIR /workspace
+COPY *.sh /workspace/

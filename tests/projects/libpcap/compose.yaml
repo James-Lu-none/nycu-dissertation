@@ -1,0 +1,10 @@
+services:
+  afl:
+    container_name: libpcap-afl-test
+    build: .
+    command: sleep infinity
+    working_dir: /workspace
+    ports:
+      - "8050:8050"
+    volumes:
+      - ./artifacts:/workspace/artifacts

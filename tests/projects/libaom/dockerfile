@@ -1,0 +1,39 @@
+FROM my-aflplusplus:latest
+
+RUN apt-get update && apt-get install -y \
+    make cmake pkg-config wget curl git yasm nasm
+
+WORKDIR /src
+
+RUN git clone --depth 1 https://aomedia.googlesource.com/aom
+
+# ================= build libaom with AFL instrumentation =================
+WORKDIR /src/aom
+RUN mkdir build && cd build && \
+    CC=afl-clang-lto CXX=afl-clang-lto++ cmake \
+    -DENABLE_DOCS=0 \
+    -DENABLE_EXAMPLES=0 \
+    -DENABLE_TESTS=0 \
+    -DBUILD_SHARED_LIBS=0 \
+    .. && \
+    make -j$(nproc)
+
+RUN rm -f cfg_edges.txt
+
+COPY harness.c .
+
+RUN afl-clang-lto -O3 harness.c -o target_normal \
+    -I/src/aom \
+    -I/src/aom/build \
+    /src/aom/build/libaom.a \
+    -lm -lpthread \
+    /usr/local/lib/afl/libAFLDriver.a
+RUN cp target_normal /workspace/target_normal
+RUN cp build/cfg_edges.txt /workspace/cfg_edges.txt || true
+
+RUN mkdir -p /workspace/in
+# Seed with some pcap files if available
+RUN find /src/aom/test -name "*.ivf" -exec cp {} /workspace/in/ \; || true
+
+WORKDIR /workspace
+COPY *.sh /workspace/

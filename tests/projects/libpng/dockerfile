@@ -1,0 +1,37 @@
+FROM my-aflplusplus:latest
+
+RUN apt-get update && apt-get install -y \
+    make cmake pkg-config wget curl git zlib1g-dev
+
+WORKDIR /src
+
+RUN git clone --depth 1 https://github.com/glennrp/libpng.git
+
+# ================= build libpng with AFL instrumentation =================
+WORKDIR /src/libpng
+RUN mkdir build && cd build && \
+    CC=afl-clang-lto CXX=afl-clang-lto++ cmake \
+    -DPNG_SHARED=OFF \
+    -DPNG_TESTS=OFF \
+    .. && \
+    make -j$(nproc)
+
+RUN rm -f cfg_edges.txt
+
+COPY harness.c .
+
+RUN afl-clang-lto -O3 harness.c -o target_normal \
+    -I/src/libpng \
+    -I/src/libpng/build \
+    /src/libpng/build/libpng16.a \
+    -lz -lm \
+    /usr/local/lib/afl/libAFLDriver.a
+RUN cp target_normal /workspace/target_normal
+RUN cp build/cfg_edges.txt /workspace/cfg_edges.txt || true
+
+RUN mkdir -p /workspace/in
+# Seed with some png files if available
+RUN find /src/libpng/tests -name "*.png" -exec cp {} /workspace/in/ \; || true
+
+WORKDIR /workspace
+COPY *.sh /workspace/

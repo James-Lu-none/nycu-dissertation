@@ -1,0 +1,37 @@
+FROM my-aflplusplus:latest
+
+RUN apt-get update && apt-get install -y \
+    make pkg-config wget curl git yasm
+
+WORKDIR /src
+
+RUN git clone --depth 1 https://github.com/webmproject/libvpx.git
+
+# ================= build libvpx with AFL instrumentation =================
+WORKDIR /src/libvpx
+RUN CC=afl-clang-lto CXX=afl-clang-lto++ ./configure \
+    --enable-static \
+    --disable-shared \
+    --disable-examples \
+    --disable-unit-tests \
+    --disable-docs
+
+RUN make -j$(nproc)
+RUN rm -f cfg_edges.txt
+
+COPY harness.c .
+
+RUN afl-clang-lto -O3 harness.c -o target_normal \
+    -I/src/libvpx \
+    /src/libvpx/libvpx.a \
+    -lm -lpthread \
+    /usr/local/lib/afl/libAFLDriver.a
+RUN cp target_normal /workspace/target_normal
+RUN cp cfg_edges.txt /workspace/cfg_edges.txt || true
+
+RUN mkdir -p /workspace/in
+# Seed with some ivf files if available
+RUN find /src/libvpx/test -name "*.ivf" -exec cp {} /workspace/in/ \; || true
+
+WORKDIR /workspace
+COPY *.sh /workspace/

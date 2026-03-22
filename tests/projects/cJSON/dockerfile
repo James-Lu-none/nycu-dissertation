@@ -1,0 +1,35 @@
+FROM my-aflplusplus:latest
+
+RUN apt-get update && apt-get install -y \
+    make cmake pkg-config wget curl git
+
+WORKDIR /src
+
+RUN git clone --depth 1 https://github.com/DaveGamble/cJSON.git
+
+# ================= build cJSON with AFL instrumentation =================
+WORKDIR /src/cJSON
+RUN mkdir build && cd build && \
+    CC=afl-clang-lto CXX=afl-clang-lto++ cmake \
+    -DENABLE_CJSON_TEST=OFF \
+    -DBUILD_SHARED_LIBS=OFF \
+    .. && \
+    make -j$(nproc)
+
+RUN rm -f cfg_edges.txt
+
+COPY harness.c .
+
+RUN afl-clang-lto -O3 harness.c -o target_normal \
+    -I/src/cJSON \
+    /src/cJSON/build/libcjson.a \
+    /usr/local/lib/afl/libAFLDriver.a
+RUN cp target_normal /workspace/target_normal
+RUN cp build/cfg_edges.txt /workspace/cfg_edges.txt || true
+
+RUN mkdir -p /workspace/in
+# Seed with some JSON files if available
+RUN find /src/cJSON/tests/test-data -name "*.json" -exec cp {} /workspace/in/ \; || true
+
+WORKDIR /workspace
+COPY *.sh /workspace/
