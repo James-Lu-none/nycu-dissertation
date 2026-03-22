@@ -5,6 +5,6 @@ services:
     command: sleep infinity
     working_dir: /workspace
     ports:
-      - "8050:8050"
+      - "8060:8050"
     volumes:
       - ./artifacts:/workspace/artifacts
