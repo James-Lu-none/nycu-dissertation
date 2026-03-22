@@ -12,7 +12,7 @@ rm -rf $OUTPUT_DIR
 mkdir -p $OUTPUT_DIR
 # echo "init_seed" > $INPUT_DIR/seed.txt
 
-afl-clang-lto target.c -o target_normal
+# afl-clang-lto target.c -o target_normal
 
 tmux new-session -d -s $SESSION -n "main" "afl-fuzz -i $INPUT_DIR -o $OUTPUT_DIR -M main -- ./target_normal @@"
 tmux new-window -t $SESSION -n "reader" "python3 app.py"
