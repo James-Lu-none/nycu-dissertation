@@ -7,8 +7,19 @@ WORKDIR /src
 
 RUN git clone --depth 1 https://github.com/DaveGamble/cJSON.git
 
-# ================= build cJSON with AFL instrumentation =================
 WORKDIR /src/cJSON
+RUN mkdir build_ql && cd build_ql && \
+    CC=afl-clang-lto CXX=afl-clang-lto++ cmake \
+    -DENABLE_CJSON_TEST=OFF \
+    -DBUILD_SHARED_LIBS=OFF \
+    ..
+RUN echo '#!/bin/bash\n\
+make clean\n\
+make -j$(nproc)' > /src/build_cjson.sh && chmod +x /src/build_cjson.sh
+
+RUN codeql database create /src/codeqldb --language=cpp --command="/src/build_cjson.sh"
+
+# ================= build cJSON with AFL instrumentation =================
 RUN mkdir build && cd build && \
     CC=afl-clang-lto CXX=afl-clang-lto++ cmake \
     -DENABLE_CJSON_TEST=OFF \
