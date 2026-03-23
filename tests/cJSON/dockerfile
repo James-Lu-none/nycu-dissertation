@@ -31,6 +31,14 @@ RUN mkdir build && cd build && \
 
 RUN rm -f cfg_edges.txt
 
+# extract possible targets from CodeQL analysis results
+RUN codeql database analyze /src/codeqldb \
+    codeql/cpp-queries:codeql-suites/cpp-security-and-quality.qls \
+    --format=csv \
+    --output=security_results.csv
+COPY extract_targets.py .
+RUN python3 extract_targets.py
+
 COPY harness.c .
 
 RUN afl-clang-lto -O3 harness.c -o target_normal \
