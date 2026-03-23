@@ -36,7 +36,8 @@ COPY harness.c .
 RUN afl-clang-lto -O3 harness.c -o target_normal \
     -I/src/cJSON \
     /src/cJSON/build/libcjson.a \
-    /usr/local/lib/afl/libAFLDriver.a
+    /usr/local/lib/afl/libAFLDriver.a \
+    -ldl -lpthread -lm
 RUN cp target_normal /workspace/target_normal
 RUN cp cfg_edges.txt /workspace/cfg_edges.txt || true
 
