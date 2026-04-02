@@ -5,6 +5,9 @@
 #include "cJSON.h"
 #include "cJSON_Utils.h"
 
+extern uint8_t  *__afl_fuzz_ptr;
+extern uint32_t *__afl_fuzz_len;
+
 // 輔助函數：從 fuzz 資料中切出一段字串
 static char *pick_string(const uint8_t **data, size_t *size, size_t len)
 {
@@ -22,6 +25,11 @@ static char *pick_string(const uint8_t **data, size_t *size, size_t len)
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 {
+    __afl_fuzz_ptr = (uint8_t *)data;
+    static uint32_t current_size;
+    current_size = (uint32_t)size;
+    __afl_fuzz_len = &current_size;
+    
     if (size < 5)
         return 0;
 
