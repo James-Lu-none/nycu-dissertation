@@ -33,10 +33,10 @@ RUN mkdir build && cd build && \
 
 RUN rm -f cfg_edges.txt
 
-RUN git clone --depth 1 https://github.com/github/codeql.git /opt/codeql-repo
+RUN codeql pack download codeql/cpp-queries
 # extract possible targets from CodeQL analysis results
 RUN codeql database analyze /src/codeqldb \
-    /opt/codeql-repo/cpp/ql/src/codeql-suites/cpp-security-and-quality.qls \
+    codeql/cpp-queries:codeql-suites/cpp-security-and-quality.qls \
     --format=csv \
     --output=security_results.csv
 RUN python3 /workspace/extract_targets.py
