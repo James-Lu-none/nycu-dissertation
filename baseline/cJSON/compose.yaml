@@ -1,12 +1,10 @@
 services:
   afl:
-    container_name: cjson-afl-test
+    container_name: cjson-afl-test-baseline
     build: .
     command: sleep infinity
     working_dir: /workspace
-    ports:
-      - "8050:8050"
     volumes:
-      - cjson-afl-out:/workspace/artifacts/out
+      - cjson-afl-out:/workspace/out
 volumes:
   cjson-afl-out:

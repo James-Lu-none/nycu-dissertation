@@ -9,6 +9,10 @@ RUN git clone https://github.com/DaveGamble/cJSON.git && \
     cd cJSON && \
     git checkout v1.3.0
 
+# add SOURCE_CODE_PATH environment variable for python scripts to locate the source code
+ENV SOURCE_CODE_PATH=/src/cJSON
+ENV AFL_OUT_DIR=/workspace/artifacts/out
+
 WORKDIR /src/cJSON
 RUN mkdir build_ql && cd build_ql && \
     CC=clang CXX=clang++ cmake \
