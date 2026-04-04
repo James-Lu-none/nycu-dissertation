@@ -1,0 +1,35 @@
+FROM aflplusplus/aflplusplus:stable
+
+RUN apt-get update && apt-get install -y \
+    make cmake pkg-config wget curl git tmux
+
+WORKDIR /src
+
+RUN git clone https://github.com/DaveGamble/cJSON.git && \
+    cd cJSON && \
+    git checkout v1.3.0
+
+WORKDIR /src/cJSON
+RUN mkdir build && cd build && \
+    CC=afl-clang-lto CXX=afl-clang-lto++ cmake \
+    -DENABLE_CJSON_TEST=OFF \
+    -DBUILD_SHARED_LIBS=OFF \
+    -DENABLE_CJSON_UTILS=On \
+    .. && \
+    make -j$(nproc)
+
+COPY harness.c .
+
+RUN afl-clang-lto -O3 harness.c -o target_normal \
+    -I/src/cJSON \
+    /src/cJSON/build/libcjson.a \
+    /src/cJSON/build/libcjson_utils.a \
+    /usr/local/lib/afl/libAFLDriver.a \
+    -ldl -lpthread -lm
+
+RUN mkdir -p /workspace/in
+# Seed with some JSON files if available
+RUN find /src/cJSON/tests/inputs -type f -exec cp {} /workspace/in/ \; || true
+
+WORKDIR /workspace
+COPY *.sh /workspace/
