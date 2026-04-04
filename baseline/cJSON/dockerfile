@@ -26,6 +26,8 @@ RUN afl-clang-lto -O3 harness.c -o target_normal \
     /src/cJSON/build/libcjson_utils.a \
     /usr/local/lib/afl/libAFLDriver.a \
     -ldl -lpthread -lm
+RUN mkdir -p /workspace
+RUN cp target_normal /workspace/target_normal
 
 RUN mkdir -p /workspace/in
 # Seed with some JSON files if available
