@@ -7,6 +7,6 @@ services:
     ports:
       - "8050:8050"
     volumes:
-      - cjson-afl-out:/workspace/artifacts/out
+      - cjson-afl-out:/workspace/out
 volumes:
   cjson-afl-out:
