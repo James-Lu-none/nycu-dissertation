@@ -1,3 +1,4 @@
+# ollama create llama3.3-fuzz -f Modelfile
 FROM Llama-3.3-70B-Instruct
 
 PARAMETER temperature 0.4
