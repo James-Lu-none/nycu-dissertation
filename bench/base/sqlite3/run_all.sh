@@ -1,0 +1,14 @@
+#!/bin/bash
+
+SESSION="fuzz_session"
+
+INPUT_DIR="./in"    
+OUTPUT_DIR="./out"      
+
+tmux kill-session -t $SESSION 2>/dev/null
+rm -rf $OUTPUT_DIR/*
+
+tmux new-session -d -s $SESSION -n "main" "afl-fuzz -i $INPUT_DIR -o $OUTPUT_DIR -M main -- ./target_normal"
+
+echo "Fuzzing session '$SESSION' started!"
+echo "Use 'tmux attach -t $SESSION' to see progress."

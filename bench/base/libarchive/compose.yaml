@@ -1,0 +1,10 @@
+services:
+  afl:
+    container_name: libarchive-afl-test-baseline
+    build: .
+    command: sleep infinity
+    working_dir: /workspace
+    volumes:
+      - libarchive-afl-out:/workspace/out
+volumes:
+  libarchive-afl-out:

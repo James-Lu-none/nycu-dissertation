@@ -1,0 +1,10 @@
+services:
+  afl:
+    container_name: libaom-afl-test-baseline
+    build: .
+    command: sleep infinity
+    working_dir: /workspace
+    volumes:
+      - libaom-afl-out:/workspace/out
+volumes:
+  libaom-afl-out:

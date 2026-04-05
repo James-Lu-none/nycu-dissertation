@@ -1,0 +1,41 @@
+FROM aflplusplus/aflplusplus:stable
+
+RUN apt-get update && apt-get install -y \
+    make cmake pkg-config wget curl git tmux
+
+WORKDIR /src
+
+RUN git clone https://github.com/madler/zlib.git && \
+    cd zlib && \
+    git checkout v1.3 && \
+    CC=afl-clang-lto ./configure --static && \
+    make -j$(nproc) && \
+    make install
+
+RUN git clone https://github.com/glennrp/libpng.git && \
+    cd libpng && \
+    git checkout v1.6.40
+
+WORKDIR /src/libpng
+RUN CC=afl-clang-lto ./configure --disable-shared && \
+    make -j$(nproc)
+
+COPY harness.c .
+
+RUN afl-clang-lto -O3 harness.c -o target_normal \
+    -I/src/libpng \
+    .libs/libpng16.a \
+    -lz \
+    /usr/local/lib/afl/libAFLDriver.a \
+    -ldl -lpthread -lm
+
+RUN mkdir -p /workspace
+RUN cp target_normal /workspace/target_normal
+
+RUN mkdir -p /workspace/in
+# Seed with a small PNG image if possible, or just a dummy
+RUN echo "iVBORw0KGgoAAAANSUhEUGAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==" | base64 -d > /workspace/in/seed.png
+
+WORKDIR /workspace
+COPY run_all.sh /workspace/
+RUN chmod +x run_all.sh

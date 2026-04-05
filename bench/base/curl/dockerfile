@@ -1,0 +1,33 @@
+FROM aflplusplus/aflplusplus:stable
+
+RUN apt-get update && apt-get install -y \
+    make cmake pkg-config wget curl git tmux libssl-dev
+
+WORKDIR /src
+
+RUN git clone https://github.com/curl/curl.git && \
+    cd curl && \
+    git checkout curl-8_2_1
+
+WORKDIR /src/curl
+RUN ./buildconf && \
+    CC=afl-clang-lto ./configure --disable-shared --with-openssl --disable-ldap --disable-ftp --disable-file --disable-dict --disable-gopher --disable-mqtt --disable-rtsp --disable-proxy --disable-pop3 --disable-imap --disable-smtp --disable-telnet --disable-tftp && \
+    make -j$(nproc)
+
+COPY harness.c .
+
+RUN afl-clang-lto -O3 harness.c -o target_normal \
+    -I/src/curl/include \
+    /src/curl/lib/.libs/libcurl.a \
+    /usr/local/lib/afl/libAFLDriver.a \
+    -lssl -lcrypto -ldl -lpthread -lm -lz
+
+RUN mkdir -p /workspace
+RUN cp target_normal /workspace/target_normal
+
+RUN mkdir -p /workspace/in
+RUN echo "https://example.com/path?query=1" > /workspace/in/seed.url
+
+WORKDIR /workspace
+COPY run_all.sh /workspace/
+RUN chmod +x run_all.sh

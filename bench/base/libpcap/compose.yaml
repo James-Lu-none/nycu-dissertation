@@ -1,0 +1,10 @@
+services:
+  afl:
+    container_name: libpcap-afl-test-baseline
+    build: .
+    command: sleep infinity
+    working_dir: /workspace
+    volumes:
+      - libpcap-afl-out:/workspace/out
+volumes:
+  libpcap-afl-out:

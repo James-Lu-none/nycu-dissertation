@@ -1,0 +1,32 @@
+FROM aflplusplus/aflplusplus:stable
+
+RUN apt-get update && apt-get install -y \
+    make cmake pkg-config wget curl git tmux tcl
+
+WORKDIR /src
+
+RUN wget https://www.sqlite.org/2023/sqlite-src-3420000.zip && \
+    unzip sqlite-src-3420000.zip && \
+    mv sqlite-src-3420000 sqlite
+
+WORKDIR /src/sqlite
+RUN CC=afl-clang-lto ./configure --disable-shared && \
+    make -j$(nproc)
+
+COPY harness.c .
+
+RUN afl-clang-lto -O3 harness.c -o target_normal \
+    -I/src/sqlite \
+    /src/sqlite/sqlite3.o \
+    /usr/local/lib/afl/libAFLDriver.a \
+    -ldl -lpthread -lm
+
+RUN mkdir -p /workspace
+RUN cp target_normal /workspace/target_normal
+
+RUN mkdir -p /workspace/in
+RUN echo "CREATE TABLE t1(a,b); INSERT INTO t1 VALUES(1,2); SELECT * FROM t1;" > /workspace/in/seed.sql
+
+WORKDIR /workspace
+COPY run_all.sh /workspace/
+RUN chmod +x run_all.sh

@@ -1,0 +1,33 @@
+FROM aflplusplus/aflplusplus:stable
+
+RUN apt-get update && apt-get install -y \
+    make cmake pkg-config wget curl git tmux autoconf automake libtool
+
+WORKDIR /src
+
+RUN git clone https://gitlab.gnome.org/GNOME/libxml2.git && \
+    cd libxml2 && \
+    git checkout v2.11.5
+
+WORKDIR /src/libxml2
+RUN ./autogen.sh && \
+    CC=afl-clang-lto ./configure --disable-shared --without-python --without-zlib --without-lzma && \
+    make -j$(nproc)
+
+COPY harness.c .
+
+RUN afl-clang-lto -O3 harness.c -o target_normal \
+    -I/src/libxml2/include \
+    /src/libxml2/.libs/libxml2.a \
+    /usr/local/lib/afl/libAFLDriver.a \
+    -ldl -lpthread -lm
+
+RUN mkdir -p /workspace
+RUN cp target_normal /workspace/target_normal
+
+RUN mkdir -p /workspace/in
+RUN echo "<root><child>data</child></root>" > /workspace/in/seed.xml
+
+WORKDIR /workspace
+COPY run_all.sh /workspace/
+RUN chmod +x run_all.sh

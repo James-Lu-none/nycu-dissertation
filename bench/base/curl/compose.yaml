@@ -1,0 +1,10 @@
+services:
+  afl:
+    container_name: curl-afl-test-baseline
+    build: .
+    command: sleep infinity
+    working_dir: /workspace
+    volumes:
+      - curl-afl-out:/workspace/out
+volumes:
+  curl-afl-out:

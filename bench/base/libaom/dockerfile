@@ -1,0 +1,36 @@
+FROM aflplusplus/aflplusplus:stable
+
+RUN apt-get update && apt-get install -y \
+    make cmake pkg-config wget curl git tmux yasm
+
+WORKDIR /src
+
+RUN git clone https://aomedia.googlesource.com/aom && \
+    cd aom && \
+    git checkout v3.6.1
+
+WORKDIR /src/aom
+RUN mkdir build && cd build && \
+    CC=afl-clang-lto CXX=afl-clang-lto++ cmake \
+    -DENABLE_DOCS=OFF -DENABLE_EXAMPLES=OFF -DENABLE_TESTS=OFF -DENABLE_TOOLS=OFF \
+    -DCONFIG_PIC=ON -DCONFIG_RUNTIME_CPU_DETECT=OFF -DAOM_TARGET_CPU=generic .. && \
+    make -j$(nproc)
+
+COPY harness.c .
+
+RUN afl-clang-lto -O3 harness.c -o target_normal \
+    -I/src/aom \
+    /src/aom/build/libaom.a \
+    /usr/local/lib/afl/libAFLDriver.a \
+    -ldl -lpthread -lm
+
+RUN mkdir -p /workspace
+RUN cp target_normal /workspace/target_normal
+
+RUN mkdir -p /workspace/in
+# Seed with a dummy byte
+RUN echo "a" > /workspace/in/seed
+
+WORKDIR /workspace
+COPY run_all.sh /workspace/
+RUN chmod +x run_all.sh

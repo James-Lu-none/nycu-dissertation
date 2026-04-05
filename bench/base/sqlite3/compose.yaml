@@ -1,0 +1,10 @@
+services:
+  afl:
+    container_name: sqlite3-afl-test-baseline
+    build: .
+    command: sleep infinity
+    working_dir: /workspace
+    volumes:
+      - sqlite3-afl-out:/workspace/out
+volumes:
+  sqlite3-afl-out:

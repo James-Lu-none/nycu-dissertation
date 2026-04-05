@@ -1,0 +1,33 @@
+FROM aflplusplus/aflplusplus:stable
+
+RUN apt-get update && apt-get install -y \
+    make cmake pkg-config wget curl git tmux flex bison
+
+WORKDIR /src
+
+RUN git clone https://github.com/the-tcpdump-group/libpcap.git && \
+    cd libpcap && \
+    git checkout libpcap-1.10.4
+
+WORKDIR /src/libpcap
+RUN CC=afl-clang-lto ./configure --disable-shared && \
+    make -j$(nproc)
+
+COPY harness.c .
+
+RUN afl-clang-lto -O3 harness.c -o target_normal \
+    -I/src/libpcap \
+    /src/libpcap/libpcap.a \
+    /usr/local/lib/afl/libAFLDriver.a \
+    -ldl -lpthread -lm
+
+RUN mkdir -p /workspace
+RUN cp target_normal /workspace/target_normal
+
+RUN mkdir -p /workspace/in
+# Seed with a dummy pcap content
+RUN echo "base64" | base64 -d > /workspace/in/seed.pcap
+
+WORKDIR /workspace
+COPY run_all.sh /workspace/
+RUN chmod +x run_all.sh

@@ -1,0 +1,10 @@
+services:
+  afl:
+    container_name: libvpx-afl-test-baseline
+    build: .
+    command: sleep infinity
+    working_dir: /workspace
+    volumes:
+      - libvpx-afl-out:/workspace/out
+volumes:
+  libvpx-afl-out:

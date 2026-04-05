@@ -1,0 +1,32 @@
+FROM aflplusplus/aflplusplus:stable
+
+RUN apt-get update && apt-get install -y \
+    make cmake pkg-config wget curl git tmux yasm
+
+WORKDIR /src
+
+RUN git clone https://chromium.googlesource.com/webm/libvpx && \
+    cd libvpx && \
+    git checkout v1.13.0
+
+WORKDIR /src/libvpx
+RUN CC=afl-clang-lto CXX=afl-clang-lto++ ./configure --disable-shared --disable-examples --disable-unit-tests --disable-tools --disable-docs --enable-pic && \
+    make -j$(nproc)
+
+COPY harness.c .
+
+RUN afl-clang-lto -O3 harness.c -o target_normal \
+    -I/src/libvpx \
+    /src/libvpx/libvpx.a \
+    /usr/local/lib/afl/libAFLDriver.a \
+    -ldl -lpthread -lm
+
+RUN mkdir -p /workspace
+RUN cp target_normal /workspace/target_normal
+
+RUN mkdir -p /workspace/in
+RUN echo "a" > /workspace/in/seed
+
+WORKDIR /workspace
+COPY run_all.sh /workspace/
+RUN chmod +x run_all.sh
