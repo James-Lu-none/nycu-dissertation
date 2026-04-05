@@ -1,0 +1,32 @@
+FROM aflplusplus/aflplusplus:stable
+
+RUN apt-get update && apt-get install -y \
+    make cmake pkg-config wget curl git tmux unzip
+
+WORKDIR /src
+
+RUN git clone https://github.com/mm2/Little-CMS.git && \
+    cd Little-CMS && \
+    git checkout lcms2.15
+
+WORKDIR /src/Little-CMS
+RUN ./configure --disable-shared && \
+    CC=afl-clang-lto make -j$(nproc)
+
+COPY harness.c .
+
+RUN afl-clang-lto -O3 harness.c -o target_normal \
+    -I/src/Little-CMS/include \
+    /src/Little-CMS/src/.libs/liblcms2.a \
+    /usr/local/lib/afl/libAFLDriver.a \
+    -ldl -lpthread -lm
+
+RUN mkdir -p /workspace
+RUN cp target_normal /workspace/target_normal
+
+RUN mkdir -p /workspace/in
+RUN echo "test" > /workspace/in/seed
+
+WORKDIR /workspace
+COPY run_all.sh /workspace/
+RUN chmod +x run_all.sh

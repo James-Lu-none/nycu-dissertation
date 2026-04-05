@@ -62,13 +62,6 @@ services:
     working_dir: /workspace
     volumes:
       - openssl-afl-out:/workspace/out
-  # afl10:
-  #   container_name: php-afl-test-baseline
-  #   build: ./php
-  #   command: /bin/bash -c "./run_all.sh && sleep infinity"
-  #   working_dir: /workspace
-  #   volumes:
-  #     - php-afl-out:/workspace/out
   afl11:
     container_name: sqlite3-afl-test-baseline
     build: ./sqlite3
@@ -83,6 +76,27 @@ services:
     working_dir: /workspace
     volumes:
       - zlib-afl-out:/workspace/out
+  afl13:
+    container_name: libtiff-afl-test-baseline
+    build: ./libtiff
+    command: /bin/bash -c "./run_all.sh && sleep infinity"
+    working_dir: /workspace
+    volumes:
+      - libtiff-afl-out:/workspace/out
+  afl14:
+    container_name: c-ares-afl-test-baseline
+    build: ./c-ares
+    command: /bin/bash -c "./run_all.sh && sleep infinity"
+    working_dir: /workspace
+    volumes:
+      - c-ares-afl-out:/workspace/out
+  afl15:
+    container_name: lcms-afl-test-baseline
+    build: ./lcms
+    command: /bin/bash -c "./run_all.sh && sleep infinity"
+    working_dir: /workspace
+    volumes:
+      - lcms-afl-out:/workspace/out
 volumes:
   cjson-afl-out:
   curl-afl-out:
@@ -93,6 +107,8 @@ volumes:
   libvpx-afl-out:
   libxml2-afl-out:
   openssl-afl-out:
-  php-afl-out:
   sqlite3-afl-out:
   zlib-afl-out:
+  libtiff-afl-out:
+  c-ares-afl-out:
+  lcms-afl-out:

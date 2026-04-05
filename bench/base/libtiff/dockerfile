@@ -1,0 +1,36 @@
+FROM aflplusplus/aflplusplus:stable
+
+RUN apt-get update && apt-get install -y \
+    make cmake pkg-config wget curl git tmux unzip
+
+WORKDIR /src
+
+RUN git clone https://gitlab.com/libtiff/libtiff.git && \
+    cd libtiff && \
+    git checkout v4.5.1
+
+WORKDIR /src/libtiff
+RUN mkdir -p build && cd build && \
+    CC=afl-clang-lto CXX=afl-clang-lto++ cmake \
+    -DBUILD_SHARED_LIBS=OFF \
+    -Djpeg=OFF -Dzlib=OFF -Djbig=OFF -Dlzma=OFF -Dpixarlog=OFF -Dwebp=OFF -Dzstd=OFF .. && \
+    make -j$(nproc)
+
+COPY harness.c .
+
+RUN afl-clang-lto++ -O3 harness.c -o target_normal \
+    -I/src/libtiff/libtiff \
+    -I/src/libtiff/build/libtiff \
+    /src/libtiff/build/libtiff/libtiff.a \
+    /usr/local/lib/afl/libAFLDriver.a \
+    -ldl -lpthread -lm
+
+RUN mkdir -p /workspace
+RUN cp target_normal /workspace/target_normal
+
+RUN mkdir -p /workspace/in
+RUN echo "test" > /workspace/in/seed
+
+WORKDIR /workspace
+COPY run_all.sh /workspace/
+RUN chmod +x run_all.sh

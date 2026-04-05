@@ -1,0 +1,10 @@
+services:
+  afl:
+    container_name: lcms-afl-test-baseline
+    build: .
+    command: /bin/bash -c "./run_all.sh && sleep infinity"
+    working_dir: /workspace
+    volumes:
+      - lcms-afl-out:/workspace/out
+volumes:
+  lcms-afl-out:
