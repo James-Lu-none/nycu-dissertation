@@ -1,7 +1,7 @@
 FROM aflplusplus/aflplusplus:stable
 
 RUN apt-get update && apt-get install -y \
-    make cmake pkg-config wget curl git tmux yasm
+    make cmake pkg-config wget curl git tmux yasm unzip
 
 WORKDIR /src
 
@@ -10,7 +10,7 @@ RUN git clone https://aomedia.googlesource.com/aom && \
     git checkout v3.6.1
 
 WORKDIR /src/aom
-RUN mkdir build && cd build && \
+RUN mkdir -p build && cd build && \
     CC=afl-clang-lto CXX=afl-clang-lto++ cmake \
     -DENABLE_DOCS=OFF -DENABLE_EXAMPLES=OFF -DENABLE_TESTS=OFF -DENABLE_TOOLS=OFF \
     -DCONFIG_PIC=ON -DCONFIG_RUNTIME_CPU_DETECT=OFF -DAOM_TARGET_CPU=generic .. && \

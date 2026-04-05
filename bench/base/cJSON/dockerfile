@@ -1,16 +1,16 @@
 FROM aflplusplus/aflplusplus:stable
 
 RUN apt-get update && apt-get install -y \
-    make cmake pkg-config wget curl git tmux
+    make cmake pkg-config wget curl git tmux unzip
 
 WORKDIR /src
 
 RUN git clone https://github.com/DaveGamble/cJSON.git && \
     cd cJSON && \
-    git checkout v1.3.0
+    git checkout v1.3.0 
 
 WORKDIR /src/cJSON
-RUN mkdir build && cd build && \
+RUN mkdir -p build && cd build && \
     CC=afl-clang-lto CXX=afl-clang-lto++ cmake \
     -DENABLE_CJSON_TEST=OFF \
     -DBUILD_SHARED_LIBS=OFF \

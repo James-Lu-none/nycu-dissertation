@@ -1,7 +1,7 @@
 FROM aflplusplus/aflplusplus:stable
 
 RUN apt-get update && apt-get install -y \
-    make cmake pkg-config wget curl git tmux libxml2-dev bison flex libsqlite3-dev
+    make cmake pkg-config wget curl git tmux libxml2-dev bison flex libsqlite3-dev unzip
 
 WORKDIR /src
 

@@ -1,7 +1,7 @@
 FROM aflplusplus/aflplusplus:stable
 
 RUN apt-get update && apt-get install -y \
-    make cmake pkg-config wget curl git tmux
+    make cmake pkg-config wget curl git tmux unzip
 
 WORKDIR /src
 

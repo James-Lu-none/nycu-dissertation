@@ -9,7 +9,7 @@ RUN git clone --depth 1 https://github.com/glennrp/libpng.git
 
 # ================= build libpng with AFL instrumentation =================
 WORKDIR /src/libpng
-RUN mkdir build && cd build && \
+RUN mkdir -p build && cd build && \
     CC=afl-clang-lto CXX=afl-clang-lto++ cmake \
     -DPNG_SHARED=OFF \
     -DPNG_TESTS=OFF \

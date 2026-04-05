@@ -36,7 +36,7 @@ RUN make clean
 # build libarchive with AFL instrumentation and normal libxml2
 WORKDIR /src/libarchive
 RUN make clean || true
-RUN mkdir build_normal && cd build_normal && \
+RUN mkdir -p build_normal && cd build_normal && \
     CC=afl-clang-lto CXX=afl-clang-lto++ \
     cmake -DDONT_FAIL_ON_CRC_ERROR=ON \
     -DENABLE_WERROR=OFF \

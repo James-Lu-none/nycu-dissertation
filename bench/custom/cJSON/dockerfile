@@ -14,7 +14,7 @@ ENV SOURCE_CODE_PATH=/src/cJSON
 ENV AFL_OUT_DIR=/workspace/out
 
 WORKDIR /src/cJSON
-RUN mkdir build_ql && cd build_ql && \
+RUN mkdir -p build_ql && cd build_ql && \
     CC=clang CXX=clang++ cmake \
     -DENABLE_CJSON_TEST=OFF \
     -DBUILD_SHARED_LIBS=OFF \
@@ -27,7 +27,7 @@ make -j$(nproc)' > /src/build_cjson.sh && chmod +x /src/build_cjson.sh
 RUN codeql database create /src/codeqldb --language=cpp --command="/src/build_cjson.sh"
 
 # ================= build cJSON with AFL instrumentation =================
-RUN mkdir build && cd build && \
+RUN mkdir -p build && cd build && \
     CC=afl-clang-lto CXX=afl-clang-lto++ cmake \
     -DENABLE_CJSON_TEST=OFF \
     -DBUILD_SHARED_LIBS=OFF \

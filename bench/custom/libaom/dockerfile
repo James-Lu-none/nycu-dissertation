@@ -9,7 +9,7 @@ RUN git clone --depth 1 https://aomedia.googlesource.com/aom
 
 # ================= build libaom with AFL instrumentation =================
 WORKDIR /src/aom
-RUN mkdir build && cd build && \
+RUN mkdir -p build && cd build && \
     CC=afl-clang-lto CXX=afl-clang-lto++ cmake \
     -DENABLE_DOCS=0 \
     -DENABLE_EXAMPLES=0 \

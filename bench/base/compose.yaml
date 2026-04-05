@@ -1,0 +1,98 @@
+services:
+  afl1:
+    container_name: cjson-afl-test-baseline
+    build: ./cJSON
+    command: /bin/bash -c "./run_all.sh && sleep infinity"
+    working_dir: /workspace
+    volumes:
+      - cjson-afl-out:/workspace/out
+  afl2:
+    container_name: curl-afl-test-baseline
+    build: ./curl
+    command: /bin/bash -c "./run_all.sh && sleep infinity"
+    working_dir: /workspace
+    volumes:
+      - curl-afl-out:/workspace/out
+  afl3:
+    container_name: libaom-afl-test-baseline
+    build: ./libaom
+    command: /bin/bash -c "./run_all.sh && sleep infinity"
+    working_dir: /workspace
+    volumes:
+      - libaom-afl-out:/workspace/out
+  afl4:
+    container_name: libarchive-afl-test-baseline
+    build: ./libarchive
+    command: /bin/bash -c "./run_all.sh && sleep infinity"
+    working_dir: /workspace
+    volumes:
+      - libarchive-afl-out:/workspace/out
+  afl5:
+    container_name: libpcap-afl-test-baseline
+    build: ./libpcap
+    command: /bin/bash -c "./run_all.sh && sleep infinity"
+    working_dir: /workspace
+    volumes:
+      - libpcap-afl-out:/workspace/out
+  afl6:
+    container_name: libpng-afl-test-baseline
+    build: ./libpng
+    command: /bin/bash -c "./run_all.sh && sleep infinity"
+    working_dir: /workspace
+    volumes:
+      - libpng-afl-out:/workspace/out
+  afl7:
+    container_name: libvpx-afl-test-baseline
+    build: ./libvpx
+    command: /bin/bash -c "./run_all.sh && sleep infinity"
+    working_dir: /workspace
+    volumes:
+      - libvpx-afl-out:/workspace/out
+  afl8:
+    container_name: libxml2-afl-test-baseline
+    build: ./libxml2
+    command: /bin/bash -c "./run_all.sh && sleep infinity"
+    working_dir: /workspace
+    volumes:
+      - libxml2-afl-out:/workspace/out
+  afl9:
+    container_name: openssl-afl-test-baseline
+    build: ./openssl
+    command: /bin/bash -c "./run_all.sh && sleep infinity"
+    working_dir: /workspace
+    volumes:
+      - openssl-afl-out:/workspace/out
+  # afl10:
+  #   container_name: php-afl-test-baseline
+  #   build: ./php
+  #   command: /bin/bash -c "./run_all.sh && sleep infinity"
+  #   working_dir: /workspace
+  #   volumes:
+  #     - php-afl-out:/workspace/out
+  afl11:
+    container_name: sqlite3-afl-test-baseline
+    build: ./sqlite3
+    command: /bin/bash -c "./run_all.sh && sleep infinity"
+    working_dir: /workspace
+    volumes:
+      - sqlite3-afl-out:/workspace/out
+  afl12:
+    container_name: zlib-afl-test-baseline
+    build: ./zlib
+    command: /bin/bash -c "./run_all.sh && sleep infinity"
+    working_dir: /workspace
+    volumes:
+      - zlib-afl-out:/workspace/out
+volumes:
+  cjson-afl-out:
+  curl-afl-out:
+  libaom-afl-out:
+  libarchive-afl-out:
+  libpcap-afl-out:
+  libpng-afl-out:
+  libvpx-afl-out:
+  libxml2-afl-out:
+  openssl-afl-out:
+  php-afl-out:
+  sqlite3-afl-out:
+  zlib-afl-out:
