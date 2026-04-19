@@ -7,7 +7,7 @@ WORKDIR /src
 
 RUN git clone https://github.com/DaveGamble/cJSON.git && \
     cd cJSON && \
-    git checkout v1.3.0
+    git checkout v1.5.6
 
 # add SOURCE_CODE_PATH environment variable for python scripts to locate the source code
 ENV SOURCE_CODE_PATH=/src/cJSON
@@ -61,4 +61,5 @@ RUN mkdir -p /workspace/in
 RUN find /src/cJSON/tests/inputs -type f -exec cp {} /workspace/in/ \; || true
 
 WORKDIR /workspace
+COPY harness.c .
 COPY *.sh /workspace/
