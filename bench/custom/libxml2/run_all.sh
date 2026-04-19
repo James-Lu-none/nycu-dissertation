@@ -3,18 +3,13 @@
 SESSION="fuzz_session"
 
 INPUT_DIR="./in"    
-OUTPUT_DIR="./artifacts/out"      
+OUTPUT_DIR="./out"      
 
 tmux kill-session -t $SESSION 2>/dev/null
-rm -rf $OUTPUT_DIR
-# rm cfg_edges.txt
-# mkdir -p $INPUT_DIR
-mkdir -p $OUTPUT_DIR
-# echo "init_seed" > $INPUT_DIR/seed.txt
+rm -rf $OUTPUT_DIR/*
 
-# afl-clang-lto target.c -o target_normal
-
-tmux new-session -d -s $SESSION -n "main" "afl-fuzz -i $INPUT_DIR -o $OUTPUT_DIR -M main -- ./target_normal @@"
+tmux new-session -d -s $SESSION -n "main" "afl-fuzz -i $INPUT_DIR -o $OUTPUT_DIR -M main -- ./target_normal"
+sleep 5
 tmux new-window -t $SESSION -n "reader" "python3 app.py"
 
 echo "Fuzzing session '$SESSION' started!"
