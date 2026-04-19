@@ -4,6 +4,7 @@ services:
     build: .
     command: sleep infinity
     working_dir: /workspace
+    cpuset: "0-1"
     volumes:
       - cjson-afl-out:/workspace/out
 volumes:
