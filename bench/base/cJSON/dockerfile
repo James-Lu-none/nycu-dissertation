@@ -7,7 +7,7 @@ WORKDIR /src
 
 RUN git clone https://github.com/DaveGamble/cJSON.git && \
     cd cJSON && \
-    git checkout v1.5.6
+    git checkout v1.7.19
 
 WORKDIR /src/cJSON
 RUN mkdir -p build && cd build && \
