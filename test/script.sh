@@ -7,7 +7,7 @@ mkdir -p in
 mkdir -p out
 echo -n "AAAA" > in/seed
 
-tmux new-session -d -s motivating-example -n "main" "afl-fuzz -i in -o out -M main -- ./motivating_example @@"
+tmux new-session -d -s motivating-example -n "main" "afl-fuzz -i in -o out -M main -- ./motivating_example"
 
 echo "Fuzzing session 'motivating-example' started!"
 echo "Use 'tmux attach -t motivating-example' to see progress."
