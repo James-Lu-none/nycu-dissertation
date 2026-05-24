@@ -1,0 +1,11 @@
+services:
+  afl:
+    container_name: swftophp-afl-icd
+    build: .
+    command: sleep infinity
+    working_dir: /workspace
+    cpuset: "0-1"
+    volumes:
+      - swftophp-afl-out:/workspace/out
+volumes:
+  swftophp-afl-out:
