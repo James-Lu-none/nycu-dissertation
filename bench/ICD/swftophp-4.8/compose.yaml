@@ -26,7 +26,26 @@ services:
     volumes:
       - swftophp-afl-out-3:/workspace/out
 
+  afl-4:
+    container_name: swftophp-afl-icd-4
+    build: .
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    cpuset: "3"
+    volumes:
+      - swftophp-afl-out-4:/workspace/out
+
+  afl-5:
+    container_name: swftophp-afl-icd-5
+    build: .
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    cpuset: "4"
+    volumes:
+      - swftophp-afl-out-5:/workspace/out
 volumes:
   swftophp-afl-out-1:
   swftophp-afl-out-2:
   swftophp-afl-out-3:
+  swftophp-afl-out-4:
+  swftophp-afl-out-5:
