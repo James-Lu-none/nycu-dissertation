@@ -156,8 +156,14 @@ def generate_cumulative_plot(orig_hit_file, orig_reached_file, work_hit_file, wo
     if orig_counts and work_counts:
         final_orig_blocks = orig_counts[-1]
         final_work_blocks = work_counts[-1]
-        text_lines.append(f"Without Control Blocks: {final_orig_blocks}")
-        text_lines.append(f"With Control Blocks: {final_work_blocks}")
+        if total_blocks:
+            orig_pct = final_orig_blocks / total_blocks * 100
+            work_pct = final_work_blocks / total_blocks * 100
+            text_lines.append(f"Without Control Blocks: {final_orig_blocks} ({orig_pct:.1f}%)")
+            text_lines.append(f"With Control Blocks: {final_work_blocks} ({work_pct:.1f}%)")
+        else:
+            text_lines.append(f"Without Control Blocks: {final_orig_blocks}")
+            text_lines.append(f"With Control Blocks: {final_work_blocks}")
         if final_orig_blocks > 0:
             block_improvement = (final_work_blocks - final_orig_blocks) / final_orig_blocks * 100
             text_lines.append(f"Blocks Hit Impr: {block_improvement:+.1f}%")
@@ -422,8 +428,14 @@ def generate_cumulative_summary_plot(orig_runs, orig_reached_times, work_runs, w
     if orig_interp and work_interp:
         final_orig_avg = orig_mean[-1]
         final_work_avg = work_mean[-1]
-        text_lines.append(f"Avg Without Control Blocks: {final_orig_avg:.1f}")
-        text_lines.append(f"Avg With Control Blocks: {final_work_avg:.1f}")
+        if total_blocks:
+            orig_pct = final_orig_avg / total_blocks * 100
+            work_pct = final_work_avg / total_blocks * 100
+            text_lines.append(f"Avg Without Control Blocks: {final_orig_avg:.1f} ({orig_pct:.1f}%)")
+            text_lines.append(f"Avg With Control Blocks: {final_work_avg:.1f} ({work_pct:.1f}%)")
+        else:
+            text_lines.append(f"Avg Without Control Blocks: {final_orig_avg:.1f}")
+            text_lines.append(f"Avg With Control Blocks: {final_work_avg:.1f}")
         if final_orig_avg > 0:
             block_improvement = (final_work_avg - final_orig_avg) / final_orig_avg * 100
             text_lines.append(f"Avg Blocks Hit Impr: {block_improvement:+.1f}%")
