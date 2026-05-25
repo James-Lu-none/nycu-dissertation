@@ -85,7 +85,7 @@ def geometric_mean(arrays, axis=0):
         geomean = np.exp(mean_log)
     return np.nan_to_num(geomean, nan=0.0)
 
-def plot_single_trial(orig_time, orig_edge, orig_exec, work_time, work_edge, work_exec, output_dir):
+def plot_single_trial(orig_time, orig_edge, orig_exec, work_time, work_edge, work_exec, output_dir, cve="CVE-2018-20427"):
     """
     Generates time-based and execution-based coverage comparison plots for a single trial.
     """
@@ -115,7 +115,7 @@ def plot_single_trial(orig_time, orig_edge, orig_exec, work_time, work_edge, wor
         plt.text(0.05, 0.95, textstr, transform=plt.gca().transAxes, fontsize=10,
                  verticalalignment='top', bbox=props)
         
-    plt.title('Edge Coverage Over Time', fontsize=14, fontweight='bold', pad=15)
+    plt.title(f'Edge Coverage Over Time ({cve})', fontsize=14, fontweight='bold', pad=15)
     plt.xlabel('Elapsed Time (seconds)', fontsize=12)
     plt.ylabel('Unique Edges Found', fontsize=12)
     plt.grid(True, linestyle=':', alpha=0.6)
@@ -135,7 +135,7 @@ def plot_single_trial(orig_time, orig_edge, orig_exec, work_time, work_edge, wor
         plt.text(0.05, 0.95, textstr, transform=plt.gca().transAxes, fontsize=10,
                  verticalalignment='top', bbox=props)
         
-    plt.title('Edge Coverage vs Total Executions', fontsize=14, fontweight='bold', pad=15)
+    plt.title(f'Edge Coverage vs Total Executions ({cve})', fontsize=14, fontweight='bold', pad=15)
     plt.xlabel('Total Executions (millions)', fontsize=12)
     plt.ylabel('Unique Edges Found', fontsize=12)
     plt.grid(True, linestyle=':', alpha=0.6)
@@ -149,6 +149,7 @@ def main():
     parser.add_argument("--root", type=str, required=True, help="Root directory of the CVE artifact data")
     parser.add_argument("--methods", type=str, nargs="+", required=True, help="Fuzzer methods to compare")
     parser.add_argument("--trials", type=str, nargs="+", required=True, help="Trial numbers")
+    parser.add_argument("--cve", type=str, default="CVE-2018-20427", help="CVE identifier")
     args = parser.parse_args()
     
     root = os.path.expanduser(args.root)
@@ -191,7 +192,7 @@ def main():
         output_dir = os.path.join(plot_base_dir, trial)
         
         print(f"Plotting single-trial coverage to {output_dir}...")
-        plot_single_trial(orig_time, orig_edge, orig_exec, work_time, work_edge, work_exec, output_dir)
+        plot_single_trial(orig_time, orig_edge, orig_exec, work_time, work_edge, work_exec, output_dir, cve=args.cve)
         
         # Save for summary averaging
         if orig_time:
@@ -262,7 +263,7 @@ def main():
             plt.text(0.05, 0.95, textstr, transform=plt.gca().transAxes, fontsize=10,
                      verticalalignment='top', bbox=props, fontweight='bold')
                      
-        plt.title('Edge Coverage Over Time (CVE-2018-20427)', fontsize=14, fontweight='bold', pad=15)
+        plt.title(f'Edge Coverage Over Time ({args.cve})', fontsize=14, fontweight='bold', pad=15)
         plt.xlabel('Elapsed Time (seconds)', fontsize=12)
         plt.ylabel('Unique Edges Found', fontsize=12)
         plt.grid(True, linestyle=':', alpha=0.6)
@@ -323,7 +324,7 @@ def main():
             plt.text(0.05, 0.95, textstr, transform=plt.gca().transAxes, fontsize=10,
                      verticalalignment='top', bbox=props, fontweight='bold')
                      
-        plt.title('Edge Coverage vs Total Executions (CVE-2018-20427)', fontsize=14, fontweight='bold', pad=15)
+        plt.title(f'Edge Coverage vs Total Executions ({args.cve})', fontsize=14, fontweight='bold', pad=15)
         plt.xlabel('Total Executions (millions)', fontsize=12)
         plt.ylabel('Unique Edges Found', fontsize=12)
         plt.grid(True, linestyle=':', alpha=0.6)

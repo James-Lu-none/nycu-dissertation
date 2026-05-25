@@ -125,7 +125,7 @@ def find_target_id_and_type(block_mapping_path):
         print(f"Error parsing block mapping file: {e}")
     return None, None
 
-def generate_cumulative_plot(orig_hit_file, orig_reached_file, work_hit_file, work_reached_file, use_ttr_limit, output_filename, total_blocks=None):
+def generate_cumulative_plot(orig_hit_file, orig_reached_file, work_hit_file, work_reached_file, use_ttr_limit, output_filename, total_blocks=None, cve="CVE-2018-20427"):
     orig_target_time = parse_target_reached(orig_reached_file) if use_ttr_limit else None
     work_target_time = parse_target_reached(work_reached_file) if use_ttr_limit else None
     
@@ -178,7 +178,7 @@ def generate_cumulative_plot(orig_hit_file, orig_reached_file, work_hit_file, wo
                   verticalalignment='top', bbox=props)
                   
     title_suffix = " (Up to Target Reached)" if use_ttr_limit else " (Full Run)"
-    plt.title('Time to Reach Target (TTR) and Unique Blocks Hit Comparison' + title_suffix, fontsize=14, fontweight='bold', pad=15)
+    plt.title(f'Time to Reach Target (TTR) and Unique Blocks Hit Comparison ({cve})' + title_suffix, fontsize=14, fontweight='bold', pad=15)
     plt.xlabel('Elapsed Time (seconds)', fontsize=12)
     plt.ylabel('Cumulative Unique Basic Blocks Hit', fontsize=12)
     
@@ -228,7 +228,7 @@ def parse_block_mapping_ids(block_mapping_path):
         print(f"Error parsing mapping IDs from {block_mapping_path}: {e}")
     return control_ids, caller_ids
 
-def generate_bar_plot(orig_hit_file, orig_reached_file, work_hit_file, work_reached_file, work_mapping_file, use_ttr_limit, output_filename):
+def generate_bar_plot(orig_hit_file, orig_reached_file, work_hit_file, work_reached_file, work_mapping_file, use_ttr_limit, output_filename, cve="CVE-2018-20427"):
     orig_target_time = parse_target_reached(orig_reached_file) if use_ttr_limit else None
     work_target_time = parse_target_reached(work_reached_file) if use_ttr_limit else None
     
@@ -269,7 +269,7 @@ def generate_bar_plot(orig_hit_file, orig_reached_file, work_hit_file, work_reac
         ax1.axvline(x=target_idx, color='#d62728', linestyle='--', linewidth=1.8, alpha=0.9, label=f'Target Block (ID {target_id})')
     
     title_suffix = " (Before Target Reached)" if use_ttr_limit else " (Full Run)"
-    ax1.set_title('Control BBs (Type 0) First Hit Time (Sorted by Blue\'s Hit Time)' + title_suffix, fontsize=14, fontweight='bold')
+    ax1.set_title(f'Control BBs (Type 0) First Hit Time (Sorted by Blue\'s Hit Time) ({cve})' + title_suffix, fontsize=14, fontweight='bold')
     ax1.set_xlabel('Control Block ID', fontsize=11)
     ax1.set_ylabel('Hit Time (seconds)', fontsize=11)
     ax1.set_xticks(x_indices_ctrl)
@@ -301,7 +301,7 @@ def generate_bar_plot(orig_hit_file, orig_reached_file, work_hit_file, work_reac
         target_idx = caller_ids.index(target_id)
         ax2.axvline(x=target_idx, color='#d62728', linestyle='--', linewidth=1.8, alpha=0.9, label=f'Target Block (ID {target_id})')
     
-    ax2.set_title('Caller BBs (Type 1) First Hit Time (Sorted by Blue\'s Hit Time)' + title_suffix, fontsize=14, fontweight='bold')
+    ax2.set_title(f'Caller BBs (Type 1) First Hit Time (Sorted by Blue\'s Hit Time) ({cve})' + title_suffix, fontsize=14, fontweight='bold')
     ax2.set_xlabel('Caller Block ID', fontsize=11)
     ax2.set_ylabel('Hit Time (seconds)', fontsize=11)
     ax2.set_xticks(x_indices_call)
@@ -347,7 +347,7 @@ def geometric_mean(arrays, axis=0):
         geomean = np.exp(mean_log)
     return np.nan_to_num(geomean, nan=0.0)
 
-def generate_cumulative_summary_plot(orig_runs, orig_reached_times, work_runs, work_reached_times, use_ttr_limit, output_filename, total_blocks=None):
+def generate_cumulative_summary_plot(orig_runs, orig_reached_times, work_runs, work_reached_times, use_ttr_limit, output_filename, total_blocks=None, cve="CVE-2018-20427"):
     """
     orig_runs: list of tuples (times, counts)
     orig_reached_times: list of floats/None
@@ -450,7 +450,7 @@ def generate_cumulative_summary_plot(orig_runs, orig_reached_times, work_runs, w
                   verticalalignment='top', bbox=props, fontweight='bold')
                   
     title_suffix = " (Up to Target Reached)" if use_ttr_limit else " (Full Run)"
-    plt.title('Time to Reach Target (TTR) and Unique Blocks Hit Summary' + title_suffix, fontsize=14, fontweight='bold', pad=15)
+    plt.title(f'Time to Reach Target (TTR) and Unique Blocks Hit Summary ({cve})' + title_suffix, fontsize=14, fontweight='bold', pad=15)
     plt.xlabel('Elapsed Time (seconds)', fontsize=12)
     plt.ylabel('Cumulative Unique Basic Blocks Hit', fontsize=12)
     
@@ -471,7 +471,7 @@ def geometric_mean_of_list(vals):
         return 0.0
     return np.exp(np.mean(np.log(vals)))
 
-def generate_bar_summary_plot(orig_runs_raw, work_runs_raw, work_mapping_file, use_ttr_limit, output_filename):
+def generate_bar_summary_plot(orig_runs_raw, work_runs_raw, work_mapping_file, use_ttr_limit, output_filename, cve="CVE-2018-20427"):
     """
     orig_runs_raw: list of tuples (orig_ctrl, orig_call) from parse_dgf_log_raw for each trial
     work_runs_raw: list of tuples (work_ctrl, work_call) from parse_dgf_log_raw for each trial
@@ -521,7 +521,7 @@ def generate_bar_summary_plot(orig_runs_raw, work_runs_raw, work_mapping_file, u
         ax1.axvline(x=target_idx, color='#d62728', linestyle='--', linewidth=1.8, alpha=0.9, label=f'Target Block (ID {target_id})')
         
     title_suffix = " (Before Target Reached)" if use_ttr_limit else " (Full Run)"
-    ax1.set_title('Control BBs (Type 0) First Hit Time Summary (Geometric Mean)' + title_suffix, fontsize=14, fontweight='bold')
+    ax1.set_title(f'Control BBs (Type 0) First Hit Time Summary (Geometric Mean) ({cve})' + title_suffix, fontsize=14, fontweight='bold')
     ax1.set_ylabel('Hit Time (seconds)', fontsize=11)
     ax1.set_xticks(x_indices_ctrl)
     ax1.set_xticklabels([f"{bid}\n(Target)" if (bid == target_id and target_type == 'Control') else str(bid) for bid in control_ids], rotation=45, fontsize=8)
@@ -563,7 +563,7 @@ def generate_bar_summary_plot(orig_runs_raw, work_runs_raw, work_mapping_file, u
         target_idx = caller_ids.index(target_id)
         ax2.axvline(x=target_idx, color='#d62728', linestyle='--', linewidth=1.8, alpha=0.9, label=f'Target Block (ID {target_id})')
         
-    ax2.set_title('Caller BBs (Type 1) First Hit Time Summary (Geometric Mean)' + title_suffix, fontsize=14, fontweight='bold')
+    ax2.set_title(f'Caller BBs (Type 1) First Hit Time Summary (Geometric Mean) ({cve})' + title_suffix, fontsize=14, fontweight='bold')
     ax2.set_xlabel('Caller Block ID', fontsize=11)
     ax2.set_ylabel('Hit Time (seconds)', fontsize=11)
     ax2.set_xticks(x_indices_call)
@@ -606,6 +606,7 @@ def main():
     parser.add_argument("--root", type=str, required=True, help="Root directory of the CVE artifact data")
     parser.add_argument("--methods", type=str, nargs="+", required=True, help="Fuzzer methods to compare")
     parser.add_argument("--trials", type=str, nargs="+", required=True, help="Trial numbers")
+    parser.add_argument("--cve", type=str, default="CVE-2018-20427", help="CVE identifier")
     args = parser.parse_args()
     
     root = os.path.expanduser(args.root)
@@ -683,9 +684,9 @@ def main():
         ttr_bars_path = os.path.join(output_dir, "TTR_bars.png")
         
         generate_cumulative_plot(orig_hit_file, orig_reached_file, work_hit_file, work_reached_file,
-                                 use_ttr_limit=True, output_filename=ttr_comp_path, total_blocks=total_blocks)
+                                 use_ttr_limit=True, output_filename=ttr_comp_path, total_blocks=total_blocks, cve=args.cve)
         generate_bar_plot(orig_hit_file, orig_reached_file, work_hit_file, work_reached_file, work_mapping_file,
-                          use_ttr_limit=True, output_filename=ttr_bars_path)
+                          use_ttr_limit=True, output_filename=ttr_bars_path, cve=args.cve)
         
         # Collect limit run data
         orig_times_l, orig_counts_l = parse_blocks_hit_cumulative(orig_hit_file, limit_time=orig_target_time)
@@ -705,9 +706,9 @@ def main():
         ttr_bars_full_path = os.path.join(output_dir, "TTR_bars_full.png")
         
         generate_cumulative_plot(orig_hit_file, orig_reached_file, work_hit_file, work_reached_file,
-                                 use_ttr_limit=False, output_filename=ttr_comp_full_path, total_blocks=total_blocks)
+                                 use_ttr_limit=False, output_filename=ttr_comp_full_path, total_blocks=total_blocks, cve=args.cve)
         generate_bar_plot(orig_hit_file, orig_reached_file, work_hit_file, work_reached_file, work_mapping_file,
-                          use_ttr_limit=False, output_filename=ttr_bars_full_path)
+                          use_ttr_limit=False, output_filename=ttr_bars_full_path, cve=args.cve)
                           
         # Collect full run data
         orig_times_f, orig_counts_f = parse_blocks_hit_cumulative(orig_hit_file, limit_time=None)
@@ -726,21 +727,21 @@ def main():
         print("\n================ Generating TTR Summary Plots ================")
         ttr_summary_path = os.path.join(plot_base_dir, "TTR_comparison_summary.png")
         generate_cumulative_summary_plot(orig_runs_limit, orig_reached_times, work_runs_limit, work_reached_times,
-                                         use_ttr_limit=True, output_filename=ttr_summary_path, total_blocks=total_blocks)
+                                         use_ttr_limit=True, output_filename=ttr_summary_path, total_blocks=total_blocks, cve=args.cve)
                                          
         ttr_summary_full_path = os.path.join(plot_base_dir, "TTR_comparison_full_summary.png")
         generate_cumulative_summary_plot(orig_runs_full, orig_reached_times, work_runs_full, work_reached_times,
-                                         use_ttr_limit=False, output_filename=ttr_summary_full_path, total_blocks=total_blocks)
+                                         use_ttr_limit=False, output_filename=ttr_summary_full_path, total_blocks=total_blocks, cve=args.cve)
                                          
     # Generate overall summary TTR bar plots
     if orig_raw_limit or work_raw_limit:
         print("\n================ Generating TTR Bar Summary Plots ================")
         ttr_bars_summary_path = os.path.join(plot_base_dir, "TTR_bars_summary.png")
         generate_bar_summary_plot(orig_raw_limit, work_raw_limit, work_mapping_file,
-                                  use_ttr_limit=True, output_filename=ttr_bars_summary_path)
-                                  
+                                   use_ttr_limit=True, output_filename=ttr_bars_summary_path, cve=args.cve)
+                                   
         ttr_bars_summary_full_path = os.path.join(plot_base_dir, "TTR_bars_full_summary.png")
         generate_bar_summary_plot(orig_raw_full, work_raw_full, work_mapping_file,
-                                  use_ttr_limit=False, output_filename=ttr_bars_summary_full_path)
+                                   use_ttr_limit=False, output_filename=ttr_bars_summary_full_path, cve=args.cve)
 if __name__ == '__main__':
     main()
