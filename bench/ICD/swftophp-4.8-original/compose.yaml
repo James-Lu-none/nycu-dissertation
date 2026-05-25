@@ -1,11 +1,32 @@
 services:
-  afl:
-    container_name: swftophp-afl-origin
+  afl-1:
+    container_name: swftophp-afl-origin-1
     build: .
-    command: sleep infinity
+    command: bash -c "bash script.sh && sleep infinity"
     working_dir: /workspace
-    cpuset: "2-3"
+    cpuset: "3"
     volumes:
-      - swftophp-afl-origin:/workspace/out
+      - swftophp-afl-origin-1:/workspace/out
+
+  afl-2:
+    container_name: swftophp-afl-origin-2
+    build: .
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    cpuset: "4"
+    volumes:
+      - swftophp-afl-origin-2:/workspace/out
+
+  afl-3:
+    container_name: swftophp-afl-origin-3
+    build: .
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    cpuset: "5"
+    volumes:
+      - swftophp-afl-origin-3:/workspace/out
+
 volumes:
-  swftophp-afl-origin:
+  swftophp-afl-origin-1:
+  swftophp-afl-origin-2:
+  swftophp-afl-origin-3:

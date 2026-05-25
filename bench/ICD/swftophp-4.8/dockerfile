@@ -13,7 +13,7 @@ RUN mkdir /workspace
 ENV AFL_DGF_FILE=decompile.c
 ENV AFL_DGF_LINE=425
 ENV AFL_DGF_MAX_DEPTH=1000
-ENV AFL_DGF_INFO_FILE=/workspace/dgf_compile_info.txt
+ENV AFL_DGF_INFO_DIR=/workspace
 # ENV AFL_DGF_CONTROL_GROUP=1
 
 WORKDIR /src/libming
