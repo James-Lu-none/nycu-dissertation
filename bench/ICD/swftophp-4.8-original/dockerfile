@@ -1,4 +1,4 @@
-FROM aflplusplus:latest
+FROM my-aflplusplus:latest
 
 RUN apt-get update && apt-get install -y \
     make cmake pkg-config wget curl git
