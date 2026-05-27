@@ -112,7 +112,7 @@ def plot_single_trial(orig_time, orig_edge, orig_exec, work_time, work_edge, wor
         plt.plot(np.array(work_time), work_edge, label='With Control dependency analysis', color='#ff7f0e', linewidth=2)
         
     if textstr:
-        plt.text(0.05, 0.95, textstr, transform=plt.gca().transAxes, fontsize=10,
+        plt.text(1.02, 1.0, textstr, transform=plt.gca().transAxes, fontsize=10,
                  verticalalignment='top', bbox=props)
         
     plt.title(f'Edge Coverage Over Time ({cve})', fontsize=14, fontweight='bold', pad=15)
@@ -121,7 +121,7 @@ def plot_single_trial(orig_time, orig_edge, orig_exec, work_time, work_edge, wor
     plt.grid(True, linestyle=':', alpha=0.6)
     plt.legend(loc='lower right', fontsize=10)
     plt.tight_layout()
-    plt.savefig(os.path.join(output_dir, 'coverage_time.png'), dpi=300)
+    plt.savefig(os.path.join(output_dir, 'coverage_time.png'), dpi=300, bbox_inches='tight')
     plt.close()
     
     # 2. Coverage vs Executions (Millions)
@@ -132,7 +132,7 @@ def plot_single_trial(orig_time, orig_edge, orig_exec, work_time, work_edge, wor
         plt.plot(np.array(work_exec) / 1e6, work_edge, label='With Control dependency analysis', color='#ff7f0e', linewidth=2)
         
     if textstr:
-        plt.text(0.05, 0.95, textstr, transform=plt.gca().transAxes, fontsize=10,
+        plt.text(1.02, 1.0, textstr, transform=plt.gca().transAxes, fontsize=10,
                  verticalalignment='top', bbox=props)
         
     plt.title(f'Edge Coverage vs Total Executions ({cve})', fontsize=14, fontweight='bold', pad=15)
@@ -141,7 +141,7 @@ def plot_single_trial(orig_time, orig_edge, orig_exec, work_time, work_edge, wor
     plt.grid(True, linestyle=':', alpha=0.6)
     plt.legend(loc='lower right', fontsize=10)
     plt.tight_layout()
-    plt.savefig(os.path.join(output_dir, 'coverage_execs.png'), dpi=300)
+    plt.savefig(os.path.join(output_dir, 'coverage_execs.png'), dpi=300, bbox_inches='tight')
     plt.close()
 
 def main():
@@ -260,7 +260,7 @@ def main():
         if text_lines:
             textstr = "\n".join(text_lines)
             props = dict(boxstyle='round', facecolor='#e6f2ff', alpha=0.8, edgecolor='#1f77b4')
-            plt.text(0.05, 0.95, textstr, transform=plt.gca().transAxes, fontsize=10,
+            plt.text(1.02, 1.0, textstr, transform=plt.gca().transAxes, fontsize=10,
                      verticalalignment='top', bbox=props, fontweight='bold')
                      
         plt.title(f'Edge Coverage Over Time ({args.cve})', fontsize=14, fontweight='bold', pad=15)
@@ -269,7 +269,7 @@ def main():
         plt.grid(True, linestyle=':', alpha=0.6)
         plt.legend(loc='lower right', fontsize=10)
         plt.tight_layout()
-        plt.savefig(os.path.join(plot_base_dir, 'coverage_time_summary.png'), dpi=300)
+        plt.savefig(os.path.join(plot_base_dir, 'coverage_time_summary.png'), dpi=300, bbox_inches='tight')
         plt.close()
         print(f"Summary plot saved as '{os.path.join(plot_base_dir, 'coverage_time_summary.png')}'")
         
@@ -321,7 +321,7 @@ def main():
         if text_lines:
             textstr = "\n".join(text_lines)
             props = dict(boxstyle='round', facecolor='#e6f2ff', alpha=0.8, edgecolor='#1f77b4')
-            plt.text(0.05, 0.95, textstr, transform=plt.gca().transAxes, fontsize=10,
+            plt.text(1.02, 1.0, textstr, transform=plt.gca().transAxes, fontsize=10,
                      verticalalignment='top', bbox=props, fontweight='bold')
                      
         plt.title(f'Edge Coverage vs Total Executions ({args.cve})', fontsize=14, fontweight='bold', pad=15)
@@ -330,7 +330,7 @@ def main():
         plt.grid(True, linestyle=':', alpha=0.6)
         plt.legend(loc='lower right', fontsize=10)
         plt.tight_layout()
-        plt.savefig(os.path.join(plot_base_dir, 'coverage_execs_summary.png'), dpi=300)
+        plt.savefig(os.path.join(plot_base_dir, 'coverage_execs_summary.png'), dpi=300, bbox_inches='tight')
         plt.close()
         print(f"Summary plot saved as '{os.path.join(plot_base_dir, 'coverage_execs_summary.png')}'")
 

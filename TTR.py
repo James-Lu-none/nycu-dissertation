@@ -174,7 +174,7 @@ def generate_cumulative_plot(orig_hit_file, orig_reached_file, work_hit_file, wo
     if text_lines:
         textstr = "\n".join(text_lines)
         props = dict(boxstyle='round', facecolor='#e6f2ff', alpha=0.8, edgecolor='#1f77b4')
-        plt.text(0.05, 0.95, textstr, transform=plt.gca().transAxes, fontsize=10,
+        plt.text(1.02, 1.0, textstr, transform=plt.gca().transAxes, fontsize=10,
                   verticalalignment='top', bbox=props)
                   
     title_suffix = " (Up to Target Reached)" if use_ttr_limit else " (Full Run)"
@@ -194,7 +194,7 @@ def generate_cumulative_plot(orig_hit_file, orig_reached_file, work_hit_file, wo
     plt.grid(True, linestyle=':', alpha=0.6)
     plt.legend(loc='best', fontsize=10)
     plt.tight_layout()
-    plt.savefig(output_filename, dpi=300)
+    plt.savefig(output_filename, dpi=300, bbox_inches='tight')
     plt.close()
     print(f"Comparison plot successfully saved as '{output_filename}'")
 
@@ -310,7 +310,7 @@ def generate_bar_plot(orig_hit_file, orig_reached_file, work_hit_file, work_reac
     ax2.legend(loc='upper right')
     
     plt.tight_layout()
-    plt.savefig(output_filename, dpi=300)
+    plt.savefig(output_filename, dpi=300, bbox_inches='tight')
     plt.close()
     print(f"Bar comparison plot successfully saved as '{output_filename}'")
 
@@ -446,7 +446,7 @@ def generate_cumulative_summary_plot(orig_runs, orig_reached_times, work_runs, w
     if text_lines:
         textstr = "\n".join(text_lines)
         props = dict(boxstyle='round', facecolor='#e6f2ff', alpha=0.8, edgecolor='#1f77b4')
-        plt.text(0.05, 0.95, textstr, transform=plt.gca().transAxes, fontsize=11,
+        plt.text(1.02, 1.0, textstr, transform=plt.gca().transAxes, fontsize=11,
                   verticalalignment='top', bbox=props, fontweight='bold')
                   
     title_suffix = " (Up to Target Reached)" if use_ttr_limit else " (Full Run)"
@@ -458,7 +458,7 @@ def generate_cumulative_summary_plot(orig_runs, orig_reached_times, work_runs, w
     plt.grid(True, linestyle=':', alpha=0.6)
     plt.legend(loc='best', fontsize=10)
     plt.tight_layout()
-    plt.savefig(output_filename, dpi=300)
+    plt.savefig(output_filename, dpi=300, bbox_inches='tight')
     plt.close()
     print(f"Summary plot successfully saved as '{output_filename}'")
 
@@ -572,7 +572,7 @@ def generate_bar_summary_plot(orig_runs_raw, work_runs_raw, work_mapping_file, u
     ax2.legend(loc='upper right')
     
     plt.tight_layout()
-    plt.savefig(output_filename, dpi=300)
+    plt.savefig(output_filename, dpi=300, bbox_inches='tight')
     plt.close()
     print(f"Bar summary plot successfully saved as '{output_filename}'")
 
