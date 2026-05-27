@@ -605,7 +605,6 @@ def main():
     parser = argparse.ArgumentParser(description="Generate TTR plots.")
     parser.add_argument("--root", type=str, required=True, help="Root directory of the CVE artifact data")
     parser.add_argument("--methods", type=str, nargs="+", required=True, help="Fuzzer methods to compare")
-    parser.add_argument("--trials", type=str, nargs="+", required=True, help="Trial numbers")
     parser.add_argument("--cve", type=str, default="CVE-2018-20427", help="CVE identifier")
     args = parser.parse_args()
     
@@ -621,8 +620,25 @@ def main():
         print(f"Base directory {base_dir} does not exist.")
         return
         
+    detected = set()
+    for method in args.methods:
+        method_dir = os.path.join(root, method)
+        if os.path.exists(method_dir):
+            for name in os.listdir(method_dir):
+                match = re.match(r'^trial(\w+)$', name)
+                if match:
+                    detected.add(match.group(1))
+    def sort_key(x):
+        digits = re.search(r'\d+', x)
+        return (0, int(digits.group())) if digits else (1, x)
+    trial_suffixes = sorted(list(detected), key=sort_key)
+    if not trial_suffixes:
+        print("Error: No trial folders (e.g. trial1) found automatically.")
+        return
+    print(f"Automatically detected trials: {trial_suffixes}")
+
     # Standardize trial folder names, e.g. trial1, trial2...
-    trials = ["trial" + t for t in args.trials]
+    trials = ["trial" + t for t in trial_suffixes]
     # Sort natural order
     trials.sort(key=lambda x: int(re.search(r'\d+', x).group()) if re.search(r'\d+', x) else x)
     

@@ -71,7 +71,6 @@ def main():
     parser = argparse.ArgumentParser(description="Calculate true Time to Exposure (TTE) by checking crash backtraces.")
     parser.add_argument("--root", required=True, help="Root directory of the CVE artifact data (e.g. ./artifact/CVE-2018-20427)")
     parser.add_argument("--methods", nargs="+", required=True, help="Fuzzer methods to compare (e.g. swftophp-afl-origin swftophp-afl-icd)")
-    parser.add_argument("--trials", nargs="+", required=True, help="Trial numbers (e.g. 1 2 3)")
     parser.add_argument("--cve", required=True, help="CVE identifier (e.g. CVE-2018-20427)")
     parser.add_argument("--trace", required=True, help="Path to the target stack trace file")
     parser.add_argument("--binary", default="/workspace/swftophp", help="Binary path inside the docker containers")
@@ -85,12 +84,29 @@ def main():
         print("Error: Could not parse target trace. Exiting.")
         return
         
+    detected = set()
+    for method in args.methods:
+        method_dir = os.path.join(root, method)
+        if os.path.exists(method_dir):
+            for name in os.listdir(method_dir):
+                match = re.match(r'^trial(\w+)$', name)
+                if match:
+                    detected.add(match.group(1))
+    def sort_key(x):
+        digits = re.search(r'\d+', x)
+        return (0, int(digits.group())) if digits else (1, x)
+    trials = sorted(list(detected), key=sort_key)
+    if not trials:
+        print("Error: No trial folders (e.g. trial1) found automatically. Exiting.")
+        return
+    print(f"Automatically detected trials: {trials}")
+        
     print(f"Target stack trace to match: {target_trace}")
-    print(f"Analyzing methods: {args.methods} on trials {args.trials}")
+    print(f"Analyzing methods: {args.methods} on trials {trials}")
     
     for method in args.methods:
         print(f"\n================ Method: {method} ================")
-        for trial in args.trials:
+        for trial in trials:
             trial_folder = f"trial{trial}"
             container_name = f"{method}-{trial}"
             
