@@ -1,10 +1,9 @@
 #!/bin/bash
 
-trial=(1 2 3)
+trial=(1 2 3 4 5)
 CVE="CVE-2018-20427"
 root="./artifact/${CVE}"
 mkdir -p ${root}
-rm -rf ${root}/*
 
 baseline="swftophp-afl-origin"
 icd="swftophp-afl-icd"
