@@ -28,5 +28,5 @@ done
 
 chown -R $(id -u):$(id -g) ${root}
 
-python3 TTR.py --root ${root} --methods $baseline $icd --trials 1 2 3 --cve ${CVE}
-python3 cov.py --root ${root} --methods $baseline $icd --trials 1 2 3 --cve ${CVE}
+python3 TTR.py --root ${root} --methods $baseline $icd --cve ${CVE}
+python3 cov.py --root ${root} --methods $baseline $icd --cve ${CVE}
