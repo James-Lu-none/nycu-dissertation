@@ -2,3 +2,6 @@
 	path = AFLplusplus
 	url = https://github.com/James-Lu-none/AFLplusplus
 	branch = stable
+[submodule "LibAFL"]
+	path = LibAFL
+	url = https://github.com/James-Lu-none/LibAFL
