@@ -316,6 +316,120 @@ if __name__ == '__main__':
                 
     return tte_ms, matching_crash
 
+def get_method_label(method):
+    if "icd" in method.lower():
+        return "With Control dependency analysis"
+    else:
+        return "Without Control dependency analysis"
+
+def generate_tte_summary_plot(method_ttes, output_path, cve):
+    """
+    Generates cumulative target exposure plot over time.
+    """
+    try:
+        import matplotlib.pyplot as plt
+        import numpy as np
+    except ImportError:
+        print("Warning: matplotlib or numpy not installed. Skipping plot generation.")
+        return
+
+    plt.figure(figsize=(10, 6))
+
+    colors = {
+        'icd': '#ff7f0e',
+        'origin': '#1f77b4',
+        'base': '#1f77b4'
+    }
+
+    max_time = 0.0
+    text_lines = []
+
+    # Sort methods: baseline/origin first, then icd
+    sorted_methods = sorted(method_ttes.keys(), key=lambda m: 1 if 'icd' in m.lower() else 0)
+
+    for method in sorted_methods:
+        ttes = method_ttes[method]
+        total_trials = len(ttes)
+        if total_trials == 0:
+            continue
+
+        # Filter and sort valid TTEs
+        valid_ttes = [t for t in ttes if t is not None]
+        valid_ttes.sort()
+
+        color = '#1f77b4' # default blue
+        for key, val in colors.items():
+            if key in method.lower():
+                color = val
+                break
+
+        # Plot step function
+        x_pts = [0.0]
+        y_pts = [0.0]
+        for idx, t in enumerate(valid_ttes):
+            x_pts.append(t)
+            y_pts.append((idx + 1) / total_trials * 100.0)
+
+        # If there are valid TTEs, extend flat line to max_time
+        if valid_ttes:
+            max_time = max(max_time, valid_ttes[-1])
+
+        label = get_method_label(method)
+        label_with_method = f"{label} ({method})"
+        plt.step(x_pts, y_pts, where='post', label=label_with_method, linewidth=2.5, color=color)
+
+        # Draw vertical lines or mark individual dots
+        for t in valid_ttes:
+            plt.plot(t, (valid_ttes.index(t) + 1) / total_trials * 100.0, 'o', color=color, markersize=5, alpha=0.7)
+
+        # Calculate metrics
+        if valid_ttes:
+            geo_mean = np.exp(np.mean(np.log(valid_ttes)))
+            mean_val = np.mean(valid_ttes)
+            success_rate = len(valid_ttes) / total_trials * 100.0
+            text_lines.append(f"{method} ({len(valid_ttes)}/{total_trials} - {success_rate:.0f}%):")
+            text_lines.append(f"  Geo Mean: {geo_mean:.2f}s")
+            text_lines.append(f"  Mean: {mean_val:.2f}s")
+        else:
+            text_lines.append(f"{method} (0/{total_trials}):")
+            text_lines.append(f"  No exposure")
+
+    # Calculate speedup if both exist
+    icd_method = next((m for m in method_ttes.keys() if 'icd' in m.lower()), None)
+    base_method = next((m for m in method_ttes.keys() if 'icd' not in m.lower()), None)
+    if icd_method and base_method:
+        icd_valid = [t for t in method_ttes[icd_method] if t is not None]
+        base_valid = [t for t in method_ttes[base_method] if t is not None]
+        if icd_valid and base_valid:
+            geo_mean_icd = np.exp(np.mean(np.log(icd_valid)))
+            geo_mean_base = np.exp(np.mean(np.log(base_valid)))
+            if geo_mean_icd > 0:
+                speedup = geo_mean_base / geo_mean_icd
+                text_lines.append(f"Geo Mean Speedup: {speedup:.2f}x")
+
+    if max_time > 0:
+        plt.xlim(0, max_time * 1.1)
+    else:
+        plt.xlim(0, 10)
+    plt.ylim(-5, 105)
+
+    plt.title(f'Time to Bug Exposure (TTE) Cumulative Summary ({cve})', fontsize=14, fontweight='bold', pad=15)
+    plt.xlabel('Elapsed Time (seconds)', fontsize=12)
+    plt.ylabel('Percentage of Trials with Bug Exposed (%)', fontsize=12)
+    plt.grid(True, linestyle=':', alpha=0.6)
+    plt.legend(loc='lower right', fontsize=10)
+
+    if text_lines:
+        textstr = "\n".join(text_lines)
+        props = dict(boxstyle='round', facecolor='#e6f2ff', alpha=0.8, edgecolor='#1f77b4')
+        plt.text(1.02, 1.0, textstr, transform=plt.gca().transAxes, fontsize=10,
+                 verticalalignment='top', bbox=props, fontweight='bold')
+
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"Summary plot successfully saved as '{output_path}'")
+
 def main():
     parser = argparse.ArgumentParser(description="Calculate true Time to Exposure (TTE) by checking crash backtraces.")
     parser.add_argument("--bench", required=True, help="Full benchmark directory name (e.g. libming-4.8.1_swftophp_CVE-2019-9114)")
@@ -362,6 +476,7 @@ def main():
     print(f"Detected fuzzer methods: {methods}")
     
     # 5. Process each method
+    method_ttes = {}
     for method in methods:
         print(f"\n================ Method: {method} ================")
         
@@ -400,6 +515,7 @@ def main():
             continue
             
         print(f"Found trials to triage: {trials}")
+        method_ttes[method] = []
         
         for trial in trials:
             local_trial_dir = os.path.join(method_dir, trial)
@@ -410,6 +526,7 @@ def main():
                 print(f"Trial {trial}: Crashes directory not found at {local_crashes_dir}. Writing TTE: inf.")
                 with open(exposure_file_path, "w") as ef:
                     ef.write("Target not reached\n")
+                method_ttes[method].append(None)
                 continue
                 
             # List local crash files
@@ -418,6 +535,7 @@ def main():
                 print(f"Trial {trial}: No crash files found. Writing TTE: inf.")
                 with open(exposure_file_path, "w") as ef:
                     ef.write("Target not reached\n")
+                method_ttes[method].append(None)
                 continue
                 
             # Sort crashes by fuzzer elapsed time in filename
@@ -446,10 +564,20 @@ def main():
                     ef.write("Target reached!\n")
                     ef.write(f"Elapsed:    {tte_sec:.3f} seconds ({tte_ms} ms)\n")
                     ef.write(f"Crash File: {matching_crash}\n")
+                method_ttes[method].append(tte_sec)
             else:
                 print(f"  [-] Trial {trial} target was not reached by any crash.")
                 with open(exposure_file_path, "w") as ef:
                     ef.write("Target not reached\n")
+                method_ttes[method].append(None)
+
+    # Generate overall summary TTE plot
+    if method_ttes:
+        print("\n================ Generating TTE Summary Plot ================")
+        plot_dir = os.path.join(artifact_dir, "plot")
+        os.makedirs(plot_dir, exist_ok=True)
+        tte_summary_path = os.path.join(plot_dir, "TTE_comparison_summary.png")
+        generate_tte_summary_plot(method_ttes, tte_summary_path, args.bench)
 
 if __name__ == '__main__':
     main()
