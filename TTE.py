@@ -434,6 +434,13 @@ def generate_tte_summary_plot(method_ttes, output_path, cve):
         bp['fliers'][i].set_marker('o')
         bp['fliers'][i].set_markersize(6)
 
+        # Overlay individual trial points (jittered)
+        ttes = method_ttes[method]
+        valid_ttes = [t for t in ttes if t is not None]
+        if valid_ttes:
+            x_jitter = np.random.normal(i + 1, 0.04, size=len(valid_ttes))
+            plt.scatter(x_jitter, valid_ttes, color=color, edgecolor='black', alpha=0.8, s=45, zorder=3)
+
     plt.title(f'Time to Bug Exposure (TTE) Distribution ({cve})', fontsize=14, fontweight='bold', pad=15)
     plt.xlabel('Fuzzing Configuration', fontsize=12)
     plt.ylabel('Elapsed Time to Exposure (seconds)', fontsize=12)
