@@ -173,7 +173,8 @@ def main():
     crash_files = [f for f in os.listdir(crashes_dir) if f.startswith("id:")]
     crash_files.sort(key=get_crash_time)
     
-    match_required = min(len(target_trace), 3)
+    match_required = min(len(target_trace), 4)
+    required_target_trace = target_trace[:match_required]
     
     tte_ms = None
     matching_crash = None
@@ -216,17 +217,17 @@ def main():
                 frames.append(f"{m.group(1)}:{m.group(2)}")
                 
         found_match = False
-        start_indices = [idx for idx, f in enumerate(frames) if is_frame_match(f, target_trace[0])]
+        start_indices = [idx for idx, f in enumerate(frames) if is_frame_match(f, required_target_trace[0])]
         
         if start_indices:
-            print(f"DEBUG: {crash_file} matched target_trace[0] ({target_trace[0]}) at frame indices {start_indices}")
+            print(f"DEBUG: {crash_file} matched required_target_trace[0] ({required_target_trace[0]}) at frame indices {start_indices}")
             print(f"DEBUG: Full backtrace frames for {crash_file}: {frames}")
             
         for start_idx in start_indices:
             matched_count = 1
             curr_idx = start_idx + 1
             matched_subset = [frames[start_idx]]
-            for target in target_trace[1:]:
+            for target in required_target_trace[1:]:
                 for j in range(curr_idx, len(frames)):
                     if is_frame_match(frames[j], target):
                         matched_count += 1
@@ -324,24 +325,19 @@ def get_method_label(method):
 
 def generate_tte_summary_plot(method_ttes, output_path, cve):
     """
-    Generates cumulative target exposure plot over time.
+    Generates Time to Bug Exposure (TTE) box plot.
     """
     try:
         import matplotlib.pyplot as plt
         import numpy as np
+        import textwrap
     except ImportError:
-        print("Warning: matplotlib or numpy not installed. Skipping plot generation.")
+        print("Warning: matplotlib, numpy or textwrap not installed. Skipping plot generation.")
         return
 
-    plt.figure(figsize=(10, 6))
-
-    colors = {
-        'icd': '#ff7f0e',
-        'origin': '#1f77b4',
-        'base': '#1f77b4'
-    }
-
-    max_time = 0.0
+    # Filter out empty datasets
+    data_to_plot = []
+    labels = []
     text_lines = []
 
     # Sort methods: baseline/origin first, then icd
@@ -357,30 +353,14 @@ def generate_tte_summary_plot(method_ttes, output_path, cve):
         valid_ttes = [t for t in ttes if t is not None]
         valid_ttes.sort()
 
-        color = '#1f77b4' # default blue
-        for key, val in colors.items():
-            if key in method.lower():
-                color = val
-                break
+        if len(valid_ttes) > 0:
+            data_to_plot.append(valid_ttes)
+        else:
+            data_to_plot.append([np.nan])
 
-        # Plot step function
-        x_pts = [0.0]
-        y_pts = [0.0]
-        for idx, t in enumerate(valid_ttes):
-            x_pts.append(t)
-            y_pts.append((idx + 1) / total_trials * 100.0)
-
-        # If there are valid TTEs, extend flat line to max_time
-        if valid_ttes:
-            max_time = max(max_time, valid_ttes[-1])
-
-        label = get_method_label(method)
-        label_with_method = f"{label} ({method})"
-        plt.step(x_pts, y_pts, where='post', label=label_with_method, linewidth=2.5, color=color)
-
-        # Draw vertical lines or mark individual dots
-        for t in valid_ttes:
-            plt.plot(t, (valid_ttes.index(t) + 1) / total_trials * 100.0, 'o', color=color, markersize=5, alpha=0.7)
+        raw_label = get_method_label(method)
+        wrapped_label = textwrap.fill(raw_label, width=20)
+        labels.append(wrapped_label)
 
         # Calculate metrics
         if valid_ttes:
@@ -393,6 +373,18 @@ def generate_tte_summary_plot(method_ttes, output_path, cve):
         else:
             text_lines.append(f"{method} (0/{total_trials}):")
             text_lines.append(f"  No exposure")
+
+    if not data_to_plot:
+        print("Warning: No data to plot.")
+        return
+
+    plt.figure(figsize=(10, 6))
+
+    colors_map = {
+        'icd': '#ff7f0e',
+        'origin': '#1f77b4',
+        'base': '#1f77b4'
+    }
 
     # Calculate speedup if both exist
     icd_method = next((m for m in method_ttes.keys() if 'icd' in m.lower()), None)
@@ -407,17 +399,64 @@ def generate_tte_summary_plot(method_ttes, output_path, cve):
                 speedup = geo_mean_base / geo_mean_icd
                 text_lines.append(f"Geo Mean Speedup: {speedup:.2f}x")
 
-    if max_time > 0:
-        plt.xlim(0, max_time * 1.1)
-    else:
-        plt.xlim(0, 10)
-    plt.ylim(-5, 105)
+    # Create box plot
+    bp = plt.boxplot(data_to_plot, patch_artist=True, tick_labels=labels, widths=0.4,
+                     showmeans=True, meanline=True,
+                     medianprops=dict(color='black', linewidth=1.5),
+                     meanprops=dict(color='red', linewidth=1.5, linestyle='--'))
 
-    plt.title(f'Time to Bug Exposure (TTE) Cumulative Summary ({cve})', fontsize=14, fontweight='bold', pad=15)
-    plt.xlabel('Elapsed Time (seconds)', fontsize=12)
-    plt.ylabel('Percentage of Trials with Bug Exposed (%)', fontsize=12)
-    plt.grid(True, linestyle=':', alpha=0.6)
-    plt.legend(loc='lower right', fontsize=10)
+    # Color boxes and set custom styles
+    for i, (patch, method) in enumerate(zip(bp['boxes'], sorted_methods)):
+        color = '#1f77b4'  # default blue
+        for key, val in colors_map.items():
+            if key in method.lower():
+                color = val
+                break
+        
+        # Style the box
+        patch.set_facecolor(color)
+        patch.set_alpha(0.6)
+        patch.set_edgecolor(color)
+        patch.set_linewidth(1.5)
+
+        # Style whiskers, caps, and fliers matching the box color
+        bp['whiskers'][2*i].set_color(color)
+        bp['whiskers'][2*i].set_linewidth(1.5)
+        bp['whiskers'][2*i+1].set_color(color)
+        bp['whiskers'][2*i+1].set_linewidth(1.5)
+        
+        bp['caps'][2*i].set_color(color)
+        bp['caps'][2*i].set_linewidth(1.5)
+        bp['caps'][2*i+1].set_color(color)
+        bp['caps'][2*i+1].set_linewidth(1.5)
+        
+        bp['fliers'][i].set_markeredgecolor(color)
+        bp['fliers'][i].set_marker('o')
+        bp['fliers'][i].set_markersize(6)
+
+    plt.title(f'Time to Bug Exposure (TTE) Distribution ({cve})', fontsize=14, fontweight='bold', pad=15)
+    plt.xlabel('Fuzzing Configuration', fontsize=12)
+    plt.ylabel('Elapsed Time to Exposure (seconds)', fontsize=12)
+    plt.grid(True, axis='y', linestyle=':', alpha=0.6)
+
+    # Add legend manually
+    import matplotlib.patches as mpatches
+    legend_patches = []
+    for method in sorted_methods:
+        color = '#1f77b4'
+        for key, val in colors_map.items():
+            if key in method.lower():
+                color = val
+                break
+        raw_label = get_method_label(method)
+        legend_patches.append(mpatches.Patch(color=color, alpha=0.6, label=f"{raw_label} ({method})"))
+    
+    import matplotlib.lines as mlines
+    mean_line = mlines.Line2D([], [], color='red', linestyle='--', linewidth=1.5, label='Mean')
+    median_line = mlines.Line2D([], [], color='black', linestyle='-', linewidth=1.5, label='Median')
+    legend_patches.extend([mean_line, median_line])
+    
+    plt.legend(handles=legend_patches, loc='best', fontsize=10)
 
     if text_lines:
         textstr = "\n".join(text_lines)
@@ -428,7 +467,7 @@ def generate_tte_summary_plot(method_ttes, output_path, cve):
     plt.tight_layout()
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
     plt.close()
-    print(f"Summary plot successfully saved as '{output_path}'")
+    print(f"Summary box plot successfully saved as '{output_path}'")
 
 def main():
     parser = argparse.ArgumentParser(description="Calculate true Time to Exposure (TTE) by checking crash backtraces.")
