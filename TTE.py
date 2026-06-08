@@ -115,6 +115,19 @@ def build_docker_images(benchmark_dir):
         print(f"Error building Docker images: {e}")
         return False
 
+def build_asan_image(benchmark_dir, image_name):
+    """
+    Builds the ASAN docker image using asan.dockerfile.
+    """
+    print(f"Building ASAN Docker image {image_name} in {benchmark_dir}...")
+    try:
+        cmd = ["docker", "build", "-f", "asan.dockerfile", ".", "-t", image_name]
+        res = subprocess.run(cmd, cwd=benchmark_dir)
+        return res.returncode == 0
+    except Exception as e:
+        print(f"Error building ASAN Docker image: {e}")
+        return False
+
 def triage_crashes_in_container(image_name, binary, flags, local_crashes_dir, target_trace):
     """
     Writes a helper script and runs GDB on all crash files inside a single
@@ -526,13 +539,14 @@ def main():
     for method in methods:
         print(f"\n================ Method: {method} ================")
         
-        # Get Docker image name for this method
-        image_name = get_docker_image_name(bench_dir, method)
-        if not image_name:
+        # Get Docker image name for this method and map to ASAN version
+        orig_image_name = get_docker_image_name(bench_dir, method)
+        if not orig_image_name:
             print(f"Error: Could not find Docker image name for method {method} in compose files. Skipping.")
             continue
             
-        print(f"Docker image mapped for {method}: {image_name}")
+        image_name = orig_image_name.replace("-base", "-asan").replace("-icd", "-asan")
+        print(f"Docker image mapped for {method} (using ASAN version): {image_name}")
         
         # Check / build Docker image
         image_exists = check_image_exists(image_name)
@@ -540,10 +554,10 @@ def main():
             if not image_exists:
                 print(f"Docker image {image_name} not found locally.")
             else:
-                print(f"Force build specified. Rebuilding images...")
-            success = build_docker_images(bench_dir)
+                print(f"Force build specified. Rebuilding ASAN image...")
+            success = build_asan_image(bench_dir, image_name)
             if not success:
-                print(f"Failed to build Docker images. Skipping method {method}.")
+                print(f"Failed to build ASAN Docker image. Skipping method {method}.")
                 continue
         else:
             print(f"Docker image {image_name} is available locally.")
