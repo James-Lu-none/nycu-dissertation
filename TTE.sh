@@ -1,0 +1,26 @@
+. ../.venv/bin/activate
+
+CVE_list=(
+    # libming
+    "libming-4.8.1_swftophp_CVE-2019-9114"
+    "libming-4.8_swftophp_CVE-2018-20427"
+    "libming-4.8_swftophp_CVE-2018-7868"
+    "libming-4.8_swftophp_CVE-2018-8807"
+    "libming-4.8_swftophp_CVE-2018-8962"
+    # binutils
+    "binutils-2.28_objdump_CVE-2017-8396"
+    "binutils-2.29_nm_CVE-2017-14940"
+    "binutils-2.26_cxxfilt_CVE-2016-6131"
+    "binutils-2.26_cxxfilt_CVE-2016-4492"
+    "binutils-2.26_cxxfilt_CVE-2016-4491"
+    "binutils-2.31.1_objdump_CVE-2018-17360"
+    # lrzip
+    # "lrzip-9de7ccb_lrzip_CVE-2017-8846"
+    # libjpeg
+    # "libjpeg-2.0.4_cjpeg_CVE-2020-13790"
+)
+
+for cve in ${CVE_list[@]}; do
+    echo "Running TTE.py for $cve"
+    python3 TTE.py --bench $cve
+done
