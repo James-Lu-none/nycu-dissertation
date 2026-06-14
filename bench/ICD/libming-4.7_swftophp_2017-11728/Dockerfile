@@ -11,8 +11,8 @@ RUN mkdir /workspace
 # Stage 2: base-src-build (Common source compilation for non-ASAN targets)
 FROM build-common AS base-src-build
 WORKDIR /src/libming
-RUN ./autogen.sh CC=afl-clang-lto CXX=afl-clang-lto++
-RUN make -j
+RUN ./autogen.sh && ./configure --disable-shared --disable-freetype CC=afl-clang-lto CXX=afl-clang-lto++
+RUN make
 
 # Stage 3: base-build (Control Group, no ASAN)
 FROM base-src-build AS base-build
@@ -83,16 +83,16 @@ WORKDIR /src/libming
 ENV DAFL_SELECTIVE_COV=/workspace/slice_func.txt
 ENV DAFL_DFG_SCORE=/workspace/slice_dfg.txt
 
-RUN ./autogen.sh CC=afl-clang-lto CXX=afl-clang-lto++
-RUN make -j
+RUN ./autogen.sh && ./configure --disable-shared --disable-freetype CC=afl-clang-lto CXX=afl-clang-lto++
+RUN make
 
 # Stage 6: asan-src-build (ASAN source compilation)
 FROM build-common AS asan-src-build
 ENV AFL_USE_ASAN=1
 ENV ASAN_OPTIONS=detect_leaks=0
 WORKDIR /src/libming
-RUN ./autogen.sh CC=afl-clang-lto CXX=afl-clang-lto++
-RUN make -j
+RUN ./autogen.sh && ./configure --disable-shared --disable-freetype CC=afl-clang-lto CXX=afl-clang-lto++
+RUN make
 
 # Final Stage: Combine all compiled variants with suffixes
 FROM location0717/cafl:latest
