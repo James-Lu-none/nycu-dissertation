@@ -29,15 +29,25 @@ def parse_fuzzer_command(benchmark_dir):
     script_path = os.path.join(benchmark_dir, "script.sh")
     if not os.path.exists(script_path):
         return None
+    
+    target_default = None
     with open(script_path, 'r') as f:
-        for line in f:
-            if "afl-fuzz" in line:
-                match = re.search(r'--\s+(.+)$', line)
-                if match:
-                    cmd_str = match.group(1).strip()
-                    # Strip trailing quotes if the whole fuzzer command was quoted
-                    cmd_str = cmd_str.strip('"').strip("'")
-                    return cmd_str
+        content = f.read()
+        
+    m_tar = re.search(r'TARGET=\${TARGET_BIN:-([^}]+)}', content)
+    if m_tar:
+        target_default = m_tar.group(1).strip()
+        
+    for line in content.split('\n'):
+        if "afl-fuzz" in line or "$FUZZER" in line:
+            match = re.search(r'--\s+(.+)$', line)
+            if match:
+                cmd_str = match.group(1).strip()
+                # Strip trailing quotes if the whole fuzzer command was quoted
+                cmd_str = cmd_str.strip('"').strip("'")
+                if "$TARGET" in cmd_str and target_default:
+                    cmd_str = cmd_str.replace("$TARGET", target_default)
+                return cmd_str
     return None
 
 def get_docker_image_name(benchmark_dir, method):
@@ -51,9 +61,14 @@ def get_docker_image_name(benchmark_dir, method):
                 compose_files.append(os.path.join(benchmark_dir, f))
     
     target_files = []
-    if "icd" in method:
+    if "icd" in method or "cd" in method:
+        target_files.append("base+cd.compose.yaml")
+        target_files.append("base+cd.compose.yml")
         target_files.append("base+icd.compose.yaml")
         target_files.append("base+icd.compose.yml")
+    elif "dd" in method:
+        target_files.append("base+dd.compose.yaml")
+        target_files.append("base+dd.compose.yml")
     else:
         target_files.append("base.compose.yaml")
         target_files.append("base.compose.yml")
@@ -76,6 +91,10 @@ def get_docker_image_name(benchmark_dir, method):
             if images:
                 for img in images:
                     if "icd" in method and "icd" in img:
+                        return img
+                    if "cd" in method and "cd" in img:
+                        return img
+                    if "dd" in method and "dd" in img:
                         return img
                     if ("origin" in method or "base" in method) and ("base" in img or "origin" in img):
                         return img
@@ -539,14 +558,16 @@ def main():
     for method in methods:
         print(f"\n================ Method: {method} ================")
         
-        # Get Docker image name for this method and map to ASAN version
+        # Get Docker image name for this method and map to multistage version
         orig_image_name = get_docker_image_name(bench_dir, method)
         if not orig_image_name:
             print(f"Error: Could not find Docker image name for method {method} in compose files. Skipping.")
             continue
             
-        image_name = orig_image_name.replace("-base", "-asan").replace("-icd", "-asan")
-        print(f"Docker image mapped for {method} (using ASAN version): {image_name}")
+        image_name = orig_image_name.replace("-base", "-multistage").replace("-icd", "-multistage").replace("-dd", "-multistage")
+        if not image_name.endswith("-multistage:latest") and not image_name.endswith("-multistage"):
+            image_name = re.sub(r'-(base|icd|dd)(:|$)', '-multistage\\2', orig_image_name)
+        print(f"Docker image mapped for {method} (using multistage version): {image_name}")
         
         # Check / build Docker image
         image_exists = check_image_exists(image_name)
@@ -554,10 +575,10 @@ def main():
             if not image_exists:
                 print(f"Docker image {image_name} not found locally.")
             else:
-                print(f"Force build specified. Rebuilding ASAN image...")
-            success = build_asan_image(bench_dir, image_name)
+                print(f"Force build specified. Rebuilding image...")
+            success = build_docker_images(bench_dir)
             if not success:
-                print(f"Failed to build ASAN Docker image. Skipping method {method}.")
+                print(f"Failed to build Docker images. Skipping method {method}.")
                 continue
         else:
             print(f"Docker image {image_name} is available locally.")
@@ -607,10 +628,11 @@ def main():
             
             print(f"Trial {trial}: Triaging {len(crash_files)} crash files in a single container run...")
             
-            # Execute triage inside a single container run
+            # Execute triage inside a single container run using ASAN variant of the binary
+            asan_binary = f"{binary}-asan"
             tte_ms, matching_crash = triage_crashes_in_container(
                 image_name=image_name,
-                binary=binary,
+                binary=asan_binary,
                 flags=flags,
                 local_crashes_dir=local_crashes_dir,
                 target_trace=target_trace
