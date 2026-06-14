@@ -1,0 +1,70 @@
+services:
+  afl-cd-1:
+    container_name: libming-4.7_swftophp_2017-9988-afl-cd-1
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: libming-4.7-swftophp-cve20179988-multistage:latest
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    cpuset: "0"
+    environment:
+      - TARGET_BIN=./swftophp-cd
+      - FUZZER_BIN=afl-fuzz
+    volumes:
+      - libming-4.7_swftophp_2017-9988-afl-out-1:/workspace/out
+
+  afl-cd-2:
+    container_name: libming-4.7_swftophp_2017-9988-afl-cd-2
+    image: libming-4.7-swftophp-cve20179988-multistage:latest
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    cpuset: "1"
+    environment:
+      - TARGET_BIN=./swftophp-cd
+      - FUZZER_BIN=afl-fuzz
+    volumes:
+      - libming-4.7_swftophp_2017-9988-afl-out-2:/workspace/out
+
+  afl-cd-3:
+    container_name: libming-4.7_swftophp_2017-9988-afl-cd-3
+    image: libming-4.7-swftophp-cve20179988-multistage:latest
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    cpuset: "2"
+    environment:
+      - TARGET_BIN=./swftophp-cd
+      - FUZZER_BIN=afl-fuzz
+    volumes:
+      - libming-4.7_swftophp_2017-9988-afl-out-3:/workspace/out
+
+  afl-cd-4:
+    container_name: libming-4.7_swftophp_2017-9988-afl-cd-4
+    image: libming-4.7-swftophp-cve20179988-multistage:latest
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    cpuset: "3"
+    environment:
+      - TARGET_BIN=./swftophp-cd
+      - FUZZER_BIN=afl-fuzz
+    volumes:
+      - libming-4.7_swftophp_2017-9988-afl-out-4:/workspace/out
+
+  afl-cd-5:
+    container_name: libming-4.7_swftophp_2017-9988-afl-cd-5
+    image: libming-4.7-swftophp-cve20179988-multistage:latest
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    cpuset: "4"
+    environment:
+      - TARGET_BIN=./swftophp-cd
+      - FUZZER_BIN=afl-fuzz
+    volumes:
+      - libming-4.7_swftophp_2017-9988-afl-out-5:/workspace/out
+
+volumes:
+  libming-4.7_swftophp_2017-9988-afl-out-1:
+  libming-4.7_swftophp_2017-9988-afl-out-2:
+  libming-4.7_swftophp_2017-9988-afl-out-3:
+  libming-4.7_swftophp_2017-9988-afl-out-4:
+  libming-4.7_swftophp_2017-9988-afl-out-5:

@@ -1,0 +1,16 @@
+1 decompile.c:1945
+1 decompile.c:1950
+2 decompile.c:1954
+2 main.c:288
+2 parser.c:2322
+2 read.c:30
+2 read.c:72
+3 decompile.c:2489
+3 decompile.c:2491
+3 read.c:139
+3 read.c:76
+4 decompile.c:2493
+4 parser.c:910
+5 decompile.c:2013
+5 decompile.c:2500
+6 decompile.c:2015

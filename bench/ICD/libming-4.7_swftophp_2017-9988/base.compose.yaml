@@ -3,47 +3,62 @@ services:
     container_name: libming-4.7_swftophp_2017-9988-afl-origin-1
     build:
       context: .
-      dockerfile: base.dockerfile
-    image: libming-4.7-swftophp-20179988-base:latest
+      dockerfile: Dockerfile
+    image: libming-4.7-swftophp-cve20179988-multistage:latest
     command: bash -c "bash script.sh && sleep infinity"
     working_dir: /workspace
     cpuset: "5"
+    environment:
+      - TARGET_BIN=./swftophp-base
+      - FUZZER_BIN=afl-fuzz
     volumes:
       - libming-4.7_swftophp_2017-9988-afl-origin-1:/workspace/out
 
   afl-origin-2:
     container_name: libming-4.7_swftophp_2017-9988-afl-origin-2
-    image: libming-4.7-swftophp-20179988-base:latest
+    image: libming-4.7-swftophp-cve20179988-multistage:latest
     command: bash -c "bash script.sh && sleep infinity"
     working_dir: /workspace
     cpuset: "6"
+    environment:
+      - TARGET_BIN=./swftophp-base
+      - FUZZER_BIN=afl-fuzz
     volumes:
       - libming-4.7_swftophp_2017-9988-afl-origin-2:/workspace/out
 
   afl-origin-3:
     container_name: libming-4.7_swftophp_2017-9988-afl-origin-3
-    image: libming-4.7-swftophp-20179988-base:latest
+    image: libming-4.7-swftophp-cve20179988-multistage:latest
     command: bash -c "bash script.sh && sleep infinity"
     working_dir: /workspace
     cpuset: "7"
+    environment:
+      - TARGET_BIN=./swftophp-base
+      - FUZZER_BIN=afl-fuzz
     volumes:
       - libming-4.7_swftophp_2017-9988-afl-origin-3:/workspace/out
 
   afl-origin-4:
     container_name: libming-4.7_swftophp_2017-9988-afl-origin-4
-    image: libming-4.7-swftophp-20179988-base:latest
+    image: libming-4.7-swftophp-cve20179988-multistage:latest
     command: bash -c "bash script.sh && sleep infinity"
     working_dir: /workspace
     cpuset: "8"
+    environment:
+      - TARGET_BIN=./swftophp-base
+      - FUZZER_BIN=afl-fuzz
     volumes:
       - libming-4.7_swftophp_2017-9988-afl-origin-4:/workspace/out
 
   afl-origin-5:
     container_name: libming-4.7_swftophp_2017-9988-afl-origin-5
-    image: libming-4.7-swftophp-20179988-base:latest
+    image: libming-4.7-swftophp-cve20179988-multistage:latest
     command: bash -c "bash script.sh && sleep infinity"
     working_dir: /workspace
     cpuset: "9"
+    environment:
+      - TARGET_BIN=./swftophp-base
+      - FUZZER_BIN=afl-fuzz
     volumes:
       - libming-4.7_swftophp_2017-9988-afl-origin-5:/workspace/out
 

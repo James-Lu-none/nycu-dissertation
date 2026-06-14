@@ -1,0 +1,15 @@
+cplus-dem.c:cplus_demangle
+cplus-dem.c:delete_non_B_K_work_stuff
+cplus-dem.c:demangle_args
+cplus-dem.c:demangle_arm_hp_template
+cplus-dem.c:demangle_function_name
+cplus-dem.c:demangle_nested_args
+cplus-dem.c:demangle_prefix
+cplus-dem.c:demangle_signature
+cplus-dem.c:do_arg
+cplus-dem.c:do_type
+cplus-dem.c:gnu_special
+cplus-dem.c:internal_cplus_demangle
+cplus-dem.c:iterate_demangle_function
+cplus-dem.c:work_stuff_copy_to_from
+cxxfilt.c:main

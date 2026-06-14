@@ -1,0 +1,17 @@
+cp-demangle.c:cplus_demangle_print_callback
+cp-demangle.c:cplus_demangle_v3
+cp-demangle.c:d_demangle
+cp-demangle.c:d_demangle_callback
+cp-demangle.c:d_print_array_type
+cp-demangle.c:d_print_comp
+cp-demangle.c:d_print_comp_inner
+cp-demangle.c:d_print_function_type
+cp-demangle.c:d_print_init
+cp-demangle.c:d_print_mod_list
+cp-demangle.c:java_demangle_v3
+cplus-dem.c:cplus_demangle
+cplus-dem.c:cplus_demangle_name_to_style
+cplus-dem.c:cplus_demangle_set_style
+cplus-dem.c:demangle_arm_hp_template
+cxxfilt.c:demangle_it
+cxxfilt.c:main

@@ -1,0 +1,5 @@
+debugXML.c:xmlCtxtDumpElemDecl
+valid.c:xmlSnprintfElementContent
+valid.c:xmlValidBuildContentModel
+valid.c:xmlValidateElementContent
+xmllint.c:main

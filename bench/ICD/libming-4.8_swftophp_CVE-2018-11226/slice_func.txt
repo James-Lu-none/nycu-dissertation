@@ -1,0 +1,9 @@
+decompile.c:countAllSwitchActions
+decompile.c:decompileIF
+decompile.c:decompile_SWITCH
+main.c:main
+main.c:readMovie
+parser.c:parseSWF_ACTIONRECORD
+parser.c:parseSWF_DEFINESPRITE
+read.c:readBits
+read.c:readUInt8
