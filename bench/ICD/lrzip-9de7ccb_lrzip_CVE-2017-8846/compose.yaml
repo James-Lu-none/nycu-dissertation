@@ -1,4 +1,4 @@
 include:
-  - path: cd.compose.yaml
+  # - path: cd.compose.yaml
   - path: dd.compose.yaml
   - path: cd+dd.compose.yaml
