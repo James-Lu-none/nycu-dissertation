@@ -81,30 +81,36 @@ def get_docker_image_name(benchmark_dir, method):
             "compose.yaml", "compose.yml"
         ])
         
+    def matches_method(img, meth):
+        img_lower = img.lower()
+        meth_lower = meth.lower()
+        if "icd" in meth_lower or "cd" in meth_lower:
+            return "cd" in img_lower or "icd" in img_lower or "cafl" in img_lower
+        elif "dd" in meth_lower:
+            return "dd" in img_lower or "dafl" in img_lower
+        else:
+            return "base" in img_lower or "origin" in img_lower or "multistage" in img_lower or ("cafl" not in img_lower and "dafl" not in img_lower)
+
     for tf in target_files:
         p = os.path.join(benchmark_dir, tf)
         if os.path.exists(p):
             with open(p, 'r') as f:
-                for line in f:
-                    match = re.search(r'image:\s*([^\s]+)', line)
-                    if match:
-                        return match.group(1).strip()
+                content = f.read()
+                images = re.findall(r'image:\s*([^\s]+)', content)
+                for img in images:
+                    img_clean = img.strip().strip('"').strip("'")
+                    if matches_method(img_clean, method):
+                        return img_clean
                         
     for fpath in compose_files:
         with open(fpath, 'r') as f:
             content = f.read()
             images = re.findall(r'image:\s*([^\s]+)', content)
-            if images:
-                for img in images:
-                    if "icd" in method and "icd" in img:
-                        return img
-                    if "cd" in method and "cd" in img:
-                        return img
-                    if "dd" in method and "dd" in img:
-                        return img
-                    if ("origin" in method or "base" in method) and ("base" in img or "origin" in img):
-                        return img
-                return images[0]
+            for img in images:
+                img_clean = img.strip().strip('"').strip("'")
+                if matches_method(img_clean, method):
+                    return img_clean
+                
     return None
 
 def check_image_exists(image_name):
