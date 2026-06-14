@@ -1,4 +1,5 @@
 include:
-  - path: base.compose.yaml
-  - path: base+cd.compose.yaml
-  - path: base+dd.compose.yaml
+  - path: origin.compose.yaml
+  - path: cd.compose.yaml
+  - path: dd.compose.yaml
+  - path: cd+dd.compose.yaml
