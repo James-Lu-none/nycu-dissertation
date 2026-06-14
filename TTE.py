@@ -62,18 +62,24 @@ def get_docker_image_name(benchmark_dir, method):
     
     target_files = []
     if "icd" in method or "cd" in method:
-        target_files.append("base+cd.compose.yaml")
-        target_files.append("base+cd.compose.yml")
-        target_files.append("base+icd.compose.yaml")
-        target_files.append("base+icd.compose.yml")
+        target_files.extend([
+            "cd.compose.yaml", "cd.compose.yml",
+            "cd+dd.compose.yaml", "cd+dd.compose.yml",
+            "base+cd.compose.yaml", "base+cd.compose.yml",
+            "base+icd.compose.yaml", "base+icd.compose.yml"
+        ])
     elif "dd" in method:
-        target_files.append("base+dd.compose.yaml")
-        target_files.append("base+dd.compose.yml")
+        target_files.extend([
+            "dd.compose.yaml", "dd.compose.yml",
+            "cd+dd.compose.yaml", "cd+dd.compose.yml",
+            "base+dd.compose.yaml", "base+dd.compose.yml"
+        ])
     else:
-        target_files.append("base.compose.yaml")
-        target_files.append("base.compose.yml")
-        target_files.append("compose.yaml")
-        target_files.append("compose.yml")
+        target_files.extend([
+            "origin.compose.yaml", "origin.compose.yml",
+            "base.compose.yaml", "base.compose.yml",
+            "compose.yaml", "compose.yml"
+        ])
         
     for tf in target_files:
         p = os.path.join(benchmark_dir, tf)
