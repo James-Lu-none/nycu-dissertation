@@ -8,7 +8,7 @@ CVE_list=(
     # "libming-4.8_swftophp_CVE-2018-8807"
     # "libming-4.8_swftophp_CVE-2018-8962"
     # "libming-4.7_swftophp_2017-9988"
-    # "libming-4.7_swftophp_2017-11728"
+    "libming-4.7_swftophp_2017-11728"
     # "libming-4.8_swftophp_CVE-2018-11225"
     # "libming-4.8_swftophp_CVE-2018-11226"
     # "libming-4.8_swftophp_CVE-2019-12982"
@@ -30,37 +30,47 @@ CVE_list=(
     # "libxml2-2.9.4_xmllint_CVE-2017-9048"
 )
 
-trial=(1 2 3 4 5)
-for CVE in ${CVE_list[@]}; do
+echo "Do you want to run TTR? (y/n)"
+read answer
 
-    root="./artifact/${CVE}"
-    mkdir -p ${root}
+if [ "$answer" == "y" ]; then
+    trial=(1 2 3 4 5)
+    for CVE in ${CVE_list[@]}; do
 
-    methods=("dd" "cd" "cd+dd-dd" "cd+dd-cd")
-    suffixes=("afl-dd" "afl-cd" "afl-dual-dd" "afl-dual-cd")
+        root="./artifact/${CVE}"
+        mkdir -p ${root}
 
-    for i in ${trial[@]}; do
-        for idx in ${!methods[@]}; do
-            method=${methods[$idx]}
-            suffix=${suffixes[$idx]}
+        methods=("dd" "cd" "cd+dd-dd" "cd+dd-cd")
+        suffixes=("afl-dd" "afl-cd" "afl-dual-dd" "afl-dual-cd")
 
-            mkdir -p ${root}/${method}/trial${i}
+        for i in ${trial[@]}; do
+            for idx in ${!methods[@]}; do
+                method=${methods[$idx]}
+                suffix=${suffixes[$idx]}
 
-            docker cp ${CVE}-${suffix}-${i}:/workspace/dgf_blocks_hit.txt ${root}/${method}/trial${i}/
-            docker cp ${CVE}-${suffix}-${i}:/workspace/dgf_target_reached.txt ${root}/${method}/trial${i}/
-            docker cp ${CVE}-${suffix}-${i}:/workspace/dgf_block_mapping.txt ${root}/${method}/trial${i}/
-            docker cp ${CVE}-${suffix}-${i}:/workspace/dgf_compile_info.txt ${root}/${method}/trial${i}/
-            docker cp ${CVE}-${suffix}-${i}:/workspace/out ${root}/${method}/trial${i}/
+                mkdir -p ${root}/${method}/trial${i}
+
+                docker cp ${CVE}-${suffix}-${i}:/workspace/dgf_blocks_hit.txt ${root}/${method}/trial${i}/
+                docker cp ${CVE}-${suffix}-${i}:/workspace/dgf_target_reached.txt ${root}/${method}/trial${i}/
+                docker cp ${CVE}-${suffix}-${i}:/workspace/dgf_block_mapping.txt ${root}/${method}/trial${i}/
+                docker cp ${CVE}-${suffix}-${i}:/workspace/dgf_compile_info.txt ${root}/${method}/trial${i}/
+                docker cp ${CVE}-${suffix}-${i}:/workspace/out ${root}/${method}/trial${i}/
+            done
         done
+
+        chown -R $(id -u):$(id -g) ${root}
+
+        python3 TTR.py --root ${root} --methods dd cd cd+dd-dd cd+dd-cd --cve ${CVE}
+        python3 cov.py --root ${root} --methods dd cd cd+dd-dd cd+dd-cd --cve ${CVE}
     done
+fi
 
-    chown -R $(id -u):$(id -g) ${root}
+echo "Do you want to run TTE? (y/n)"
+read answer
 
-    python3 TTR.py --root ${root} --methods dd cd cd+dd-dd cd+dd-cd --cve ${CVE}
-    python3 cov.py --root ${root} --methods dd cd cd+dd-dd cd+dd-cd --cve ${CVE}
-done
-
-for cve in ${CVE_list[@]}; do
-    echo "Running TTE.py for $cve"
-    python3 TTE.py --bench $cve
-done
+if [ "$answer" == "y" ]; then
+    for cve in ${CVE_list[@]}; do
+        echo "Running TTE.py for $cve"
+        python3 TTE.py --bench $cve
+    done
+fi
