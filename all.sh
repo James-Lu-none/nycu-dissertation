@@ -40,7 +40,7 @@ if [ "$answer" == "y" ]; then
         root="./artifact/${CVE}"
         mkdir -p ${root}
 
-        methods=("dd" "cd" "cd+dd-dd" "cd+dd-cd")
+        methods=("dd" "cd" "dual-dd" "dual-cd")
         suffixes=("afl-dd" "afl-cd" "afl-dual-dd" "afl-dual-cd")
 
         for i in ${trial[@]}; do
@@ -60,8 +60,8 @@ if [ "$answer" == "y" ]; then
 
         chown -R $(id -u):$(id -g) ${root}
 
-        python3 TTR.py --root ${root} --methods dd cd cd+dd-dd cd+dd-cd --cve ${CVE}
-        python3 cov.py --root ${root} --methods dd cd cd+dd-dd cd+dd-cd --cve ${CVE}
+        python3 TTR.py --root ${root} --methods dd cd dual-dd dual-cd --cve ${CVE}
+        python3 cov.py --root ${root} --methods dd cd dual-dd dual-cd --cve ${CVE}
     done
 fi
 
@@ -70,7 +70,8 @@ read answer
 
 if [ "$answer" == "y" ]; then
     for cve in ${CVE_list[@]}; do
-        echo "Running TTE.py for $cve"
+        echo "Running TTE.py and TTE_plot.py for $cve"
         python3 TTE.py --bench $cve
+        python3 TTE_plot.py --bench $cve
     done
 fi

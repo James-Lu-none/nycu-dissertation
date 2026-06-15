@@ -87,15 +87,15 @@ def geometric_mean(arrays, axis=0):
 
 def get_fuzzer_name(method):
     m_low = method.lower()
-    if "cd+dd-cd" in m_low or "dual-cd" in m_low:
+    if "dual-cd" in m_low:
         return "side"
     return "main"
 
 def get_method_info(method):
     m_low = method.lower()
-    if "cd+dd-cd" in m_low or "dual-cd" in m_low:
+    if "dual-cd" in m_low:
         return "Dual CD+DD (CD Fuzzer)", "#d62728" # red
-    elif "cd+dd-dd" in m_low or "dual-dd" in m_low:
+    elif "dual-dd" in m_low:
         return "Dual CD+DD (DD Fuzzer)", "#ff7f0e" # orange
     elif "cd" in m_low:
         return "Control Dependency (cd)", "#2ca02c" # green

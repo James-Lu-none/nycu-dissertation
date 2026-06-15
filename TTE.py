@@ -6,10 +6,6 @@ import subprocess
 import argparse
 
 def parse_trace(trace_path):
-    """
-    Parses the target stack trace from the host.
-    Supports lines prefixed with line numbers (e.g., "1: decompile.c:425") or just file:line.
-    """
     trace = []
     if not os.path.exists(trace_path):
         print(f"Error: Trace file {trace_path} not found.")
@@ -23,9 +19,6 @@ def parse_trace(trace_path):
     return trace
 
 def parse_fuzzer_command(benchmark_dir):
-    """
-    Parses script.sh in the benchmark directory to extract the fuzzer execution command.
-    """
     script_path = os.path.join(benchmark_dir, "script.sh")
     if not os.path.exists(script_path):
         return None
@@ -43,7 +36,6 @@ def parse_fuzzer_command(benchmark_dir):
             match = re.search(r'--\s+(.+)$', line)
             if match:
                 cmd_str = match.group(1).strip()
-                # Strip trailing quotes if the whole fuzzer command was quoted
                 cmd_str = cmd_str.strip('"').strip("'")
                 if "$TARGET" in cmd_str and target_default:
                     cmd_str = cmd_str.replace("$TARGET", target_default)
@@ -51,9 +43,6 @@ def parse_fuzzer_command(benchmark_dir):
     return None
 
 def get_docker_image_name(benchmark_dir, method):
-    """
-    Extracts the built image name for the specified method from the compose files.
-    """
     compose_files = []
     if os.path.exists(benchmark_dir):
         for f in os.listdir(benchmark_dir):
@@ -61,43 +50,38 @@ def get_docker_image_name(benchmark_dir, method):
                 compose_files.append(os.path.join(benchmark_dir, f))
     
     target_files = []
-    if "cd+dd" in method or "dual" in method:
-        target_files.extend([
-            "cd+dd.compose.yaml", "cd+dd.compose.yml",
+    if "dual" in method:
+        target_files = [
+            "dual.compose.yaml", "dual.compose.yml",
             "cd.compose.yaml", "cd.compose.yml",
             "dd.compose.yaml", "dd.compose.yml"
-        ])
-    elif "cd" in method or "icd" in method:
-        target_files.extend([
+        ]
+    elif "cd" in method:
+        target_files = [
             "cd.compose.yaml", "cd.compose.yml",
-            "cd+dd.compose.yaml", "cd+dd.compose.yml",
-            "base+cd.compose.yaml", "base+cd.compose.yml",
-            "base+icd.compose.yaml", "base+icd.compose.yml"
-        ])
+            "dual.compose.yaml", "dual.compose.yml"
+        ]
     elif "dd" in method:
-        target_files.extend([
+        target_files = [
             "dd.compose.yaml", "dd.compose.yml",
-            "cd+dd.compose.yaml", "cd+dd.compose.yml",
-            "base+dd.compose.yaml", "base+dd.compose.yml"
-        ])
+            "dual.compose.yaml", "dual.compose.yml"
+        ]
     else:
-        target_files.extend([
-            "origin.compose.yaml", "origin.compose.yml",
-            "base.compose.yaml", "base.compose.yml",
+        target_files = [
             "compose.yaml", "compose.yml"
-        ])
+        ]
         
     def matches_method(img, meth):
         img_lower = img.lower()
         meth_lower = meth.lower()
-        if "cd+dd" in meth_lower or "dual" in meth_lower:
+        if "dual-cd" in meth_lower:
             return "cd" in img_lower or "dd" in img_lower or "multistage" in img_lower
-        elif "cd" in meth_lower or "icd" in meth_lower:
-            return "cd" in img_lower or "icd" in img_lower or "cafl" in img_lower or "multistage" in img_lower
+        elif "cd" in meth_lower:
+            return "cd" in img_lower or "cafl" in img_lower or "multistage" in img_lower
         elif "dd" in meth_lower:
             return "dd" in img_lower or "dafl" in img_lower or "multistage" in img_lower
         else:
-            return "base" in img_lower or "origin" in img_lower or "multistage" in img_lower or ("cafl" not in img_lower and "dafl" not in img_lower)
+            return "multistage" in img_lower or ("cafl" not in img_lower and "dafl" not in img_lower)
 
     for tf in target_files:
         p = os.path.join(benchmark_dir, tf)
@@ -122,9 +106,6 @@ def get_docker_image_name(benchmark_dir, method):
     return None
 
 def check_image_exists(image_name):
-    """
-    Checks if the specified docker image is present locally.
-    """
     try:
         res = subprocess.run(["docker", "image", "inspect", image_name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         return res.returncode == 0
@@ -132,18 +113,13 @@ def check_image_exists(image_name):
         return False
 
 def build_docker_images(benchmark_dir):
-    """
-    Triggers docker compose build inside the benchmark directory.
-    """
     print(f"Building Docker images in {benchmark_dir}...")
     try:
-        # Check compose.yaml first
         compose_path = os.path.join(benchmark_dir, "compose.yaml")
         if os.path.exists(compose_path):
             subprocess.run(["docker", "compose", "-f", compose_path, "build"], check=True)
             return True
         
-        # Fallback to other compose files in the folder
         built = False
         for f in os.listdir(benchmark_dir):
             if f.endswith(".compose.yaml") or f.endswith(".compose.yml"):
@@ -154,27 +130,9 @@ def build_docker_images(benchmark_dir):
         print(f"Error building Docker images: {e}")
         return False
 
-def build_asan_image(benchmark_dir, image_name):
-    """
-    Builds the ASAN docker image using asan.dockerfile.
-    """
-    print(f"Building ASAN Docker image {image_name} in {benchmark_dir}...")
-    try:
-        cmd = ["docker", "build", "-f", "asan.dockerfile", ".", "-t", image_name]
-        res = subprocess.run(cmd, cwd=benchmark_dir)
-        return res.returncode == 0
-    except Exception as e:
-        print(f"Error building ASAN Docker image: {e}")
-        return False
-
-def triage_crashes_in_container(image_name, binary, flags, local_crashes_dir, target_trace):
-    """
-    Writes a helper script and runs GDB on all crash files inside a single
-    temporary Docker container run to drastically improve performance.
-    """
+def triage_crashes_in_container(image_name, binary, flags, local_crashes_dir, target_trace, cve_name=""):
     local_crashes_dir = os.path.abspath(local_crashes_dir)
     
-    # 1. Write target_trace to .target_trace on the host
     trace_path = os.path.join(local_crashes_dir, ".target_trace")
     with open(trace_path, 'w') as f:
         for t in target_trace:
@@ -184,6 +142,8 @@ def triage_crashes_in_container(image_name, binary, flags, local_crashes_dir, ta
 import re
 import subprocess
 import sys
+
+USE_11729_TRIAGE = False
 
 def get_crash_time(filename):
     time_match = re.search(r'time:(\\d+)', filename)
@@ -199,6 +159,26 @@ def is_frame_match(f1, f2, line_tolerance=5):
             return True
     except Exception:
         pass
+    return False
+
+def get_crash_func_caller(buf, idx=1):
+    rstr = r"#" + str(idx) + r"\\s+0x[0-9a-f]+ in ([\\w\\d_]+)"
+    match = re.search(rstr, buf)
+    if match:
+        return match.group(1)
+    rstr_orig = "#" + str(idx) + r" 0x[0-9a-f]+ in [\\S]+"
+    match_orig = re.search(rstr_orig, buf)
+    if match_orig is None:
+        return ""
+    start_idx, end_idx = match_orig.span()
+    line = buf[start_idx:end_idx]
+    return line.split()[-1]
+
+def check_swftophp_2017_11729(buf):
+    if "heap-buffer-overflow" in buf:
+        if "decompile.c:868" in buf:
+            if get_crash_func_caller(buf) == "decompileINCR_DECR":
+                return True
     return False
 
 def main():
@@ -259,39 +239,45 @@ def main():
             env.pop("PYTHONPATH", None)
             res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=4, env=env)
             bt_text = res.stdout.decode('utf-8', errors='replace')
+            full_log = bt_text + "\\n" + res.stderr.decode('utf-8', errors='replace')
         except Exception:
             continue
             
-        frames = []
-        for line in bt_text.splitlines():
-            m = re.search(r'([\\w\\-]+\\.[c|h]):(\\d+)', line)
-            if m:
-                frames.append(f"{m.group(1)}:{m.group(2)}")
-                
         found_match = False
-        start_indices = [idx for idx, f in enumerate(frames) if is_frame_match(f, required_target_trace[0])]
-        
-        if start_indices:
-            print(f"DEBUG: {crash_file} matched required_target_trace[0] ({required_target_trace[0]}) at frame indices {start_indices}")
-            print(f"DEBUG: Full backtrace frames for {crash_file}: {frames}")
-            
-        for start_idx in start_indices:
-            matched_count = 1
-            curr_idx = start_idx + 1
-            matched_subset = [frames[start_idx]]
-            for target in required_target_trace[1:]:
-                for j in range(curr_idx, len(frames)):
-                    if is_frame_match(frames[j], target):
-                        matched_count += 1
-                        curr_idx = j + 1
-                        matched_subset.append(frames[j])
-                        break
-            if matched_count >= match_required:
-                print(f"DEBUG: {crash_file} matched target trace subsequence (matched {matched_count} frames: {matched_subset})")
+        if USE_11729_TRIAGE:
+            if check_swftophp_2017_11729(full_log):
+                print(f"DEBUG: {crash_file} matched CVE-2017-11729 logic")
                 found_match = True
-                break
-            else:
-                print(f"DEBUG: {crash_file} matched only {matched_count} frames: {matched_subset} (required {match_required})")
+        else:
+            frames = []
+            for line in bt_text.splitlines():
+                m = re.search(r'([\\w\\-]+\\.[c|h]):(\\d+)', line)
+                if m:
+                    frames.append(f"{m.group(1)}:{m.group(2)}")
+                    
+            start_indices = [idx for idx, f in enumerate(frames) if is_frame_match(f, required_target_trace[0])]
+            
+            if start_indices:
+                print(f"DEBUG: {crash_file} matched required_target_trace[0] ({required_target_trace[0]}) at frame indices {start_indices}")
+                print(f"DEBUG: Full backtrace frames for {crash_file}: {frames}")
+                
+            for start_idx in start_indices:
+                matched_count = 1
+                curr_idx = start_idx + 1
+                matched_subset = [frames[start_idx]]
+                for target in required_target_trace[1:]:
+                    for j in range(curr_idx, len(frames)):
+                        if is_frame_match(frames[j], target):
+                            matched_count += 1
+                            curr_idx = j + 1
+                            matched_subset.append(frames[j])
+                            break
+                if matched_count >= match_required:
+                    print(f"DEBUG: {crash_file} matched target trace subsequence (matched {matched_count} frames: {matched_subset})")
+                    found_match = True
+                    break
+                else:
+                    print(f"DEBUG: {crash_file} matched only {matched_count} frames: {matched_subset} (required {match_required})")
                 
         if found_match:
             tte_ms = elapsed_ms
@@ -308,16 +294,17 @@ def main():
 if __name__ == '__main__':
     main()
 """
+    if "2017-11729" in cve_name:
+        triage_script_content = triage_script_content.replace("USE_11729_TRIAGE = False", "USE_11729_TRIAGE = True")
+
     triage_script_path = os.path.join(local_crashes_dir, ".triage.py")
     with open(triage_script_path, 'w') as f:
         f.write(triage_script_content)
         
-    # Remove any existing .triage_result on the host
     result_path = os.path.join(local_crashes_dir, ".triage_result")
     if os.path.exists(result_path):
         os.remove(result_path)
         
-    # 3. Run the container exactly once
     cmd = [
         "docker", "run", "--rm",
         "--cap-add=SYS_PTRACE",
@@ -334,7 +321,6 @@ if __name__ == '__main__':
         stdout_text = result.stdout.decode('utf-8', errors='replace')
         stderr_text = result.stderr.decode('utf-8', errors='replace')
         
-        # If there are any output lines from python execution that indicate error
         if result.returncode != 0:
             print(f"  [!] Error running Python triage inside container (exit code {result.returncode})")
             print(f"STDOUT:\n{stdout_text}")
@@ -348,7 +334,6 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"  [!] Error running docker run: {e}")
         
-    # 4. Parse results from .triage_result on the host
     tte_ms = None
     matching_crash = None
     
@@ -359,7 +344,6 @@ if __name__ == '__main__':
                 tte_ms = int(lines[1])
                 matching_crash = lines[2]
                 
-    # 5. Clean up temporary files on the host
     for p in [trace_path, triage_script_path, result_path]:
         if os.path.exists(p):
             try:
@@ -369,202 +353,25 @@ if __name__ == '__main__':
                 
     return tte_ms, matching_crash
 
-def get_method_label(method):
-    m_low = method.lower()
-    if "cd+dd-cd" in m_low or "dual-cd" in m_low:
-        return "Dual CD+DD (CD Fuzzer)"
-    elif "cd+dd-dd" in m_low or "dual-dd" in m_low:
-        return "Dual CD+DD (DD Fuzzer)"
-    elif "cd" in m_low:
-        return "Control Dependency (cd)"
-    elif "dd" in m_low:
-        return "Data Dependency (dd)"
-    elif "icd" in m_low:
-        return "With Control dependency analysis"
-    else:
-        return "Without Control dependency analysis"
-
-def generate_tte_summary_plot(method_ttes, output_path, cve):
-    """
-    Generates Time to Bug Exposure (TTE) box plot.
-    """
-    try:
-        import matplotlib.pyplot as plt
-        import numpy as np
-        import textwrap
-    except ImportError:
-        print("Warning: matplotlib, numpy or textwrap not installed. Skipping plot generation.")
-        return
-
-    # Filter out empty datasets
-    data_to_plot = []
-    labels = []
-    text_lines = []
-
-    # Sort methods: dd (0), cd (1), cd+dd-dd (2), cd+dd-cd (3)
-    def get_sort_key(m):
-        m_low = m.lower()
-        if "cd+dd-cd" in m_low or "dual-cd" in m_low:
-            return 3
-        elif "cd+dd-dd" in m_low or "dual-dd" in m_low:
-            return 2
-        elif "cd" in m_low:
-            return 1
-        elif "dd" in m_low:
-            return 0
-        return 4
-        
-    sorted_methods = sorted(method_ttes.keys(), key=get_sort_key)
-
-    for method in sorted_methods:
-        ttes = method_ttes[method]
-        total_trials = len(ttes)
-        if total_trials == 0:
-            continue
-
-        # Filter and sort valid TTEs
-        valid_ttes = [t for t in ttes if t is not None]
-        valid_ttes.sort()
-
-        if len(valid_ttes) > 0:
-            data_to_plot.append(valid_ttes)
-        else:
-            data_to_plot.append([np.nan])
-
-        raw_label = get_method_label(method)
-        wrapped_label = textwrap.fill(raw_label, width=20)
-        labels.append(wrapped_label)
-
-        # Calculate metrics
-        if valid_ttes:
-            geo_mean = np.exp(np.mean(np.log(valid_ttes)))
-            mean_val = np.mean(valid_ttes)
-            success_rate = len(valid_ttes) / total_trials * 100.0
-            text_lines.append(f"{method} ({len(valid_ttes)}/{total_trials} - {success_rate:.0f}%):")
-            text_lines.append(f"  Geo Mean: {geo_mean:.2f}s")
-            text_lines.append(f"  Mean: {mean_val:.2f}s")
-        else:
-            text_lines.append(f"{method} (0/{total_trials}):")
-            text_lines.append(f"  No exposure")
-
-    if not data_to_plot:
-        print("Warning: No data to plot.")
-        return
-
-    plt.figure(figsize=(10, 6))
-
-    colors_map = {
-        'cd+dd-cd': '#d62728', # red
-        'dual-cd': '#d62728',
-        'cd+dd-dd': '#ff7f0e', # orange
-        'dual-dd': '#ff7f0e',
-        'cd': '#2ca02c',       # green
-        'dd': '#1f77b4',       # blue
-        'icd': '#ff7f0e',
-        'origin': '#1f77b4',
-        'base': '#1f77b4'
-    }
-
-    # Calculate speedup relative to the baseline (dd)
-    base_method = next((m for m in method_ttes.keys() if 'dd' in m.lower() and 'cd' not in m.lower()), None)
-    if base_method:
-        base_valid = [t for t in method_ttes[base_method] if t is not None]
-        if base_valid:
-            geo_mean_base = np.exp(np.mean(np.log(base_valid)))
-            for method in sorted_methods:
-                if method == base_method:
-                    continue
-                valid_ttes = [t for t in method_ttes[method] if t is not None]
-                if valid_ttes:
-                    geo_mean_m = np.exp(np.mean(np.log(valid_ttes)))
-                    if geo_mean_m > 0:
-                        speedup = geo_mean_base / geo_mean_m
-                        text_lines.append(f"Geo Mean Speedup ({method} vs {base_method}): {speedup:.2f}x")
-
-    # Create box plot
-    bp = plt.boxplot(data_to_plot, patch_artist=True, tick_labels=labels, widths=0.4,
-                     showmeans=True, meanline=True,
-                     medianprops=dict(color='black', linewidth=1.5),
-                     meanprops=dict(color='red', linewidth=1.5, linestyle='--'))
-
-    # Color boxes and set custom styles
-    for i, (patch, method) in enumerate(zip(bp['boxes'], sorted_methods)):
-        color = '#1f77b4'  # default blue
-        for key, val in colors_map.items():
-            if key in method.lower():
-                color = val
-                break
-        
-        # Style the box
-        patch.set_facecolor(color)
-        patch.set_alpha(0.6)
-        patch.set_edgecolor(color)
-        patch.set_linewidth(1.5)
-
-        # Style whiskers, caps, and fliers matching the box color
-        bp['whiskers'][2*i].set_color(color)
-        bp['whiskers'][2*i].set_linewidth(1.5)
-        bp['whiskers'][2*i+1].set_color(color)
-        bp['whiskers'][2*i+1].set_linewidth(1.5)
-        
-        bp['caps'][2*i].set_color(color)
-        bp['caps'][2*i].set_linewidth(1.5)
-        bp['caps'][2*i+1].set_color(color)
-        bp['caps'][2*i+1].set_linewidth(1.5)
-        
-        bp['fliers'][i].set_markeredgecolor(color)
-        bp['fliers'][i].set_marker('o')
-        bp['fliers'][i].set_markersize(6)
-
-        # Overlay individual trial points (jittered)
-        ttes = method_ttes[method]
-        valid_ttes = [t for t in ttes if t is not None]
-        if valid_ttes:
-            x_jitter = np.random.normal(i + 1, 0.04, size=len(valid_ttes))
-            plt.scatter(x_jitter, valid_ttes, color=color, edgecolor='black', alpha=0.8, s=45, zorder=3)
-
-    plt.title(f'Time to Bug Exposure (TTE) Distribution ({cve})', fontsize=14, fontweight='bold', pad=15)
-    plt.xlabel('Fuzzing Configuration', fontsize=12)
-    plt.ylabel('Elapsed Time to Exposure (seconds)', fontsize=12)
-    plt.grid(True, axis='y', linestyle=':', alpha=0.6)
-
-    # Add legend manually
-    import matplotlib.patches as mpatches
-    legend_patches = []
-    for method in sorted_methods:
-        color = '#1f77b4'
-        for key, val in colors_map.items():
-            if key in method.lower():
-                color = val
-                break
-        raw_label = get_method_label(method)
-        legend_patches.append(mpatches.Patch(color=color, alpha=0.6, label=f"{raw_label} ({method})"))
-    
-    import matplotlib.lines as mlines
-    mean_line = mlines.Line2D([], [], color='red', linestyle='--', linewidth=1.5, label='Mean')
-    median_line = mlines.Line2D([], [], color='black', linestyle='-', linewidth=1.5, label='Median')
-    legend_patches.extend([mean_line, median_line])
-    
-    plt.legend(handles=legend_patches, loc='best', fontsize=10)
-
-    if text_lines:
-        textstr = "\n".join(text_lines)
-        props = dict(boxstyle='round', facecolor='#e6f2ff', alpha=0.8, edgecolor='#1f77b4')
-        plt.text(1.02, 1.0, textstr, transform=plt.gca().transAxes, fontsize=10,
-                 verticalalignment='top', bbox=props, fontweight='bold')
-
-    plt.tight_layout()
-    plt.savefig(output_path, dpi=300, bbox_inches='tight')
-    plt.close()
-    print(f"Summary box plot successfully saved as '{output_path}'")
-
 def main():
     parser = argparse.ArgumentParser(description="Calculate true Time to Exposure (TTE) by checking crash backtraces.")
     parser.add_argument("--bench", required=True, help="Full benchmark directory name (e.g. libming-4.8.1_swftophp_CVE-2019-9114)")
     parser.add_argument("--root", default="./artifact", help="Root directory of the CVE artifact data")
     parser.add_argument("--build", action="store_true", help="Force rebuild of Docker images")
-    parser.add_argument("--update-reached", action="store_true", help="Deprecated/Compatibility flag (does not write to dgf_target_reached.txt anymore)")
+    parser.add_argument("--update-reached", action="store_true", help="Deprecated/Compatibility flag")
     args = parser.parse_args()
+
+    # Locate artifact directory
+    artifact_dir = os.path.join(args.root, args.bench)
+    if not os.path.exists(artifact_dir):
+        print(f"Error: Artifact directory {artifact_dir} not found. Exiting.")
+        sys.exit(1)
+        
+    methods = [d for d in os.listdir(artifact_dir) if os.path.isdir(os.path.join(artifact_dir, d)) and d != "plot"]
+    if not methods:
+        print(f"Error: No fuzzer method directories found under {artifact_dir}. Exiting.")
+        sys.exit(1)
+    print(f"Detected fuzzer methods: {methods}")
 
     # 1. Locate benchmark directory
     bench_dir = os.path.join("bench", "ICD", args.bench)
@@ -591,35 +398,20 @@ def main():
     flags = parts[1:]
     print(f"Detected fuzzer command execution: {binary} with arguments {flags}")
     
-    # 4. Locate fuzzer method directories under artifact
-    artifact_dir = os.path.join(args.root, args.bench)
-    if not os.path.exists(artifact_dir):
-        print(f"Error: Artifact directory {artifact_dir} not found. Exiting.")
-        sys.exit(1)
-        
-    methods = [d for d in os.listdir(artifact_dir) if os.path.isdir(os.path.join(artifact_dir, d)) and d != "plot"]
-    if not methods:
-        print(f"Error: No fuzzer method directories found under {artifact_dir}. Exiting.")
-        sys.exit(1)
-    print(f"Detected fuzzer methods: {methods}")
-    
-    # 5. Process each method
-    method_ttes = {}
+    # Process each method
     for method in methods:
         print(f"\n================ Method: {method} ================")
         
-        # Get Docker image name for this method and map to multistage version
         orig_image_name = get_docker_image_name(bench_dir, method)
         if not orig_image_name:
             print(f"Error: Could not find Docker image name for method {method} in compose files. Skipping.")
             continue
             
-        image_name = orig_image_name.replace("-base", "-multistage").replace("-icd", "-multistage").replace("-dd", "-multistage")
+        image_name = orig_image_name.replace("-dd", "-multistage")
         if not image_name.endswith("-multistage:latest") and not image_name.endswith("-multistage"):
-            image_name = re.sub(r'-(base|icd|dd)(:|$)', '-multistage\\2', orig_image_name)
+            image_name = re.sub(r'-dd(:|$)', '-multistage\\1', orig_image_name)
         print(f"Docker image mapped for {method} (using multistage version): {image_name}")
         
-        # Check / build Docker image
         image_exists = check_image_exists(image_name)
         if not image_exists or args.build:
             if not image_exists:
@@ -646,11 +438,10 @@ def main():
             continue
             
         print(f"Found trials to triage: {trials}")
-        method_ttes[method] = []
         
         for trial in trials:
             local_trial_dir = os.path.join(method_dir, trial)
-            fuzzer_name = "side" if ("cd+dd-cd" in method or "dual-cd" in method) else "main"
+            fuzzer_name = "side" if "dual-cd" in method else "main"
             local_crashes_dir = os.path.join(local_trial_dir, f"out/{fuzzer_name}/crashes")
             exposure_file_path = os.path.join(local_trial_dir, "dgf_target_exposure.txt")
             
@@ -658,19 +449,15 @@ def main():
                 print(f"Trial {trial}: Crashes directory not found at {local_crashes_dir}. Writing TTE: inf.")
                 with open(exposure_file_path, "w") as ef:
                     ef.write("Target not reached\n")
-                method_ttes[method].append(None)
                 continue
                 
-            # List local crash files
             crash_files = [f for f in os.listdir(local_crashes_dir) if f.startswith("id:")]
             if not crash_files:
                 print(f"Trial {trial}: No crash files found. Writing TTE: inf.")
                 with open(exposure_file_path, "w") as ef:
                     ef.write("Target not reached\n")
-                method_ttes[method].append(None)
                 continue
                 
-            # Sort crashes by fuzzer elapsed time in filename
             def get_crash_time(filename):
                 time_match = re.search(r'time:(\d+)', filename)
                 return int(time_match.group(1)) if time_match else float('inf')
@@ -679,17 +466,16 @@ def main():
             
             print(f"Trial {trial}: Triaging {len(crash_files)} crash files in a single container run...")
             
-            # Execute triage inside a single container run using ASAN variant of the binary
             asan_binary = f"{binary}-asan"
             tte_ms, matching_crash = triage_crashes_in_container(
                 image_name=image_name,
                 binary=asan_binary,
                 flags=flags,
                 local_crashes_dir=local_crashes_dir,
-                target_trace=target_trace
+                target_trace=target_trace,
+                cve_name=args.bench
             )
             
-            # Write exposure results
             if tte_ms is not None:
                 tte_sec = tte_ms / 1000.0
                 print(f"  [+] Trial {trial} True TTE: {tte_sec:.3f} seconds ({tte_ms} ms) | Crash: {matching_crash}")
@@ -697,20 +483,10 @@ def main():
                     ef.write("Target reached!\n")
                     ef.write(f"Elapsed:    {tte_sec:.3f} seconds ({tte_ms} ms)\n")
                     ef.write(f"Crash File: {matching_crash}\n")
-                method_ttes[method].append(tte_sec)
             else:
                 print(f"  [-] Trial {trial} target was not reached by any crash.")
                 with open(exposure_file_path, "w") as ef:
                     ef.write("Target not reached\n")
-                method_ttes[method].append(None)
-
-    # Generate overall summary TTE plot
-    if method_ttes:
-        print("\n================ Generating TTE Summary Plot ================")
-        plot_dir = os.path.join(artifact_dir, "plot")
-        os.makedirs(plot_dir, exist_ok=True)
-        tte_summary_path = os.path.join(plot_dir, "TTE_comparison_summary.png")
-        generate_tte_summary_plot(method_ttes, tte_summary_path, args.bench)
 
 if __name__ == '__main__':
     main()

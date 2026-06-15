@@ -127,9 +127,9 @@ def find_target_id_and_type(block_mapping_path):
 
 def get_method_info(method):
     m_low = method.lower()
-    if "cd+dd-cd" in m_low or "dual-cd" in m_low:
+    if "dual-cd" in m_low:
         return "Dual CD+DD (CD Fuzzer)", "#d62728" # red
-    elif "cd+dd-dd" in m_low or "dual-dd" in m_low:
+    elif "dual-dd" in m_low:
         return "Dual CD+DD (DD Fuzzer)", "#ff7f0e" # orange
     elif "cd" in m_low:
         return "Control Dependency (cd)", "#2ca02c" # green
@@ -662,6 +662,7 @@ def main():
     plot_base_dir = os.path.join(root, "plot")
     
     valid_methods = [m for m in methods if os.path.exists(os.path.join(root, m))]
+    valid_methods = [m for m in valid_methods if "dual-dd" not in m.lower()]
     if not valid_methods:
         print("No valid method directories found.")
         return
