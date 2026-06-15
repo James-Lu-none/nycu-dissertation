@@ -61,7 +61,13 @@ def get_docker_image_name(benchmark_dir, method):
                 compose_files.append(os.path.join(benchmark_dir, f))
     
     target_files = []
-    if "icd" in method or "cd" in method:
+    if "cd+dd" in method or "dual" in method:
+        target_files.extend([
+            "cd+dd.compose.yaml", "cd+dd.compose.yml",
+            "cd.compose.yaml", "cd.compose.yml",
+            "dd.compose.yaml", "dd.compose.yml"
+        ])
+    elif "cd" in method or "icd" in method:
         target_files.extend([
             "cd.compose.yaml", "cd.compose.yml",
             "cd+dd.compose.yaml", "cd+dd.compose.yml",
@@ -84,10 +90,12 @@ def get_docker_image_name(benchmark_dir, method):
     def matches_method(img, meth):
         img_lower = img.lower()
         meth_lower = meth.lower()
-        if "icd" in meth_lower or "cd" in meth_lower:
-            return "cd" in img_lower or "icd" in img_lower or "cafl" in img_lower
+        if "cd+dd" in meth_lower or "dual" in meth_lower:
+            return "cd" in img_lower or "dd" in img_lower or "multistage" in img_lower
+        elif "cd" in meth_lower or "icd" in meth_lower:
+            return "cd" in img_lower or "icd" in img_lower or "cafl" in img_lower or "multistage" in img_lower
         elif "dd" in meth_lower:
-            return "dd" in img_lower or "dafl" in img_lower
+            return "dd" in img_lower or "dafl" in img_lower or "multistage" in img_lower
         else:
             return "base" in img_lower or "origin" in img_lower or "multistage" in img_lower or ("cafl" not in img_lower and "dafl" not in img_lower)
 
@@ -362,7 +370,16 @@ if __name__ == '__main__':
     return tte_ms, matching_crash
 
 def get_method_label(method):
-    if "icd" in method.lower():
+    m_low = method.lower()
+    if "cd+dd-cd" in m_low or "dual-cd" in m_low:
+        return "Dual CD+DD (CD Fuzzer)"
+    elif "cd+dd-dd" in m_low or "dual-dd" in m_low:
+        return "Dual CD+DD (DD Fuzzer)"
+    elif "cd" in m_low:
+        return "Control Dependency (cd)"
+    elif "dd" in m_low:
+        return "Data Dependency (dd)"
+    elif "icd" in m_low:
         return "With Control dependency analysis"
     else:
         return "Without Control dependency analysis"
@@ -384,8 +401,20 @@ def generate_tte_summary_plot(method_ttes, output_path, cve):
     labels = []
     text_lines = []
 
-    # Sort methods: baseline/origin first, then icd
-    sorted_methods = sorted(method_ttes.keys(), key=lambda m: 1 if 'icd' in m.lower() else 0)
+    # Sort methods: dd (0), cd (1), cd+dd-dd (2), cd+dd-cd (3)
+    def get_sort_key(m):
+        m_low = m.lower()
+        if "cd+dd-cd" in m_low or "dual-cd" in m_low:
+            return 3
+        elif "cd+dd-dd" in m_low or "dual-dd" in m_low:
+            return 2
+        elif "cd" in m_low:
+            return 1
+        elif "dd" in m_low:
+            return 0
+        return 4
+        
+    sorted_methods = sorted(method_ttes.keys(), key=get_sort_key)
 
     for method in sorted_methods:
         ttes = method_ttes[method]
@@ -425,23 +454,32 @@ def generate_tte_summary_plot(method_ttes, output_path, cve):
     plt.figure(figsize=(10, 6))
 
     colors_map = {
+        'cd+dd-cd': '#d62728', # red
+        'dual-cd': '#d62728',
+        'cd+dd-dd': '#ff7f0e', # orange
+        'dual-dd': '#ff7f0e',
+        'cd': '#2ca02c',       # green
+        'dd': '#1f77b4',       # blue
         'icd': '#ff7f0e',
         'origin': '#1f77b4',
         'base': '#1f77b4'
     }
 
-    # Calculate speedup if both exist
-    icd_method = next((m for m in method_ttes.keys() if 'icd' in m.lower()), None)
-    base_method = next((m for m in method_ttes.keys() if 'icd' not in m.lower()), None)
-    if icd_method and base_method:
-        icd_valid = [t for t in method_ttes[icd_method] if t is not None]
+    # Calculate speedup relative to the baseline (dd)
+    base_method = next((m for m in method_ttes.keys() if 'dd' in m.lower() and 'cd' not in m.lower()), None)
+    if base_method:
         base_valid = [t for t in method_ttes[base_method] if t is not None]
-        if icd_valid and base_valid:
-            geo_mean_icd = np.exp(np.mean(np.log(icd_valid)))
+        if base_valid:
             geo_mean_base = np.exp(np.mean(np.log(base_valid)))
-            if geo_mean_icd > 0:
-                speedup = geo_mean_base / geo_mean_icd
-                text_lines.append(f"Geo Mean Speedup: {speedup:.2f}x")
+            for method in sorted_methods:
+                if method == base_method:
+                    continue
+                valid_ttes = [t for t in method_ttes[method] if t is not None]
+                if valid_ttes:
+                    geo_mean_m = np.exp(np.mean(np.log(valid_ttes)))
+                    if geo_mean_m > 0:
+                        speedup = geo_mean_base / geo_mean_m
+                        text_lines.append(f"Geo Mean Speedup ({method} vs {base_method}): {speedup:.2f}x")
 
     # Create box plot
     bp = plt.boxplot(data_to_plot, patch_artist=True, tick_labels=labels, widths=0.4,
@@ -612,7 +650,8 @@ def main():
         
         for trial in trials:
             local_trial_dir = os.path.join(method_dir, trial)
-            local_crashes_dir = os.path.join(local_trial_dir, "out/main/crashes")
+            fuzzer_name = "side" if ("cd+dd-cd" in method or "dual-cd" in method) else "main"
+            local_crashes_dir = os.path.join(local_trial_dir, f"out/{fuzzer_name}/crashes")
             exposure_file_path = os.path.join(local_trial_dir, "dgf_target_exposure.txt")
             
             if not os.path.exists(local_crashes_dir):

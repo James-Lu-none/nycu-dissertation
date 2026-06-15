@@ -85,36 +85,58 @@ def geometric_mean(arrays, axis=0):
         geomean = np.exp(mean_log)
     return np.nan_to_num(geomean, nan=0.0)
 
-def plot_single_trial(orig_time, orig_edge, orig_exec, work_time, work_edge, work_exec, output_dir, cve="CVE-2018-20427"):
+def get_fuzzer_name(method):
+    m_low = method.lower()
+    if "cd+dd-cd" in m_low or "dual-cd" in m_low:
+        return "side"
+    return "main"
+
+def get_method_info(method):
+    m_low = method.lower()
+    if "cd+dd-cd" in m_low or "dual-cd" in m_low:
+        return "Dual CD+DD (CD Fuzzer)", "#d62728" # red
+    elif "cd+dd-dd" in m_low or "dual-dd" in m_low:
+        return "Dual CD+DD (DD Fuzzer)", "#ff7f0e" # orange
+    elif "cd" in m_low:
+        return "Control Dependency (cd)", "#2ca02c" # green
+    elif "dd" in m_low:
+        return "Data Dependency (dd)", "#1f77b4" # blue
+    return method, "#7f7f7f"
+
+def plot_single_trial(methods, method_data, output_dir, cve="CVE-2018-20427"):
     """
-    Generates time-based and execution-based coverage comparison plots for a single trial.
+    method_data: dict of {method: (times, edges, execs)}
     """
     os.makedirs(output_dir, exist_ok=True)
     
-    final_orig = orig_edge[-1] if orig_edge else 0
-    final_work = work_edge[-1] if work_edge else 0
-    
     text_lines = []
-    text_lines.append(f"Without Control: {final_orig} edges")
-    text_lines.append(f"With Control: {final_work} edges")
-    if final_orig > 0:
-        impr = (final_work - final_orig) / final_orig * 100
-        text_lines.append(f"Coverage Impr: {impr:+.1f}%")
-        
+    base_method = methods[0]
+    base_edge = method_data[base_method][1][-1] if method_data[base_method][1] else 0
+    
+    for method in methods:
+        times, edges, execs = method_data[method]
+        final_edge = edges[-1] if edges else 0
+        label, _ = get_method_info(method)
+        text_lines.append(f"{method}: {final_edge} edges")
+        if method != base_method and base_edge > 0:
+            impr = (final_edge - base_edge) / base_edge * 100
+            text_lines.append(f"  vs {base_method}: {impr:+.1f}%")
+            
     textstr = "\n".join(text_lines) if text_lines else ""
     props = dict(boxstyle='round', facecolor='#e6f2ff', alpha=0.8, edgecolor='#1f77b4')
     
     # 1. Coverage vs Time (Seconds)
     plt.figure(figsize=(10, 6))
-    if orig_time:
-        plt.plot(np.array(orig_time), orig_edge, label='Without Control dependency analysis', color='#1f77b4', linewidth=2)
-    if work_time:
-        plt.plot(np.array(work_time), work_edge, label='With Control dependency analysis', color='#ff7f0e', linewidth=2)
-        
+    for method in methods:
+        times, edges, _ = method_data[method]
+        if times:
+            label, color = get_method_info(method)
+            plt.plot(np.array(times), edges, label=label, color=color, linewidth=2)
+            
     if textstr:
         plt.text(1.02, 1.0, textstr, transform=plt.gca().transAxes, fontsize=10,
                  verticalalignment='top', bbox=props)
-        
+                 
     plt.title(f'Edge Coverage Over Time ({cve})', fontsize=14, fontweight='bold', pad=15)
     plt.xlabel('Elapsed Time (seconds)', fontsize=12)
     plt.ylabel('Unique Edges Found', fontsize=12)
@@ -126,15 +148,16 @@ def plot_single_trial(orig_time, orig_edge, orig_exec, work_time, work_edge, wor
     
     # 2. Coverage vs Executions (Millions)
     plt.figure(figsize=(10, 6))
-    if orig_exec:
-        plt.plot(np.array(orig_exec) / 1e6, orig_edge, label='Without Control dependency analysis', color='#1f77b4', linewidth=2)
-    if work_exec:
-        plt.plot(np.array(work_exec) / 1e6, work_edge, label='With Control dependency analysis', color='#ff7f0e', linewidth=2)
-        
+    for method in methods:
+        _, edges, execs = method_data[method]
+        if execs:
+            label, color = get_method_info(method)
+            plt.plot(np.array(execs) / 1e6, edges, label=label, color=color, linewidth=2)
+            
     if textstr:
         plt.text(1.02, 1.0, textstr, transform=plt.gca().transAxes, fontsize=10,
                  verticalalignment='top', bbox=props)
-        
+                 
     plt.title(f'Edge Coverage vs Total Executions ({cve})', fontsize=14, fontweight='bold', pad=15)
     plt.xlabel('Total Executions (millions)', fontsize=12)
     plt.ylabel('Unique Edges Found', fontsize=12)
@@ -152,25 +175,22 @@ def main():
     args = parser.parse_args()
     
     root = os.path.expanduser(args.root)
-    baseline_dir_name = args.methods[0]
-    icd_dir_name = args.methods[1]
-    
-    base_dir = os.path.join(root, baseline_dir_name)
-    control_dir = os.path.join(root, icd_dir_name)
+    methods = args.methods
     plot_base_dir = os.path.join(root, "plot")
     
-    if not os.path.exists(base_dir):
-        print(f"Base directory {base_dir} does not exist.")
+    valid_methods = [m for m in methods if os.path.exists(os.path.join(root, m))]
+    if not valid_methods:
+        print("No valid method directories found.")
         return
         
     detected = set()
-    for method in args.methods:
+    for method in valid_methods:
         method_dir = os.path.join(root, method)
-        if os.path.exists(method_dir):
-            for name in os.listdir(method_dir):
-                match = re.match(r'^trial(\w+)$', name)
-                if match:
-                    detected.add(match.group(1))
+        for name in os.listdir(method_dir):
+            match = re.match(r'^trial(\w+)$', name)
+            if match:
+                detected.add(match.group(1))
+                
     def sort_key(x):
         digits = re.search(r'\d+', x)
         return (0, int(digits.group())) if digits else (1, x)
@@ -180,175 +200,141 @@ def main():
         return
     print(f"Automatically detected trials: {trial_suffixes}")
 
-    # Standardize trial folder names, e.g. trial1, trial2...
     trials = ["trial" + t for t in trial_suffixes]
-    # Sort natural order
     trials.sort(key=lambda x: int(re.search(r'\d+', x).group()) if re.search(r'\d+', x) else x)
     
-    print(f"Using base_dir: {base_dir}")
-    print(f"Using control_dir: {control_dir}")
+    print(f"Valid methods: {valid_methods}")
     print(f"Found trials for coverage plotting: {trials}")
     
-    orig_runs_time = []
-    work_runs_time = []
-    orig_runs_exec = []
-    work_runs_exec = []
+    method_runs_time = {m: [] for m in valid_methods}
+    method_runs_exec = {m: [] for m in valid_methods}
     
     max_time_all = 0
     max_exec_all = 0
     
     for trial in trials:
         print(f"\n================ Processing Coverage for {trial} ================")
-        orig_plot_file = os.path.join(base_dir, trial, "out/main/plot_data")
-        work_plot_file = os.path.join(control_dir, trial, "out/main/plot_data")
+        trial_method_data = {}
         
-        orig_time, orig_edge, orig_exec = parse_plot_data(orig_plot_file)
-        work_time, work_edge, work_exec = parse_plot_data(work_plot_file)
-        
+        for method in valid_methods:
+            fuzzer_name = get_fuzzer_name(method)
+            plot_file = os.path.join(root, method, trial, f"out/{fuzzer_name}/plot_data")
+            times, edges, execs = parse_plot_data(plot_file)
+            trial_method_data[method] = (times, edges, execs)
+            
+            if times:
+                method_runs_time[method].append((times, edges))
+                method_runs_exec[method].append((execs, edges))
+                max_time_all = max(max_time_all, times[-1])
+                max_exec_all = max(max_exec_all, execs[-1])
+                
         output_dir = os.path.join(plot_base_dir, trial)
-        
         print(f"Plotting single-trial coverage to {output_dir}...")
-        plot_single_trial(orig_time, orig_edge, orig_exec, work_time, work_edge, work_exec, output_dir, cve=args.cve)
+        plot_single_trial(valid_methods, trial_method_data, output_dir, cve=args.cve)
         
-        # Save for summary averaging
-        if orig_time:
-            orig_runs_time.append((orig_time, orig_edge))
-            orig_runs_exec.append((orig_exec, orig_edge))
-            max_time_all = max(max_time_all, orig_time[-1])
-            max_exec_all = max(max_exec_all, orig_exec[-1])
-            
-        if work_time:
-            work_runs_time.append((work_time, work_edge))
-            work_runs_exec.append((work_exec, work_edge))
-            max_time_all = max(max_time_all, work_time[-1])
-            max_exec_all = max(max_exec_all, work_exec[-1])
-            
-    # Generate overall summary average plots if we have runs
-    if orig_runs_time or work_runs_time:
-        print("\n================ Generating Coverage Summary Plots ================")
-        os.makedirs(plot_base_dir, exist_ok=True)
+    print("\n================ Generating Coverage Summary Plots ================")
+    os.makedirs(plot_base_dir, exist_ok=True)
+    
+    common_times = np.linspace(0, max_time_all, num=1000)
+    plt.figure(figsize=(10, 6))
+    
+    method_means_time = {}
+    
+    for idx, method in enumerate(valid_methods):
+        label, color = get_method_info(method)
+        runs = method_runs_time[method]
+        interp_runs = [interpolate_run(r[0], r[1], common_times) for r in runs if r[0]]
         
-        # 1. Summary plot over Time (Hours)
-        common_times = np.linspace(0, max_time_all, num=1000)
+        if not interp_runs:
+            continue
+            
+        for i, interp in enumerate(interp_runs):
+            lbl = f'{label} (individual)' if i == 0 else ""
+            plt.plot(common_times, interp, color=color, alpha=0.2, linewidth=1, label=lbl)
+            
+        mean_curve = geometric_mean(interp_runs, axis=0)
+        std_curve = np.std(interp_runs, axis=0)
+        method_means_time[method] = mean_curve[-1]
         
-        orig_interp_time = []
-        for times, edges in orig_runs_time:
-            orig_interp_time.append(interpolate_run(times, edges, common_times))
-            
-        work_interp_time = []
-        for times, edges in work_runs_time:
-            work_interp_time.append(interpolate_run(times, edges, common_times))
-            
-        plt.figure(figsize=(10, 6))
+        plt.plot(common_times, mean_curve, color=color, linewidth=2.5, label=f'{label} (average)')
+        plt.fill_between(common_times, np.maximum(0, mean_curve - std_curve), mean_curve + std_curve, color=color, alpha=0.1)
         
-        # Plot individual lines as faint lines
-        for i, interp in enumerate(orig_interp_time):
-            lbl = 'Without Control (individual)' if i == 0 else ""
-            plt.plot(common_times, interp, color='#1f77b4', alpha=0.25, linewidth=1, label=lbl)
+    text_lines = []
+    base_method = valid_methods[0]
+    base_avg_time = method_means_time.get(base_method, 0.0)
+    
+    for method in valid_methods:
+        avg_val = method_means_time.get(method, 0.0)
+        text_lines.append(f"Avg {method}: {avg_val:.1f} edges")
+        if method != base_method and base_avg_time > 0:
+            impr = (avg_val - base_avg_time) / base_avg_time * 100
+            text_lines.append(f"  vs {base_method}: {impr:+.1f}%")
             
-        for i, interp in enumerate(work_interp_time):
-            lbl = 'With Control (individual)' if i == 0 else ""
-            plt.plot(common_times, interp, color='#ff7f0e', alpha=0.25, linewidth=1, label=lbl)
-            
-        # Plot mean and std area
-        if orig_interp_time:
-            orig_mean = geometric_mean(orig_interp_time, axis=0)
-            orig_std = np.std(orig_interp_time, axis=0)
-            plt.plot(common_times, orig_mean, color='#1f77b4', linewidth=2.5, label='Without Control (average)')
-            plt.fill_between(common_times, np.maximum(0, orig_mean - orig_std), orig_mean + orig_std, color='#1f77b4', alpha=0.12)
-            
-        if work_interp_time:
-            work_mean = geometric_mean(work_interp_time, axis=0)
-            work_std = np.std(work_interp_time, axis=0)
-            plt.plot(common_times, work_mean, color='#ff7f0e', linewidth=2.5, label='With Control (average)')
-            plt.fill_between(common_times, np.maximum(0, work_mean - work_std), work_mean + work_std, color='#ff7f0e', alpha=0.12)
-            
-        text_lines = []
-        if orig_interp_time and work_interp_time:
-            final_orig_avg = orig_mean[-1]
-            final_work_avg = work_mean[-1]
-            text_lines.append(f"Avg Without Control: {final_orig_avg:.1f} edges")
-            text_lines.append(f"Avg With Control: {final_work_avg:.1f} edges")
-            if final_orig_avg > 0:
-                impr = (final_work_avg - final_orig_avg) / final_orig_avg * 100
-                text_lines.append(f"Avg Coverage Impr: {impr:+.1f}%")
-                
-        if text_lines:
-            textstr = "\n".join(text_lines)
-            props = dict(boxstyle='round', facecolor='#e6f2ff', alpha=0.8, edgecolor='#1f77b4')
-            plt.text(1.02, 1.0, textstr, transform=plt.gca().transAxes, fontsize=10,
-                     verticalalignment='top', bbox=props, fontweight='bold')
-                     
-        plt.title(f'Edge Coverage Over Time ({args.cve})', fontsize=14, fontweight='bold', pad=15)
-        plt.xlabel('Elapsed Time (seconds)', fontsize=12)
-        plt.ylabel('Unique Edges Found', fontsize=12)
-        plt.grid(True, linestyle=':', alpha=0.6)
-        plt.legend(loc='lower right', fontsize=10)
-        plt.tight_layout()
-        plt.savefig(os.path.join(plot_base_dir, 'coverage_time_summary.png'), dpi=300, bbox_inches='tight')
-        plt.close()
-        print(f"Summary plot saved as '{os.path.join(plot_base_dir, 'coverage_time_summary.png')}'")
+    if text_lines:
+        textstr = "\n".join(text_lines)
+        props = dict(boxstyle='round', facecolor='#e6f2ff', alpha=0.8, edgecolor='#1f77b4')
+        plt.text(1.02, 1.0, textstr, transform=plt.gca().transAxes, fontsize=10,
+                 verticalalignment='top', bbox=props, fontweight='bold')
+                 
+    plt.title(f'Edge Coverage Over Time ({args.cve})', fontsize=14, fontweight='bold', pad=15)
+    plt.xlabel('Elapsed Time (seconds)', fontsize=12)
+    plt.ylabel('Unique Edges Found', fontsize=12)
+    plt.grid(True, linestyle=':', alpha=0.6)
+    plt.legend(loc='lower right', fontsize=10)
+    plt.tight_layout()
+    plt.savefig(os.path.join(plot_base_dir, 'coverage_time_summary.png'), dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"Summary plot saved as '{os.path.join(plot_base_dir, 'coverage_time_summary.png')}'")
+    
+    common_execs = np.linspace(0, max_exec_all, num=1000)
+    plt.figure(figsize=(10, 6))
+    
+    method_means_exec = {}
+    
+    for idx, method in enumerate(valid_methods):
+        label, color = get_method_info(method)
+        runs = method_runs_exec[method]
+        interp_runs = [interpolate_run(r[0], r[1], common_execs) for r in runs if r[0]]
         
-        # 2. Summary plot over Executions (Millions)
-        common_execs = np.linspace(0, max_exec_all, num=1000)
+        if not interp_runs:
+            continue
+            
+        for i, interp in enumerate(interp_runs):
+            lbl = f'{label} (individual)' if i == 0 else ""
+            plt.plot(common_execs / 1e6, interp, color=color, alpha=0.2, linewidth=1, label=lbl)
+            
+        mean_curve = geometric_mean(interp_runs, axis=0)
+        std_curve = np.std(interp_runs, axis=0)
+        method_means_exec[method] = mean_curve[-1]
         
-        orig_interp_exec = []
-        for execs, edges in orig_runs_exec:
-            orig_interp_exec.append(interpolate_run(execs, edges, common_execs))
-            
-        work_interp_exec = []
-        for execs, edges in work_runs_exec:
-            work_interp_exec.append(interpolate_run(execs, edges, common_execs))
-            
-        plt.figure(figsize=(10, 6))
+        plt.plot(common_execs / 1e6, mean_curve, color=color, linewidth=2.5, label=f'{label} (average)')
+        plt.fill_between(common_execs / 1e6, np.maximum(0, mean_curve - std_curve), mean_curve + std_curve, color=color, alpha=0.1)
         
-        # Plot individual lines as faint lines
-        for i, interp in enumerate(orig_interp_exec):
-            lbl = 'Without Control (individual)' if i == 0 else ""
-            plt.plot(common_execs / 1e6, interp, color='#1f77b4', alpha=0.25, linewidth=1, label=lbl)
+    text_lines = []
+    base_avg_exec = method_means_exec.get(base_method, 0.0)
+    
+    for method in valid_methods:
+        avg_val = method_means_exec.get(method, 0.0)
+        text_lines.append(f"Avg {method}: {avg_val:.1f} edges")
+        if method != base_method and base_avg_exec > 0:
+            impr = (avg_val - base_avg_exec) / base_avg_exec * 100
+            text_lines.append(f"  vs {base_method}: {impr:+.1f}%")
             
-        for i, interp in enumerate(work_interp_exec):
-            lbl = 'With Control (individual)' if i == 0 else ""
-            plt.plot(common_execs / 1e6, interp, color='#ff7f0e', alpha=0.25, linewidth=1, label=lbl)
-            
-        # Plot mean and std area
-        if orig_interp_exec:
-            orig_mean_exec = geometric_mean(orig_interp_exec, axis=0)
-            orig_std_exec = np.std(orig_interp_exec, axis=0)
-            plt.plot(common_execs / 1e6, orig_mean_exec, color='#1f77b4', linewidth=2.5, label='Without Control (average)')
-            plt.fill_between(common_execs / 1e6, np.maximum(0, orig_mean_exec - orig_std_exec), orig_mean_exec + orig_std_exec, color='#1f77b4', alpha=0.12)
-            
-        if work_interp_exec:
-            work_mean_exec = geometric_mean(work_interp_exec, axis=0)
-            work_std_exec = np.std(work_interp_exec, axis=0)
-            plt.plot(common_execs / 1e6, work_mean_exec, color='#ff7f0e', linewidth=2.5, label='With Control (average)')
-            plt.fill_between(common_execs / 1e6, np.maximum(0, work_mean_exec - work_std_exec), work_mean_exec + work_std_exec, color='#ff7f0e', alpha=0.12)
-            
-        text_lines = []
-        if orig_interp_exec and work_interp_exec:
-            final_orig_avg = orig_mean_exec[-1]
-            final_work_avg = work_mean_exec[-1]
-            text_lines.append(f"Avg Without Control: {final_orig_avg:.1f} edges")
-            text_lines.append(f"Avg With Control: {final_work_avg:.1f} edges")
-            if final_orig_avg > 0:
-                impr = (final_work_avg - final_orig_avg) / final_orig_avg * 100
-                text_lines.append(f"Avg Coverage Impr: {impr:+.1f}%")
-                
-        if text_lines:
-            textstr = "\n".join(text_lines)
-            props = dict(boxstyle='round', facecolor='#e6f2ff', alpha=0.8, edgecolor='#1f77b4')
-            plt.text(1.02, 1.0, textstr, transform=plt.gca().transAxes, fontsize=10,
-                     verticalalignment='top', bbox=props, fontweight='bold')
-                     
-        plt.title(f'Edge Coverage vs Total Executions ({args.cve})', fontsize=14, fontweight='bold', pad=15)
-        plt.xlabel('Total Executions (millions)', fontsize=12)
-        plt.ylabel('Unique Edges Found', fontsize=12)
-        plt.grid(True, linestyle=':', alpha=0.6)
-        plt.legend(loc='lower right', fontsize=10)
-        plt.tight_layout()
-        plt.savefig(os.path.join(plot_base_dir, 'coverage_execs_summary.png'), dpi=300, bbox_inches='tight')
-        plt.close()
-        print(f"Summary plot saved as '{os.path.join(plot_base_dir, 'coverage_execs_summary.png')}'")
+    if text_lines:
+        textstr = "\n".join(text_lines)
+        props = dict(boxstyle='round', facecolor='#e6f2ff', alpha=0.8, edgecolor='#1f77b4')
+        plt.text(1.02, 1.0, textstr, transform=plt.gca().transAxes, fontsize=10,
+                 verticalalignment='top', bbox=props, fontweight='bold')
+                 
+    plt.title(f'Edge Coverage vs Total Executions ({args.cve})', fontsize=14, fontweight='bold', pad=15)
+    plt.xlabel('Total Executions (millions)', fontsize=12)
+    plt.ylabel('Unique Edges Found', fontsize=12)
+    plt.grid(True, linestyle=':', alpha=0.6)
+    plt.legend(loc='lower right', fontsize=10)
+    plt.tight_layout()
+    plt.savefig(os.path.join(plot_base_dir, 'coverage_execs_summary.png'), dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"Summary plot saved as '{os.path.join(plot_base_dir, 'coverage_execs_summary.png')}'")
 
 if __name__ == '__main__':
     main()

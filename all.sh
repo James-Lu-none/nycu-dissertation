@@ -1,5 +1,5 @@
 #!/bin/bash
-
+. ../.venv/bin/activate
 CVE_list=(
     # libming
     # "libming-4.8.1_swftophp_CVE-2019-9114"
@@ -36,31 +36,28 @@ for CVE in ${CVE_list[@]}; do
     root="./artifact/${CVE}"
     mkdir -p ${root}
 
-    baseline="afl-origin"
-    icd="afl-icd"
+    methods=("dd" "cd" "cd+dd-dd" "cd+dd-cd")
+    suffixes=("afl-dd" "afl-cd" "afl-dual-dd" "afl-dual-cd")
 
     for i in ${trial[@]}; do
-    
-        mkdir -p ${root}/${baseline}/trial${i}
-        mkdir -p ${root}/${icd}/trial${i}
+        for idx in ${!methods[@]}; do
+            method=${methods[$idx]}
+            suffix=${suffixes[$idx]}
 
-        docker cp ${CVE}-${baseline}-${i}:/workspace/dgf_blocks_hit.txt ${root}/${baseline}/trial${i}/
-        docker cp ${CVE}-${baseline}-${i}:/workspace/dgf_target_reached.txt ${root}/${baseline}/trial${i}/
-        docker cp ${CVE}-${baseline}-${i}:/workspace/dgf_block_mapping.txt ${root}/${baseline}/trial${i}/
-        docker cp ${CVE}-${baseline}-${i}:/workspace/dgf_compile_info.txt ${root}/${baseline}/trial${i}/
-        docker cp ${CVE}-${baseline}-${i}:/workspace/out ${root}/${baseline}/trial${i}/
+            mkdir -p ${root}/${method}/trial${i}
 
-        docker cp ${CVE}-${icd}-${i}:/workspace/dgf_blocks_hit.txt ${root}/${icd}/trial${i}/
-        docker cp ${CVE}-${icd}-${i}:/workspace/dgf_target_reached.txt ${root}/${icd}/trial${i}/
-        docker cp ${CVE}-${icd}-${i}:/workspace/dgf_block_mapping.txt ${root}/${icd}/trial${i}/
-        docker cp ${CVE}-${icd}-${i}:/workspace/dgf_compile_info.txt ${root}/${icd}/trial${i}/
-        docker cp ${CVE}-${icd}-${i}:/workspace/out ${root}/${icd}/trial${i}/
+            docker cp ${CVE}-${suffix}-${i}:/workspace/dgf_blocks_hit.txt ${root}/${method}/trial${i}/
+            docker cp ${CVE}-${suffix}-${i}:/workspace/dgf_target_reached.txt ${root}/${method}/trial${i}/
+            docker cp ${CVE}-${suffix}-${i}:/workspace/dgf_block_mapping.txt ${root}/${method}/trial${i}/
+            docker cp ${CVE}-${suffix}-${i}:/workspace/dgf_compile_info.txt ${root}/${method}/trial${i}/
+            docker cp ${CVE}-${suffix}-${i}:/workspace/out ${root}/${method}/trial${i}/
+        done
     done
 
     chown -R $(id -u):$(id -g) ${root}
 
-    python3 TTR.py --root ${root} --methods $baseline $icd --cve ${CVE}
-    python3 cov.py --root ${root} --methods $baseline $icd --cve ${CVE}
+    python3 TTR.py --root ${root} --methods dd cd cd+dd-dd cd+dd-cd --cve ${CVE}
+    python3 cov.py --root ${root} --methods dd cd cd+dd-dd cd+dd-cd --cve ${CVE}
 done
 
 for cve in ${CVE_list[@]}; do
