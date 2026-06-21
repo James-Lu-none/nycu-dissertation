@@ -6,10 +6,8 @@ import argparse
 
 def get_method_label(method):
     m_low = method.lower()
-    if "dual-cd" in m_low:
-        return "Dual CD+DD (CD Fuzzer)"
-    elif "dual-dd" in m_low:
-        return "Dual CD+DD (DD Fuzzer)"
+    if "dual" in m_low:
+        return "Dual CD+DD"
     elif "cd" in m_low:
         return "Control Dependency (cd)"
     elif "dd" in m_low:
@@ -36,12 +34,10 @@ def generate_tte_summary_plot(method_ttes, output_path, cve):
     labels = []
     text_lines = []
 
-    # Sort methods: base (0), dd (1), cd (2), dual-dd (3), dual-cd (4)
+    # Sort methods: base (0), dd (1), cd (2), dual (3)
     def get_sort_key(m):
         m_low = m.lower()
-        if "dual-cd" in m_low:
-            return 4
-        elif "dual-dd" in m_low:
+        if "dual" in m_low:
             return 3
         elif "cd" in m_low:
             return 2
@@ -91,8 +87,7 @@ def generate_tte_summary_plot(method_ttes, output_path, cve):
     plt.figure(figsize=(10, 6))
 
     colors_map = {
-        'dual-cd': '#d62728', # red
-        'dual-dd': '#ff7f0e', # orange
+        'dual': '#ff7f0e',    # orange
         'cd': '#2ca02c',       # green
         'dd': '#1f77b4',       # blue
         'base': '#7f7f7f'      # gray
@@ -244,6 +239,24 @@ def main():
             exposure_file_path = os.path.join(method_dir, trial, "dgf_target_exposure.txt")
             tte = parse_exposure_file(exposure_file_path)
             method_ttes[method].append(tte)
+
+    # Combine dual-dd and dual-cd into a single method "dual"
+    dual_keys = [k for k in method_ttes.keys() if "dual" in k.lower()]
+    if dual_keys:
+        max_trials = max(len(method_ttes[k]) for k in dual_keys)
+        dual_ttes = []
+        for i in range(max_trials):
+            trial_vals = []
+            for k in dual_keys:
+                if i < len(method_ttes[k]) and method_ttes[k][i] is not None:
+                    trial_vals.append(method_ttes[k][i])
+            if trial_vals:
+                dual_ttes.append(min(trial_vals))
+            else:
+                dual_ttes.append(None)
+        for k in dual_keys:
+            del method_ttes[k]
+        method_ttes["dual"] = dual_ttes
 
     # Generate overall summary TTE plot
     if method_ttes:
