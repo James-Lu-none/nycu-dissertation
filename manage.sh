@@ -123,7 +123,7 @@ if [ "$COMMAND" = "copy" ]; then
         method="${methods[$idx]}"
         suffix="${suffixes[$idx]}"
         mkdir -p "${root}/${method}/trial${i}"
-        echo "Copying results from ${CVE}-${suffix}-${i}..."
+        printf "Copying results from %-55s... " "${CVE}-${suffix}-${i}"
         if [ "$(docker inspect -f '{{.State.Running}}' "${CVE}-${suffix}-${i}" 2>/dev/null)" = "true" ]; then
           docker exec "${CVE}-${suffix}-${i}" tar -cf - -C /workspace out --exclude=".cur_input" --exclude="*.pyc" --exclude="__pycache__" 2>/dev/null | tar -xf - -C "${root}/${method}/trial${i}/" 2>/dev/null || true
         else
@@ -132,6 +132,14 @@ if [ "$COMMAND" = "copy" ]; then
         sudo find "${root}/${method}/trial${i}" -name "*.pyc" -delete 2>/dev/null || true
         sudo find "${root}/${method}/trial${i}" -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
         sudo chown -R "$(id -u):$(id -g)" "${root}/${method}/trial${i}" 2>/dev/null || true
+        
+        # Calculate and display size
+        size=$(du -sh "${root}/${method}/trial${i}/out" 2>/dev/null | awk '{print $1}')
+        if [ -n "$size" ]; then
+          printf "\033[1;32mDone\033[0m (size: %s)\n" "$size"
+        else
+          printf "\033[1;31mFailed\033[0m\n"
+        fi
       done
     done
   done
@@ -202,7 +210,7 @@ if [ "$COMMAND" = "ttr" ]; then
         method="${methods[$idx]}"
         suffix="${suffixes[$idx]}"
         mkdir -p "${root}/${method}/trial${i}"
-        echo "Copying TTR logs from ${CVE}-${suffix}-${i}..."
+        printf "Copying TTR logs from %-55s... " "${CVE}-${suffix}-${i}"
         docker cp "${CVE}-${suffix}-${i}:/workspace/dgf_blocks_hit.txt" "${root}/${method}/trial${i}/" 2>/dev/null || true
         docker cp "${CVE}-${suffix}-${i}:/workspace/dgf_target_reached.txt" "${root}/${method}/trial${i}/" 2>/dev/null || true
         docker cp "${CVE}-${suffix}-${i}:/workspace/dgf_block_mapping.txt" "${root}/${method}/trial${i}/" 2>/dev/null || true
@@ -211,6 +219,14 @@ if [ "$COMMAND" = "ttr" ]; then
           docker exec "${CVE}-${suffix}-${i}" tar -cf - -C /workspace out --exclude=".cur_input" --exclude="*.pyc" --exclude="__pycache__" 2>/dev/null | tar -xf - -C "${root}/${method}/trial${i}/" 2>/dev/null || true
         else
           docker cp "${CVE}-${suffix}-${i}:/workspace/out" "${root}/${method}/trial${i}/" 2>/dev/null || true
+        fi
+        
+        # Calculate and display size
+        size=$(du -sh "${root}/${method}/trial${i}/out" 2>/dev/null | awk '{print $1}')
+        if [ -n "$size" ]; then
+          printf "\033[1;32mDone\033[0m (size: %s)\n" "$size"
+        else
+          printf "\033[1;31mFailed\033[0m\n"
         fi
       done
     done
