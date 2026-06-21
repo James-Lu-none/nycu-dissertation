@@ -1,6 +1,0 @@
-services:
-  afl:
-    container_name: afl-libarchive
-    build: .
-    command: sleep infinity
-    
