@@ -85,6 +85,20 @@ def geometric_mean(arrays, axis=0):
         geomean = np.exp(mean_log)
     return np.nan_to_num(geomean, nan=0.0)
 
+def parse_corpus_imported(file_path):
+    if not os.path.exists(file_path):
+        return None
+    try:
+        with open(file_path, 'r') as f:
+            for line in f:
+                if 'corpus_imported' in line:
+                    match = re.search(r'corpus_imported\s*:\s*(\d+)', line)
+                    if match:
+                        return int(match.group(1))
+    except Exception as e:
+        print(f"Error parsing corpus_imported in {file_path}: {e}")
+    return None
+
 def get_fuzzer_name(method):
     m_low = method.lower()
     if "dual-cd" in m_low:
@@ -101,6 +115,8 @@ def get_method_info(method):
         return "Control Dependency (cd)", "#2ca02c" # green
     elif "dd" in m_low:
         return "Data Dependency (dd)", "#1f77b4" # blue
+    elif "base" in m_low:
+        return "Baseline (base)", "#7f7f7f" # gray
     return method, "#7f7f7f"
 
 def plot_single_trial(methods, method_data, output_dir, cve="CVE-2018-20427"):
@@ -335,6 +351,63 @@ def main():
     plt.savefig(os.path.join(plot_base_dir, 'coverage_execs_summary.png'), dpi=300, bbox_inches='tight')
     plt.close()
     print(f"Summary plot saved as '{os.path.join(plot_base_dir, 'coverage_execs_summary.png')}'")
+
+    # Generate box plot for corpus_imported in dual instances
+    dual_methods = [m for m in valid_methods if "dual" in m.lower()]
+    if dual_methods:
+        print("\n================ Generating Corpus Imported Box Plot ================")
+        plot_data = []
+        plot_labels = []
+        colors = []
+        for method in dual_methods:
+            values = []
+            fuzzer_name = get_fuzzer_name(method)
+            for trial in trials:
+                stats_file = os.path.join(root, method, trial, f"out/{fuzzer_name}/fuzzer_stats")
+                val = parse_corpus_imported(stats_file)
+                if val is not None:
+                    values.append(val)
+            if values:
+                plot_data.append(values)
+                label, color = get_method_info(method)
+                plot_labels.append(label)
+                colors.append(color)
+                
+        if plot_data:
+            plt.figure(figsize=(8, 6))
+            bp = plt.boxplot(plot_data, patch_artist=True, tick_labels=plot_labels, widths=0.4,
+                             showmeans=True, meanline=True,
+                             medianprops=dict(color='black', linewidth=1.5),
+                             meanprops=dict(color='red', linewidth=1.5, linestyle='--'))
+                             
+            for i, (patch, color) in enumerate(zip(bp['boxes'], colors)):
+                patch.set_facecolor(color)
+                patch.set_alpha(0.6)
+                patch.set_edgecolor(color)
+                patch.set_linewidth(1.5)
+                bp['whiskers'][2*i].set_color(color)
+                bp['whiskers'][2*i].set_linewidth(1.5)
+                bp['whiskers'][2*i+1].set_color(color)
+                bp['whiskers'][2*i+1].set_linewidth(1.5)
+                bp['caps'][2*i].set_color(color)
+                bp['caps'][2*i].set_linewidth(1.5)
+                bp['caps'][2*i+1].set_color(color)
+                bp['caps'][2*i+1].set_linewidth(1.5)
+                bp['fliers'][i].set_markeredgecolor(color)
+                
+            for i, values in enumerate(plot_data):
+                x_jitter = np.random.normal(i + 1, 0.04, size=len(values))
+                plt.scatter(x_jitter, values, color=colors[i], edgecolor='black', alpha=0.8, s=45, zorder=3)
+                
+            plt.title(f'Corpus Imported (Dual CD+DD) Comparison ({args.cve})', fontsize=14, fontweight='bold', pad=15)
+            plt.ylabel('Number of Imported Corpora', fontsize=12)
+            plt.grid(True, axis='y', linestyle=':', alpha=0.6)
+            plt.tight_layout()
+            
+            boxplot_path = os.path.join(plot_base_dir, 'corpus_imported_boxplot.png')
+            plt.savefig(boxplot_path, dpi=300, bbox_inches='tight')
+            plt.close()
+            print(f"Corpus imported boxplot successfully saved as '{boxplot_path}'")
 
 if __name__ == '__main__':
     main()

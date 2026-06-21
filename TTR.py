@@ -135,6 +135,8 @@ def get_method_info(method):
         return "Control Dependency (cd)", "#2ca02c" # green
     elif "dd" in m_low:
         return "Data Dependency (dd)", "#1f77b4" # blue
+    elif "base" in m_low:
+        return "Baseline (base)", "#7f7f7f" # gray
     return method, "#7f7f7f"
 
 def generate_cumulative_plot(methods, method_dirs, use_ttr_limit, output_filename, total_blocks=None, cve="CVE-2018-20427"):
@@ -662,7 +664,6 @@ def main():
     plot_base_dir = os.path.join(root, "plot")
     
     valid_methods = [m for m in methods if os.path.exists(os.path.join(root, m))]
-    valid_methods = [m for m in valid_methods if "dual-dd" not in m.lower()]
     if not valid_methods:
         print("No valid method directories found.")
         return

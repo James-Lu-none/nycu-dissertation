@@ -66,6 +66,11 @@ def get_docker_image_name(benchmark_dir, method):
             "dd.compose.yaml", "dd.compose.yml",
             "dual.compose.yaml", "dual.compose.yml"
         ]
+    elif "base" in method:
+        target_files = [
+            "base.compose.yaml", "base.compose.yml",
+            "compose.yaml", "compose.yml"
+        ]
     else:
         target_files = [
             "compose.yaml", "compose.yml"
@@ -80,6 +85,8 @@ def get_docker_image_name(benchmark_dir, method):
             return "cd" in img_lower or "cafl" in img_lower or "multistage" in img_lower
         elif "dd" in meth_lower:
             return "dd" in img_lower or "dafl" in img_lower or "multistage" in img_lower
+        elif "base" in meth_lower:
+            return "base" in img_lower or "multistage" in img_lower
         else:
             return "multistage" in img_lower or ("cafl" not in img_lower and "dafl" not in img_lower)
 

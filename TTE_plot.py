@@ -14,6 +14,8 @@ def get_method_label(method):
         return "Control Dependency (cd)"
     elif "dd" in m_low:
         return "Data Dependency (dd)"
+    elif "base" in m_low:
+        return "Baseline (base)"
     else:
         return method
 
@@ -34,21 +36,22 @@ def generate_tte_summary_plot(method_ttes, output_path, cve):
     labels = []
     text_lines = []
 
-    # Sort methods: dd (0), cd (1), dual-dd (2), dual-cd (3)
+    # Sort methods: base (0), dd (1), cd (2), dual-dd (3), dual-cd (4)
     def get_sort_key(m):
         m_low = m.lower()
         if "dual-cd" in m_low:
-            return 3
+            return 4
         elif "dual-dd" in m_low:
-            return 2
+            return 3
         elif "cd" in m_low:
-            return 1
+            return 2
         elif "dd" in m_low:
+            return 1
+        elif "base" in m_low:
             return 0
-        return 4
+        return 5
         
     sorted_methods = sorted(method_ttes.keys(), key=get_sort_key)
-    sorted_methods = [m for m in sorted_methods if "dual-dd" not in m.lower()]
 
     for method in sorted_methods:
         ttes = method_ttes[method]
@@ -91,11 +94,15 @@ def generate_tte_summary_plot(method_ttes, output_path, cve):
         'dual-cd': '#d62728', # red
         'dual-dd': '#ff7f0e', # orange
         'cd': '#2ca02c',       # green
-        'dd': '#1f77b4'        # blue
+        'dd': '#1f77b4',       # blue
+        'base': '#7f7f7f'      # gray
     }
 
-    # Calculate speedup relative to the baseline (dd)
-    base_method = next((m for m in method_ttes.keys() if 'dd' in m.lower() and 'cd' not in m.lower()), None)
+    # Calculate speedup relative to the baseline (base, otherwise dd)
+    base_method = next((m for m in method_ttes.keys() if 'base' in m.lower()), None)
+    if not base_method:
+        base_method = next((m for m in method_ttes.keys() if 'dd' in m.lower() and 'cd' not in m.lower()), None)
+        
     if base_method:
         base_valid = [t for t in method_ttes[base_method] if t is not None]
         if base_valid:
