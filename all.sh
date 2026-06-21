@@ -7,8 +7,8 @@ CVE_list=(
     # "libming-4.8_swftophp_CVE-2018-7868"
     # "libming-4.8_swftophp_CVE-2018-8807"
     # "libming-4.8_swftophp_CVE-2018-8962"
-    # "libming-4.7_swftophp_2017-9988"
-    # "libming-4.7_swftophp_2017-11728"
+    # "libming-4.7_swftophp_CVE-2017-9988"
+    # "libming-4.7_swftophp_CVE-2017-11728"
     # "libming-4.8_swftophp_CVE-2018-11225"
     # "libming-4.8_swftophp_CVE-2018-11226"
     # "libming-4.8_swftophp_CVE-2019-12982"
@@ -49,10 +49,12 @@ if [ "$answer" == "y" ]; then
                 suffix=${suffixes[$idx]}
                 mkdir -p ${root}/${method}/trial${i}
                 docker cp ${CVE}-${suffix}-${i}:/workspace/out ${root}/${method}/trial${i}/
+                sudo find ${root}/${method}/trial${i} -name "*.pyc" -delete
+                sudo find ${root}/${method}/trial${i} -name "__pycache__" -exec rm -rf {} +                
+                sudo chown -R $(id -u):$(id -g) ${root}/${method}/trial${i}
             done
         done
 
-        chown -R $(id -u):$(id -g) ${root}
         python3 stat_plot.py --root ${root} --methods base dd cd dual-dd dual-cd --cve ${CVE}
     done
 fi
