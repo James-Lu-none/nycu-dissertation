@@ -93,7 +93,7 @@ for cve in "${CVE_LIST[@]}"; do
     cd "$ROOT_DIR/bench/$cve" || exit 1
     case "$COMMAND" in
       up)
-        docker compose up -d "${EXTRA_ARGS[@]}"
+        docker compose up -d --build "${EXTRA_ARGS[@]}"
         ;;
       down)
         if [ ${#EXTRA_ARGS[@]} -eq 0 ]; then
