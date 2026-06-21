@@ -1,4 +1,6 @@
 FROM my-aflplusplus:latest
+ENV CFLAGS="-g -O3"
+ENV CXXFLAGS="-g -O3"
 
 RUN apt-get update && apt-get install -y \
     make pkg-config wget curl git yasm

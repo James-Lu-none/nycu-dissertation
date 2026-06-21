@@ -1,4 +1,6 @@
 FROM aflplusplus/aflplusplus:latest
+ENV CFLAGS="-g -O3"
+ENV CXXFLAGS="-g -O3"
 
 # 1. 安裝必要依賴 (參考 OSS-Fuzz)
 RUN apt-get update && apt-get install -y \
