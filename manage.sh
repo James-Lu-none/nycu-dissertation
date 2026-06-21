@@ -29,7 +29,7 @@ show_usage() {
   echo "  up      : Start docker containers for CVE trials"
   echo "  down    : Stop docker containers and remove named volumes (-v)"
   echo "  build   : Build docker images for CVE trials"
-  echo "  status  : Show container running status"
+  echo "  status  : Check if fuzzer process is active inside containers"
   echo "  log     : Print /workspace/cpu_binding.log from inside containers"
   echo "  clean   : Force stop and remove containers, volumes, and images"
   echo ""
@@ -128,7 +128,50 @@ for cve in "${CVE_LIST[@]}"; do
         docker compose build "${EXTRA_ARGS[@]}"
         ;;
       status)
-        docker compose ps "${EXTRA_ARGS[@]}"
+        CONTAINERS=$(docker ps -a --filter name="^/${cve}-afl-" --format "{{.Names}}" | sort)
+        if [ -z "$CONTAINERS" ]; then
+          echo "No containers found for $cve."
+        else
+          for container in $CONTAINERS; do
+            printf "%-55s : " "$container"
+            if [ "$(docker inspect -f '{{.State.Running}}' "$container" 2>/dev/null)" = "true" ]; then
+              # Get fuzzer process PID from inside the container's tmux session
+              FUZZER_PID=$(docker exec "$container" bash -c 'SESSION_NAME=$(basename "$TARGET_BIN"); tmux list-panes -t "$SESSION_NAME" -F "#{pane_pid}" 2>/dev/null' | tr -d '\r' | tr -d '\n')
+              if [ -n "$FUZZER_PID" ] && ps -p "$FUZZER_PID" -o cmd= 2>/dev/null | grep -q "afl-fuzz"; then
+                printf "\033[1;32mActive (PID: %s)\033[0m" "$FUZZER_PID"
+                
+                # Fetch fuzzer stats
+                stats_content=$(docker exec "$container" bash -c 'cat /workspace/out/$FUZZER_NAME/fuzzer_stats 2>/dev/null')
+                if [ -n "$stats_content" ]; then
+                  bitmap_cvg=$(echo "$stats_content" | grep "^bitmap_cvg" | awk -F: '{print $2}' | tr -d ' ' | tr -d '\r')
+                  saved_crashes=$(echo "$stats_content" | grep "^saved_crashes" | awk -F: '{print $2}' | tr -d ' ' | tr -d '\r')
+                  corpus_imported=$(echo "$stats_content" | grep "^corpus_imported" | awk -F: '{print $2}' | tr -d ' ' | tr -d '\r')
+                  last_crash=$(echo "$stats_content" | grep "^last_crash" | awk -F: '{print $2}' | tr -d ' ' | tr -d '\r')
+                  
+                  if [ -n "$last_crash" ] && [ "$last_crash" -gt 0 ] 2>/dev/null; then
+                    current_time=$(date +%s)
+                    diff=$((current_time - last_crash))
+                    if [ $diff -lt 0 ]; then diff=0; fi
+                    hours=$((diff / 3600))
+                    minutes=$(((diff % 3600) / 60))
+                    seconds=$((diff % 60))
+                    last_crash_str="${hours}h ${minutes}m ${seconds}s ago"
+                  else
+                    last_crash_str="none"
+                  fi
+                  
+                  echo -e " | cvg: \033[1;36m$bitmap_cvg\033[0m | crashes: \033[1;31m$saved_crashes\033[0m | imported: \033[1;33m$corpus_imported\033[0m | last crash: \033[1;35m$last_crash_str\033[0m"
+                else
+                  echo -e " | \033[1;30m(No stats available yet)\033[0m"
+                fi
+              else
+                echo -e "\033[1;31mInactive (Fuzzer process died!)\033[0m"
+              fi
+            else
+              echo -e "\033[1;30mStopped (Container not running)\033[0m"
+            fi
+          done
+        fi
         ;;
       log)
         CONTAINERS=$(docker ps -a --filter name="^/${cve}-afl-" --format "{{.Names}}" | sort)
