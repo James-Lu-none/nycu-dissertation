@@ -25,7 +25,7 @@ get_cves() {
 
 
 show_usage() {
-  echo "Usage: $0 {up|down|build|status|log|clean|stat_plot|tte_check|tte_plot|ttr} [cve_name]"
+  echo "Usage: $0 {up|down|build|status|log|clean|copy|stat_plot|tte_check|tte_plot|ttr} [cve_name]"
   echo "Commands:"
   echo "  up        : Start docker containers for CVE trials"
   echo "  down      : Stop docker containers and remove named volumes (-v)"
@@ -33,10 +33,11 @@ show_usage() {
   echo "  status    : Check if fuzzer process is active inside containers"
   echo "  log       : Print /workspace/cpu_binding.log from inside containers"
   echo "  clean     : Force stop and remove containers, volumes, and images"
-  echo "  stat_plot : Run stat_plot.py on active CVEs (copies stats and plots)"
+  echo "  copy      : Copy stats from docker containers (excluding .cur_input)"
+  echo "  stat_plot : Run stat_plot.py on active CVEs (plots already copied stats)"
   echo "  tte_check : Run TTE_check.py on active CVEs"
   echo "  tte_plot  : Run TTE_plot.py on active CVEs"
-  echo "  ttr       : Run TTR.py on active CVEs (copies TTR logs and plots)"
+  echo "  ttr       : Run TTR.py on active CVEs (copies TTR logs/stats and plots)"
   echo ""
   echo "If [cve_name] is omitted, the command runs on all active CVEs defined in cves.env."
   exit 1
@@ -49,7 +50,7 @@ EXTRA_ARGS=()
 for arg in "$@"; do
   # Convert arg to lowercase to accept case-insensitive commands
   arg_lower=$(echo "$arg" | tr '[:upper:]' '[:lower:]')
-  if [ -z "$COMMAND" ] && [[ "$arg_lower" =~ ^(up|down|build|status|log|clean|stat_plot|tte_check|tte_plot|ttr)$ ]]; then
+  if [ -z "$COMMAND" ] && [[ "$arg_lower" =~ ^(up|down|build|status|log|clean|copy|stat_plot|tte_check|tte_plot|ttr)$ ]]; then
     COMMAND="$arg_lower"
   elif [[ "$arg" == -* ]]; then
     EXTRA_ARGS+=("$arg")
@@ -63,7 +64,7 @@ for arg in "$@"; do
 done
 
 if [ -z "$COMMAND" ]; then
-  echo "Error: Command (up, down, build, status, log, clean, stat_plot, tte_check, tte_plot, ttr) is required."
+  echo "Error: Command (up, down, build, status, log, clean, copy, stat_plot, tte_check, tte_plot, ttr) is required."
   show_usage
 fi
 
@@ -109,12 +110,7 @@ if [ "$COMMAND" = "clean" ]; then
   exit 0
 fi
 
-if [ "$COMMAND" = "stat_plot" ]; then
-  # Activate venv if it exists
-  if [ -f "$ROOT_DIR/../.venv/bin/activate" ]; then
-    . "$ROOT_DIR/../.venv/bin/activate"
-  fi
-
+if [ "$COMMAND" = "copy" ]; then
   cd "$ROOT_DIR"
   trial=(1 2 3 4 5)
   methods=("base" "dd" "cd" "dual-dd" "dual-cd")
@@ -127,13 +123,31 @@ if [ "$COMMAND" = "stat_plot" ]; then
         method="${methods[$idx]}"
         suffix="${suffixes[$idx]}"
         mkdir -p "${root}/${method}/trial${i}"
-        echo "Copying stats from ${CVE}-${suffix}-${i}..."
-        docker cp "${CVE}-${suffix}-${i}:/workspace/out" "${root}/${method}/trial${i}/" 2>/dev/null || true
+        echo "Copying results from ${CVE}-${suffix}-${i}..."
+        if [ "$(docker inspect -f '{{.State.Running}}' "${CVE}-${suffix}-${i}" 2>/dev/null)" = "true" ]; then
+          docker exec "${CVE}-${suffix}-${i}" tar -cf - -C /workspace out --exclude=".cur_input" --exclude="*.pyc" --exclude="__pycache__" 2>/dev/null | tar -xf - -C "${root}/${method}/trial${i}/" 2>/dev/null || true
+        else
+          docker cp "${CVE}-${suffix}-${i}:/workspace/out" "${root}/${method}/trial${i}/" 2>/dev/null || true
+        fi
         sudo find "${root}/${method}/trial${i}" -name "*.pyc" -delete 2>/dev/null || true
         sudo find "${root}/${method}/trial${i}" -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
         sudo chown -R "$(id -u):$(id -g)" "${root}/${method}/trial${i}" 2>/dev/null || true
       done
     done
+  done
+  echo -e "\n\033[1;32mDone.\033[0m"
+  exit 0
+fi
+
+if [ "$COMMAND" = "stat_plot" ]; then
+  # Activate venv if it exists
+  if [ -f "$ROOT_DIR/../.venv/bin/activate" ]; then
+    . "$ROOT_DIR/../.venv/bin/activate"
+  fi
+
+  cd "$ROOT_DIR"
+  for CVE in "${CVE_LIST[@]}"; do
+    root="./artifact/${CVE}"
     python3 scripts/stat_plot.py --root "${root}" --methods base dd cd dual-dd dual-cd --cve "${CVE}"
   done
   echo -e "\n\033[1;32mDone.\033[0m"
@@ -193,7 +207,11 @@ if [ "$COMMAND" = "ttr" ]; then
         docker cp "${CVE}-${suffix}-${i}:/workspace/dgf_target_reached.txt" "${root}/${method}/trial${i}/" 2>/dev/null || true
         docker cp "${CVE}-${suffix}-${i}:/workspace/dgf_block_mapping.txt" "${root}/${method}/trial${i}/" 2>/dev/null || true
         docker cp "${CVE}-${suffix}-${i}:/workspace/dgf_compile_info.txt" "${root}/${method}/trial${i}/" 2>/dev/null || true
-        docker cp "${CVE}-${suffix}-${i}:/workspace/out" "${root}/${method}/trial${i}/" 2>/dev/null || true
+        if [ "$(docker inspect -f '{{.State.Running}}' "${CVE}-${suffix}-${i}" 2>/dev/null)" = "true" ]; then
+          docker exec "${CVE}-${suffix}-${i}" tar -cf - -C /workspace out --exclude=".cur_input" --exclude="*.pyc" --exclude="__pycache__" 2>/dev/null | tar -xf - -C "${root}/${method}/trial${i}/" 2>/dev/null || true
+        else
+          docker cp "${CVE}-${suffix}-${i}:/workspace/out" "${root}/${method}/trial${i}/" 2>/dev/null || true
+        fi
       done
     done
     sudo chown -R "$(id -u):$(id -g)" "${root}" 2>/dev/null || true
