@@ -24,13 +24,14 @@ get_cves() {
 }
 
 show_usage() {
-  echo "Usage: $0 {up|down|build|status|log} [cve_name]"
+  echo "Usage: $0 {up|down|build|status|log|clean} [cve_name]"
   echo "Commands:"
   echo "  up      : Start docker containers for CVE trials"
   echo "  down    : Stop docker containers and remove named volumes (-v)"
   echo "  build   : Build docker images for CVE trials"
   echo "  status  : Show container running status"
   echo "  log     : Print /workspace/cpu_binding.log from inside containers"
+  echo "  clean   : Force stop and remove containers, volumes, and images"
   echo ""
   echo "If [cve_name] is omitted, the command runs on all active CVEs defined in cves.env."
   exit 1
@@ -41,7 +42,7 @@ TARGET_CVE=""
 EXTRA_ARGS=()
 
 for arg in "$@"; do
-  if [ -z "$COMMAND" ] && [[ "$arg" =~ ^(up|down|build|status|log)$ ]]; then
+  if [ -z "$COMMAND" ] && [[ "$arg" =~ ^(up|down|build|status|log|clean)$ ]]; then
     COMMAND="$arg"
   elif [[ "$arg" == -* ]]; then
     EXTRA_ARGS+=("$arg")
@@ -72,8 +73,32 @@ else
   CVE_LIST=($(get_cves))
 fi
 
-if [ ${#CVE_LIST[@]} -eq 0 ]; then
+if [ ${#CVE_LIST[@]} -eq 0 ] && [ "$COMMAND" != "clean" ]; then
   echo "No active CVEs found to manage."
+  exit 0
+fi
+
+if [ "$COMMAND" = "clean" ]; then
+  echo -e "\n\033[1;31m[Docker-Prune] Stopping and removing all containers & pruning volumes...\033[0m"
+  CONTAINER_IDS=$(docker ps -aq)
+  if [ -n "$CONTAINER_IDS" ]; then
+    echo "Stopping all containers..."
+    docker stop $CONTAINER_IDS || true
+    echo "Removing all containers..."
+    docker rm $CONTAINER_IDS || true
+  else
+    echo "No containers to stop/remove."
+  fi
+  echo "Pruning all unused volumes..."
+  docker volume prune -a -f
+  
+  echo -e "\n\033[1;34m[Docker Volumes]\033[0m"
+  docker volume ls
+  
+  echo -e "\n\033[1;34m[Docker Containers]\033[0m"
+  docker ps -a
+  
+  echo -e "\n\033[1;32mDone.\033[0m"
   exit 0
 fi
 
@@ -116,6 +141,7 @@ for cve in "${CVE_LIST[@]}"; do
           done
         fi
         ;;
+
       *)
         echo "Unknown command: $COMMAND"
         show_usage
