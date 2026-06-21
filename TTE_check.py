@@ -253,7 +253,7 @@ def main():
     print(f"Detected fuzzer methods: {methods}")
 
     # 1. Locate benchmark directory
-    bench_dir = os.path.join("bench", "ICD", args.bench)
+    bench_dir = os.path.join("bench", args.bench)
     if not os.path.exists(bench_dir):
         print(f"Error: Benchmark directory {bench_dir} not found.")
         sys.exit(1)
