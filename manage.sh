@@ -79,10 +79,7 @@ fi
 
 # Run action for each CVE
 for cve in "${CVE_LIST[@]}"; do
-  echo "================================================================================"
-  echo " CVE: $cve"
-  echo " Action: $COMMAND ${EXTRA_ARGS[*]}"
-  echo "================================================================================"
+  echo -e "\n\033[1;34m[Docker-Compose]\033[0m \033[1;35m$cve\033[0m >> \033[1;32m$COMMAND ${EXTRA_ARGS[*]}\033[0m"
   
   if [ ! -f "$ROOT_DIR/bench/$cve/compose.yaml" ]; then
     echo "Warning: compose.yaml not found in bench/$cve. Skipping."
@@ -126,5 +123,4 @@ for cve in "${CVE_LIST[@]}"; do
     esac
   )
 done
-echo "================================================================================"
-echo "Done."
+echo -e "\n\033[1;32mDone.\033[0m"
