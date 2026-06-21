@@ -40,8 +40,8 @@ if [ "$answer" == "y" ]; then
         root="./artifact/${CVE}"
         mkdir -p ${root}
 
-        methods=("dd" "cd" "dual-dd" "dual-cd")
-        suffixes=("afl-dd" "afl-cd" "afl-dual-dd" "afl-dual-cd")
+        methods=("base" "dd" "cd" "dual-dd" "dual-cd")
+        suffixes=("afl-base" "afl-dd" "afl-cd" "afl-dual-dd" "afl-dual-cd")
 
         for i in ${trial[@]}; do
             for idx in ${!methods[@]}; do
@@ -60,8 +60,8 @@ if [ "$answer" == "y" ]; then
 
         chown -R $(id -u):$(id -g) ${root}
 
-        python3 TTR.py --root ${root} --methods dd cd dual-dd dual-cd --cve ${CVE}
-        python3 cov.py --root ${root} --methods dd cd dual-dd dual-cd --cve ${CVE}
+        python3 TTR.py --root ${root} --methods base dd cd dual-dd dual-cd --cve ${CVE}
+        python3 stat_plot.py --root ${root} --methods base dd cd dual-dd dual-cd --cve ${CVE}
     done
 fi
 
