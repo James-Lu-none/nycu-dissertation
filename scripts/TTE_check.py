@@ -20,27 +20,27 @@ def parse_trace(trace_path):
     return trace
 
 def parse_fuzzer_command(benchmark_dir):
-    script_path = os.path.join(benchmark_dir, "script.sh")
-    if not os.path.exists(script_path):
+    env_path = os.path.join(benchmark_dir, ".env")
+    if not os.path.exists(env_path):
         return None
     
-    target_default = None
-    with open(script_path, 'r') as f:
-        content = f.read()
-        
-    m_tar = re.search(r'TARGET=\${TARGET_BIN:-([^}]+)}', content)
-    if m_tar:
-        target_default = m_tar.group(1).strip()
-        
-    for line in content.split('\n'):
-        if "afl-fuzz" in line or "$FUZZER" in line:
-            match = re.search(r'--\s+(.+)$', line)
-            if match:
-                cmd_str = match.group(1).strip()
-                cmd_str = cmd_str.strip('"').strip("'")
-                if "$TARGET" in cmd_str and target_default:
-                    cmd_str = cmd_str.replace("$TARGET", target_default)
-                return cmd_str
+    env_vars = {}
+    with open(env_path, 'r') as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith('#'):
+                continue
+            if '=' in line:
+                k, v = line.split('=', 1)
+                env_vars[k.strip()] = v.strip().strip('"').strip("'")
+                
+    target_bin = env_vars.get("TARGET_BIN_BASE")
+    if not target_bin:
+        target_bin = env_vars.get("TARGET_BIN")
+    target_args = env_vars.get("TARGET_ARGS", "")
+    
+    if target_bin:
+        return f"{target_bin} {target_args}".strip()
     return None
 
 def get_docker_image_name(benchmark_dir, method):
@@ -266,10 +266,10 @@ def main():
         sys.exit(1)
     print(f"Target stack trace to match: {target_trace}")
         
-    # 3. Parse fuzzer command from script.sh
+    # 3. Parse fuzzer command from .env
     cmd_str = parse_fuzzer_command(bench_dir)
     if not cmd_str:
-        print(f"Error: Could not find fuzzer execution command in {bench_dir}/script.sh. Exiting.")
+        print(f"Error: Could not find fuzzer execution command in {bench_dir}/.env. Exiting.")
         sys.exit(1)
         
     parts = cmd_str.split()
@@ -350,7 +350,10 @@ def main():
             
             print(f"Trial {trial}: Triaging {len(crash_files)} crash files in a single container run...")
             
-            asan_binary = f"{binary}-asan"
+            if binary.endswith("-base"):
+                asan_binary = binary[:-5] + "-asan"
+            else:
+                asan_binary = f"{binary}-asan"
             tte_ms, matching_crash = triage_crashes_in_container(
                 image_name=image_name,
                 binary=asan_binary,
