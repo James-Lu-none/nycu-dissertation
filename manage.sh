@@ -23,6 +23,7 @@ get_cves() {
   fi
 }
 
+
 show_usage() {
   echo "Usage: $0 {up|down|build|status|log|clean} [cve_name]"
   echo "Commands:"
@@ -138,7 +139,13 @@ for cve in "${CVE_LIST[@]}"; do
               # Get fuzzer process PID from inside the container's tmux session
               FUZZER_PID=$(docker exec "$container" bash -c 'SESSION_NAME=$(basename "$TARGET_BIN"); tmux list-panes -t "$SESSION_NAME" -F "#{pane_pid}" 2>/dev/null' | tr -d '\r' | tr -d '\n')
               if [ -n "$FUZZER_PID" ] && ps -p "$FUZZER_PID" -o cmd= 2>/dev/null | grep -q "afl-fuzz"; then
-                printf "\033[1;32mActive (PID: %s)\033[0m" "$FUZZER_PID"
+                core_num=$(grep "Cpus_allowed_list:" "/proc/$FUZZER_PID/status" 2>/dev/null | awk '{print $2}' | tr -d '\r' | tr -d '\n')
+                if [ -n "$core_num" ]; then
+                  core_info="core: $core_num"
+                else
+                  core_info="core: unknown"
+                fi
+                printf "\033[1;32mActive (%s)\033[0m" "$core_info"
                 
                 # Fetch fuzzer stats
                 stats_content=$(docker exec "$container" bash -c 'cat /workspace/out/$FUZZER_NAME/fuzzer_stats 2>/dev/null')
