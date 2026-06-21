@@ -24,12 +24,13 @@ get_cves() {
 }
 
 show_usage() {
-  echo "Usage: $0 {up|down|build|status} [cve_name]"
+  echo "Usage: $0 {up|down|build|status|log} [cve_name]"
   echo "Commands:"
   echo "  up      : Start docker containers for CVE trials"
   echo "  down    : Stop docker containers and remove named volumes (-v)"
   echo "  build   : Build docker images for CVE trials"
   echo "  status  : Show container running status"
+  echo "  log     : Print /workspace/cpu_binding.log from inside containers"
   echo ""
   echo "If [cve_name] is omitted, the command runs on all active CVEs defined in cves.env."
   exit 1
@@ -40,7 +41,7 @@ TARGET_CVE=""
 EXTRA_ARGS=()
 
 for arg in "$@"; do
-  if [ -z "$COMMAND" ] && [[ "$arg" =~ ^(up|down|build|status)$ ]]; then
+  if [ -z "$COMMAND" ] && [[ "$arg" =~ ^(up|down|build|status|log)$ ]]; then
     COMMAND="$arg"
   elif [[ "$arg" == -* ]]; then
     EXTRA_ARGS+=("$arg")
@@ -106,6 +107,17 @@ for cve in "${CVE_LIST[@]}"; do
         ;;
       status)
         docker compose ps "${EXTRA_ARGS[@]}"
+        ;;
+      log)
+        CONTAINERS=$(docker ps -a --filter name="^/${cve}-afl-" --format "{{.Names}}" | sort)
+        if [ -z "$CONTAINERS" ]; then
+          echo "No containers found for $cve."
+        else
+          for container in $CONTAINERS; do
+            echo -e "\n\033[1;36m>>> Logs for $container:\033[0m"
+            docker exec "$container" cat /workspace/cpu_binding.log 2>/dev/null || echo "(Container not running or /workspace/cpu_binding.log not found)"
+          done
+        fi
         ;;
       *)
         echo "Unknown command: $COMMAND"
