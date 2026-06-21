@@ -1,0 +1,463 @@
+services:
+  # ==========================================
+  # AFL Base Services
+  # ==========================================
+  afl-base-1:
+    container_name: "${CVE}-afl-base-1"
+    build:
+      context: "./${CVE}"
+      dockerfile: Dockerfile
+    image: "${IMAGE_NAME}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_BASE}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+    volumes:
+      - "afl-out-base-1:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+
+  afl-base-2:
+    container_name: "${CVE}-afl-base-2"
+    image: "${IMAGE_NAME}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_BASE}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+    volumes:
+      - "afl-out-base-2:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+
+  afl-base-3:
+    container_name: "${CVE}-afl-base-3"
+    image: "${IMAGE_NAME}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_BASE}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+    volumes:
+      - "afl-out-base-3:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+
+  afl-base-4:
+    container_name: "${CVE}-afl-base-4"
+    image: "${IMAGE_NAME}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_BASE}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+    volumes:
+      - "afl-out-base-4:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+
+  afl-base-5:
+    container_name: "${CVE}-afl-base-5"
+    image: "${IMAGE_NAME}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_BASE}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+    volumes:
+      - "afl-out-base-5:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+
+  # ==========================================
+  # AFL CD Services
+  # ==========================================
+  afl-cd-1:
+    container_name: "${CVE}-afl-cd-1"
+    image: "${IMAGE_NAME}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_CD}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - FUZZER_BIN=afl-fuzz-cd
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+    volumes:
+      - "afl-out-cd-1:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+
+  afl-cd-2:
+    container_name: "${CVE}-afl-cd-2"
+    image: "${IMAGE_NAME}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_CD}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - FUZZER_BIN=afl-fuzz-cd
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+    volumes:
+      - "afl-out-cd-2:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+
+  afl-cd-3:
+    container_name: "${CVE}-afl-cd-3"
+    image: "${IMAGE_NAME}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_CD}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - FUZZER_BIN=afl-fuzz-cd
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+    volumes:
+      - "afl-out-cd-3:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+
+  afl-cd-4:
+    container_name: "${CVE}-afl-cd-4"
+    image: "${IMAGE_NAME}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_CD}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - FUZZER_BIN=afl-fuzz-cd
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+    volumes:
+      - "afl-out-cd-4:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+
+  afl-cd-5:
+    container_name: "${CVE}-afl-cd-5"
+    image: "${IMAGE_NAME}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_CD}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - FUZZER_BIN=afl-fuzz-cd
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+    volumes:
+      - "afl-out-cd-5:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+
+  # ==========================================
+  # AFL DD Services
+  # ==========================================
+  afl-dd-1:
+    container_name: "${CVE}-afl-dd-1"
+    image: "${IMAGE_NAME}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_DD}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - FUZZER_BIN=afl-fuzz-dd
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+    volumes:
+      - "afl-out-dd-1:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+
+  afl-dd-2:
+    container_name: "${CVE}-afl-dd-2"
+    image: "${IMAGE_NAME}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_DD}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - FUZZER_BIN=afl-fuzz-dd
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+    volumes:
+      - "afl-out-dd-2:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+
+  afl-dd-3:
+    container_name: "${CVE}-afl-dd-3"
+    image: "${IMAGE_NAME}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_DD}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - FUZZER_BIN=afl-fuzz-dd
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+    volumes:
+      - "afl-out-dd-3:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+
+  afl-dd-4:
+    container_name: "${CVE}-afl-dd-4"
+    image: "${IMAGE_NAME}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_DD}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - FUZZER_BIN=afl-fuzz-dd
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+    volumes:
+      - "afl-out-dd-4:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+
+  afl-dd-5:
+    container_name: "${CVE}-afl-dd-5"
+    image: "${IMAGE_NAME}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_DD}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - FUZZER_BIN=afl-fuzz-dd
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+    volumes:
+      - "afl-out-dd-5:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+
+  # ==========================================
+  # AFL Dual Services (CD + DD pairs)
+  # ==========================================
+  afl-dual-dd-1:
+    container_name: "${CVE}-afl-dual-dd-1"
+    image: "${IMAGE_NAME}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_DD}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - FUZZER_BIN=afl-fuzz-dd
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=dd
+    volumes:
+      - "afl-dual-out-1:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+
+  afl-dual-cd-1:
+    container_name: "${CVE}-afl-dual-cd-1"
+    image: "${IMAGE_NAME}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_CD}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - FUZZER_BIN=afl-fuzz-cd
+      - FUZZER_ROLE=S
+      - FUZZER_NAME=cd
+    volumes:
+      - "afl-dual-out-1:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+
+  afl-dual-dd-2:
+    container_name: "${CVE}-afl-dual-dd-2"
+    image: "${IMAGE_NAME}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_DD}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - FUZZER_BIN=afl-fuzz-dd
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=dd
+    volumes:
+      - "afl-dual-out-2:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+
+  afl-dual-cd-2:
+    container_name: "${CVE}-afl-dual-cd-2"
+    image: "${IMAGE_NAME}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_CD}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - FUZZER_BIN=afl-fuzz-cd
+      - FUZZER_ROLE=S
+      - FUZZER_NAME=cd
+    volumes:
+      - "afl-dual-out-2:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+
+  afl-dual-dd-3:
+    container_name: "${CVE}-afl-dual-dd-3"
+    image: "${IMAGE_NAME}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_DD}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - FUZZER_BIN=afl-fuzz-dd
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=dd
+    volumes:
+      - "afl-dual-out-3:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+
+  afl-dual-cd-3:
+    container_name: "${CVE}-afl-dual-cd-3"
+    image: "${IMAGE_NAME}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_CD}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - FUZZER_BIN=afl-fuzz-cd
+      - FUZZER_ROLE=S
+      - FUZZER_NAME=cd
+    volumes:
+      - "afl-dual-out-3:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+
+  afl-dual-dd-4:
+    container_name: "${CVE}-afl-dual-dd-4"
+    image: "${IMAGE_NAME}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_DD}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - FUZZER_BIN=afl-fuzz-dd
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=dd
+    volumes:
+      - "afl-dual-out-4:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+
+  afl-dual-cd-4:
+    container_name: "${CVE}-afl-dual-cd-4"
+    image: "${IMAGE_NAME}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_CD}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - FUZZER_BIN=afl-fuzz-cd
+      - FUZZER_ROLE=S
+      - FUZZER_NAME=cd
+    volumes:
+      - "afl-dual-out-4:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+
+  afl-dual-dd-5:
+    container_name: "${CVE}-afl-dual-dd-5"
+    image: "${IMAGE_NAME}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_DD}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - FUZZER_BIN=afl-fuzz-dd
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=dd
+    volumes:
+      - "afl-dual-out-5:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+
+  afl-dual-cd-5:
+    container_name: "${CVE}-afl-dual-cd-5"
+    image: "${IMAGE_NAME}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_CD}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - FUZZER_BIN=afl-fuzz-cd
+      - FUZZER_ROLE=S
+      - FUZZER_NAME=cd
+    volumes:
+      - "afl-dual-out-5:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+
+# ==========================================
+# Named Volumes mapping to dynamically named volumes on the host
+# ==========================================
+volumes:
+  afl-out-base-1:
+    name: "${CVE}-afl-out-base-1"
+  afl-out-base-2:
+    name: "${CVE}-afl-out-base-2"
+  afl-out-base-3:
+    name: "${CVE}-afl-out-base-3"
+  afl-out-base-4:
+    name: "${CVE}-afl-out-base-4"
+  afl-out-base-5:
+    name: "${CVE}-afl-out-base-5"
+
+  afl-out-cd-1:
+    name: "${CVE}-afl-out-cd-1"
+  afl-out-cd-2:
+    name: "${CVE}-afl-out-cd-2"
+  afl-out-cd-3:
+    name: "${CVE}-afl-out-cd-3"
+  afl-out-cd-4:
+    name: "${CVE}-afl-out-cd-4"
+  afl-out-cd-5:
+    name: "${CVE}-afl-out-cd-5"
+
+  afl-out-dd-1:
+    name: "${CVE}-afl-out-dd-1"
+  afl-out-dd-2:
+    name: "${CVE}-afl-out-dd-2"
+  afl-out-dd-3:
+    name: "${CVE}-afl-out-dd-3"
+  afl-out-dd-4:
+    name: "${CVE}-afl-out-dd-4"
+  afl-out-dd-5:
+    name: "${CVE}-afl-out-dd-5"
+
+  afl-dual-out-1:
+    name: "${CVE}-afl-dual-out-1"
+  afl-dual-out-2:
+    name: "${CVE}-afl-dual-out-2"
+  afl-dual-out-3:
+    name: "${CVE}-afl-dual-out-3"
+  afl-dual-out-4:
+    name: "${CVE}-afl-dual-out-4"
+  afl-dual-out-5:
+    name: "${CVE}-afl-dual-out-5"
