@@ -181,7 +181,7 @@ def triage_crashes_in_container(image_name, binary, flags, local_crashes_dir, ta
     ] + flags
     
     try:
-        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=120)
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         stdout_text = result.stdout.decode('utf-8', errors='replace')
         stderr_text = result.stderr.decode('utf-8', errors='replace')
         
