@@ -102,7 +102,9 @@ def parse_corpus_imported(file_path):
 def get_fuzzer_name(method):
     m_low = method.lower()
     if "dual-cd" in m_low:
-        return "side"
+        return "cd"
+    elif "dual-dd" in m_low:
+        return "dd"
     return "main"
 
 def get_method_info(method):

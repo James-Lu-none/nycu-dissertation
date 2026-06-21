@@ -300,7 +300,12 @@ def main():
         
         for trial in trials:
             local_trial_dir = os.path.join(method_dir, trial)
-            fuzzer_name = "side" if "dual-cd" in method else "main"
+            if "dual-cd" in method:
+                fuzzer_name = "cd"
+            elif "dual-dd" in method:
+                fuzzer_name = "dd"
+            else:
+                fuzzer_name = "main"
             local_crashes_dir = os.path.join(local_trial_dir, f"out/{fuzzer_name}/crashes")
             exposure_file_path = os.path.join(local_trial_dir, "dgf_target_exposure.txt")
             
