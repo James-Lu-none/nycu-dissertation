@@ -4,6 +4,7 @@ import re
 import sys
 import subprocess
 import argparse
+import shutil
 
 def parse_trace(trace_path):
     trace = []
@@ -319,19 +320,34 @@ def main():
         
         for trial in trials:
             local_trial_dir = os.path.join(method_dir, trial)
-            if "dual-cd" in method:
-                fuzzer_name = "cd"
-            elif "dual-dd" in method:
-                fuzzer_name = "dd"
-            else:
-                fuzzer_name = "main"
-            local_crashes_dir = os.path.join(local_trial_dir, f"out/{fuzzer_name}/crashes")
             exposure_file_path = os.path.join(local_trial_dir, "dgf_target_exposure.txt")
+            
+            is_dual = "dual" in method
+            temp_merged_dir = None
+            
+            if is_dual:
+                temp_merged_dir = os.path.join(local_trial_dir, "out/merged_crashes")
+                if os.path.exists(temp_merged_dir):
+                    shutil.rmtree(temp_merged_dir, ignore_errors=True)
+                os.makedirs(temp_merged_dir, exist_ok=True)
+                
+                for fuzzer_name in ["dd", "cd"]:
+                    src_dir = os.path.join(local_trial_dir, f"out/{fuzzer_name}/crashes")
+                    if os.path.exists(src_dir):
+                        for f in os.listdir(src_dir):
+                            if f.startswith("id:"):
+                                new_name = f"id:{fuzzer_name}_" + f[3:]
+                                shutil.copy(os.path.join(src_dir, f), os.path.join(temp_merged_dir, new_name))
+                local_crashes_dir = temp_merged_dir
+            else:
+                local_crashes_dir = os.path.join(local_trial_dir, "out/main/crashes")
             
             if not os.path.exists(local_crashes_dir):
                 print(f"Trial {trial}: Crashes directory not found at {local_crashes_dir}. Writing TTE: inf.")
                 with open(exposure_file_path, "w") as ef:
                     ef.write("Target not reached\n")
+                if temp_merged_dir and os.path.exists(temp_merged_dir):
+                    shutil.rmtree(temp_merged_dir, ignore_errors=True)
                 continue
                 
             crash_files = [f for f in os.listdir(local_crashes_dir) if f.startswith("id:")]
@@ -339,6 +355,8 @@ def main():
                 print(f"Trial {trial}: No crash files found. Writing TTE: inf.")
                 with open(exposure_file_path, "w") as ef:
                     ef.write("Target not reached\n")
+                if temp_merged_dir and os.path.exists(temp_merged_dir):
+                    shutil.rmtree(temp_merged_dir, ignore_errors=True)
                 continue
                 
             def get_crash_time(filename):
@@ -361,6 +379,9 @@ def main():
                 trial=trial,
                 root_dir=args.root
             )
+            
+            if temp_merged_dir and os.path.exists(temp_merged_dir):
+                shutil.rmtree(temp_merged_dir, ignore_errors=True)
             
             if tte_ms is not None:
                 tte_sec = tte_ms / 1000.0
