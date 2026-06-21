@@ -25,14 +25,18 @@ get_cves() {
 
 
 show_usage() {
-  echo "Usage: $0 {up|down|build|status|log|clean} [cve_name]"
+  echo "Usage: $0 {up|down|build|status|log|clean|stat_plot|tte_check|tte_plot|ttr} [cve_name]"
   echo "Commands:"
-  echo "  up      : Start docker containers for CVE trials"
-  echo "  down    : Stop docker containers and remove named volumes (-v)"
-  echo "  build   : Build docker images for CVE trials"
-  echo "  status  : Check if fuzzer process is active inside containers"
-  echo "  log     : Print /workspace/cpu_binding.log from inside containers"
-  echo "  clean   : Force stop and remove containers, volumes, and images"
+  echo "  up        : Start docker containers for CVE trials"
+  echo "  down      : Stop docker containers and remove named volumes (-v)"
+  echo "  build     : Build docker images for CVE trials"
+  echo "  status    : Check if fuzzer process is active inside containers"
+  echo "  log       : Print /workspace/cpu_binding.log from inside containers"
+  echo "  clean     : Force stop and remove containers, volumes, and images"
+  echo "  stat_plot : Run stat_plot.py on active CVEs (copies stats and plots)"
+  echo "  tte_check : Run TTE_check.py on active CVEs"
+  echo "  tte_plot  : Run TTE_plot.py on active CVEs"
+  echo "  ttr       : Run TTR.py on active CVEs (copies TTR logs and plots)"
   echo ""
   echo "If [cve_name] is omitted, the command runs on all active CVEs defined in cves.env."
   exit 1
@@ -43,8 +47,10 @@ TARGET_CVE=""
 EXTRA_ARGS=()
 
 for arg in "$@"; do
-  if [ -z "$COMMAND" ] && [[ "$arg" =~ ^(up|down|build|status|log|clean)$ ]]; then
-    COMMAND="$arg"
+  # Convert arg to lowercase to accept case-insensitive commands
+  arg_lower=$(echo "$arg" | tr '[:upper:]' '[:lower:]')
+  if [ -z "$COMMAND" ] && [[ "$arg_lower" =~ ^(up|down|build|status|log|clean|stat_plot|tte_check|tte_plot|ttr)$ ]]; then
+    COMMAND="$arg_lower"
   elif [[ "$arg" == -* ]]; then
     EXTRA_ARGS+=("$arg")
   else
@@ -57,7 +63,7 @@ for arg in "$@"; do
 done
 
 if [ -z "$COMMAND" ]; then
-  echo "Error: Command (up, down, build, status) is required."
+  echo "Error: Command (up, down, build, status, log, clean, stat_plot, tte_check, tte_plot, ttr) is required."
   show_usage
 fi
 
@@ -99,6 +105,100 @@ if [ "$COMMAND" = "clean" ]; then
   echo -e "\n\033[1;34m[Docker Containers]\033[0m"
   docker ps -a
   
+  echo -e "\n\033[1;32mDone.\033[0m"
+  exit 0
+fi
+
+if [ "$COMMAND" = "stat_plot" ]; then
+  # Activate venv if it exists
+  if [ -f "$ROOT_DIR/../.venv/bin/activate" ]; then
+    . "$ROOT_DIR/../.venv/bin/activate"
+  fi
+
+  cd "$ROOT_DIR"
+  trial=(1 2 3 4 5)
+  methods=("base" "dd" "cd" "dual-dd" "dual-cd")
+  suffixes=("afl-base" "afl-dd" "afl-cd" "afl-dual-dd" "afl-dual-cd")
+  for CVE in "${CVE_LIST[@]}"; do
+    root="./artifact/${CVE}"
+    mkdir -p "${root}"
+    for i in "${trial[@]}"; do
+      for idx in "${!methods[@]}"; do
+        method="${methods[$idx]}"
+        suffix="${suffixes[$idx]}"
+        mkdir -p "${root}/${method}/trial${i}"
+        echo "Copying stats from ${CVE}-${suffix}-${i}..."
+        docker cp "${CVE}-${suffix}-${i}:/workspace/out" "${root}/${method}/trial${i}/" 2>/dev/null || true
+        sudo find "${root}/${method}/trial${i}" -name "*.pyc" -delete 2>/dev/null || true
+        sudo find "${root}/${method}/trial${i}" -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+        sudo chown -R "$(id -u):$(id -g)" "${root}/${method}/trial${i}" 2>/dev/null || true
+      done
+    done
+    python3 scripts/stat_plot.py --root "${root}" --methods base dd cd dual-dd dual-cd --cve "${CVE}"
+  done
+  echo -e "\n\033[1;32mDone.\033[0m"
+  exit 0
+fi
+
+if [ "$COMMAND" = "tte_check" ]; then
+  # Activate venv if it exists
+  if [ -f "$ROOT_DIR/../.venv/bin/activate" ]; then
+    . "$ROOT_DIR/../.venv/bin/activate"
+  fi
+
+  cd "$ROOT_DIR"
+  for cve in "${CVE_LIST[@]}"; do
+    echo "Running TTE_check.py for $cve"
+    python3 scripts/TTE_check.py --bench "$cve"
+  done
+  echo -e "\n\033[1;32mDone.\033[0m"
+  exit 0
+fi
+
+if [ "$COMMAND" = "tte_plot" ]; then
+  # Activate venv if it exists
+  if [ -f "$ROOT_DIR/../.venv/bin/activate" ]; then
+    . "$ROOT_DIR/../.venv/bin/activate"
+  fi
+
+  cd "$ROOT_DIR"
+  for cve in "${CVE_LIST[@]}"; do
+    echo "Running TTE_plot.py for $cve"
+    python3 scripts/TTE_plot.py --bench "$cve"
+  done
+  echo -e "\n\033[1;32mDone.\033[0m"
+  exit 0
+fi
+
+if [ "$COMMAND" = "ttr" ]; then
+  # Activate venv if it exists
+  if [ -f "$ROOT_DIR/../.venv/bin/activate" ]; then
+    . "$ROOT_DIR/../.venv/bin/activate"
+  fi
+
+  cd "$ROOT_DIR"
+  trial=(1 2 3 4 5)
+  methods=("base" "dd" "cd" "dual-dd" "dual-cd")
+  suffixes=("afl-base" "afl-dd" "afl-cd" "afl-dual-dd" "afl-dual-cd")
+  for CVE in "${CVE_LIST[@]}"; do
+    root="./artifact/${CVE}"
+    mkdir -p "${root}"
+    for i in "${trial[@]}"; do
+      for idx in "${!methods[@]}"; do
+        method="${methods[$idx]}"
+        suffix="${suffixes[$idx]}"
+        mkdir -p "${root}/${method}/trial${i}"
+        echo "Copying TTR logs from ${CVE}-${suffix}-${i}..."
+        docker cp "${CVE}-${suffix}-${i}:/workspace/dgf_blocks_hit.txt" "${root}/${method}/trial${i}/" 2>/dev/null || true
+        docker cp "${CVE}-${suffix}-${i}:/workspace/dgf_target_reached.txt" "${root}/${method}/trial${i}/" 2>/dev/null || true
+        docker cp "${CVE}-${suffix}-${i}:/workspace/dgf_block_mapping.txt" "${root}/${method}/trial${i}/" 2>/dev/null || true
+        docker cp "${CVE}-${suffix}-${i}:/workspace/dgf_compile_info.txt" "${root}/${method}/trial${i}/" 2>/dev/null || true
+        docker cp "${CVE}-${suffix}-${i}:/workspace/out" "${root}/${method}/trial${i}/" 2>/dev/null || true
+      done
+    done
+    sudo chown -R "$(id -u):$(id -g)" "${root}" 2>/dev/null || true
+    python3 scripts/TTR.py --root "${root}" --methods base dd cd dual-dd dual-cd --cve "${CVE}"
+  done
   echo -e "\n\033[1;32mDone.\033[0m"
   exit 0
 fi
