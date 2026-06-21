@@ -2,8 +2,21 @@ import os
 import re
 import subprocess
 import sys
+from triage import *
 
-USE_11729_TRIAGE = False
+CVE_NAME = "PLACEHOLDER_CVE_NAME"
+
+def get_triage_function_name(cve):
+    if not cve:
+        return None
+    match = re.search(r'(20\d{2})[-_](\d{4,5})', cve)
+    if not match:
+        return None
+    year, bug_id = match.group(1), match.group(2)
+    for prog in ["cxxfilt", "swftophp", "nm", "readelf", "xmllint", "cjpeg", "lrzip", "objdump", "objcopy", "strip"]:
+        if prog in cve.lower():
+            return f"check_{prog}_{year}_{bug_id}"
+    return None
 
 def get_crash_time(filename):
     time_match = re.search(r'time:(\d+)', filename)
@@ -19,26 +32,6 @@ def is_frame_match(f1, f2, line_tolerance=5):
             return True
     except Exception:
         pass
-    return False
-
-def get_crash_func_caller(buf, idx=1):
-    rstr = r"#" + str(idx) + r"\s+0x[0-9a-f]+ in ([\w\d_]+)"
-    match = re.search(rstr, buf)
-    if match:
-        return match.group(1)
-    rstr_orig = "#" + str(idx) + r" 0x[0-9a-f]+ in [\S]+"
-    match_orig = re.search(rstr_orig, buf)
-    if match_orig is None:
-        return ""
-    start_idx, end_idx = match_orig.span()
-    line = buf[start_idx:end_idx]
-    return line.split()[-1]
-
-def check_swftophp_2017_11729(buf):
-    if "heap-buffer-overflow" in buf:
-        if "decompile.c:868" in buf:
-            if get_crash_func_caller(buf) == "decompileINCR_DECR":
-                return True
     return False
 
 def main():
@@ -75,69 +68,80 @@ def main():
         elapsed_ms = get_crash_time(crash_file)
         crash_path = os.path.join(crashes_dir, crash_file)
         
-        if "@@" in flags:
-            run_args = [crash_path if arg == "@@" else arg for arg in flags]
-            cmd = [
-                "gdb", "-iex", "set python ignore-environment on",
-                "--batch", "-q",
-                "-ex", "run",
-                "-ex", "bt",
-                "--args", binary
-            ] + run_args
-        else:
-            cmd = [
-                "gdb", "-iex", "set python ignore-environment on",
-                "--batch", "-q",
-                "-ex", f"run < {crash_path}",
-                "-ex", "bt",
-                binary
-            ]
-        
         try:
             env = os.environ.copy()
             env.pop("PYTHONHOME", None)
             env.pop("PYTHONPATH", None)
-            res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=4, env=env)
+            env["ASAN_OPTIONS"] = "allocator_may_return_null=1,detect_leaks=0"
+            
+            if "@@" in flags:
+                run_args = [crash_path if arg == "@@" else arg for arg in flags]
+                cmd = [binary] + run_args
+                res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=4, env=env)
+            else:
+                cmd = [binary]
+                with open(crash_path, 'rb') as stdin_file:
+                    res = subprocess.run(cmd, stdin=stdin_file, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=4, env=env)
+            
             bt_text = res.stdout.decode('utf-8', errors='replace')
             full_log = bt_text + "\n" + res.stderr.decode('utf-8', errors='replace')
+            
+            # Write full log to crashes/full_logs/
+            logs_dir = "/workspace/out/main/crashes/full_logs"
+            os.makedirs(logs_dir, exist_ok=True)
+            try:
+                os.chmod(logs_dir, 0o777)
+            except Exception:
+                pass
+            log_file_path = os.path.join(logs_dir, f"{crash_file}.log")
+            with open(log_file_path, 'w') as lf:
+                lf.write(full_log)
+            try:
+                os.chmod(log_file_path, 0o666)
+            except Exception:
+                pass
         except Exception:
             continue
             
         found_match = False
-        if USE_11729_TRIAGE:
-            if check_swftophp_2017_11729(full_log):
-                print(f"DEBUG: {crash_file} matched CVE-2017-11729 logic")
+        func_name = get_triage_function_name(CVE_NAME)
+        if func_name and func_name in globals():
+            triage_func = globals()[func_name]
+            if triage_func(full_log):
+                print(f"DEBUG: {crash_file} matched {func_name} logic")
                 found_match = True
         else:
-            frames = []
-            for line in bt_text.splitlines():
-                m = re.search(r'([\w\-]+\.[c|h]):(\d+)', line)
-                if m:
-                    frames.append(f"{m.group(1)}:{m.group(2)}")
-                    
-            start_indices = [idx for idx, f in enumerate(frames) if is_frame_match(f, required_target_trace[0])]
-            
-            if start_indices:
-                print(f"DEBUG: {crash_file} matched required_target_trace[0] ({required_target_trace[0]}) at frame indices {start_indices}")
-                print(f"DEBUG: Full backtrace frames for {crash_file}: {frames}")
-                
-            for start_idx in start_indices:
-                matched_count = 1
-                curr_idx = start_idx + 1
-                matched_subset = [frames[start_idx]]
-                for target in required_target_trace[1:]:
-                    for j in range(curr_idx, len(frames)):
-                        if is_frame_match(frames[j], target):
-                            matched_count += 1
-                            curr_idx = j + 1
-                            matched_subset.append(frames[j])
-                            break
-                if matched_count >= match_required:
-                    print(f"DEBUG: {crash_file} matched target trace subsequence (matched {matched_count} frames: {matched_subset})")
-                    found_match = True
-                    break
-                else:
-                    print(f"DEBUG: {crash_file} matched only {matched_count} frames: {matched_subset} (required {match_required})")
+            print(f"DEBUG: No triage method found for {CVE_NAME} (searched: {func_name})")
+            # Trace Subsequence matching commented out:
+            # frames = []
+            # for line in bt_text.splitlines():
+            #     m = re.search(r'([\w\-]+\.[c|h]):(\d+)', line)
+            #     if m:
+            #         frames.append(f"{m.group(1)}:{m.group(2)}")
+            #         
+            # start_indices = [idx for idx, f in enumerate(frames) if is_frame_match(f, required_target_trace[0])]
+            # 
+            # if start_indices:
+            #     print(f"DEBUG: {crash_file} matched required_target_trace[0] ({required_target_trace[0]}) at frame indices {start_indices}")
+            #     print(f"DEBUG: Full backtrace frames for {crash_file}: {frames}")
+            #     
+            # for start_idx in start_indices:
+            #     matched_count = 1
+            #     curr_idx = start_idx + 1
+            #     matched_subset = [frames[start_idx]]
+            #     for target in required_target_trace[1:]:
+            #         for j in range(curr_idx, len(frames)):
+            #             if is_frame_match(frames[j], target):
+            #                 matched_count += 1
+            #                 curr_idx = j + 1
+            #                 matched_subset.append(frames[j])
+            #                 break
+            #     if matched_count >= match_required:
+            #         print(f"DEBUG: {crash_file} matched target trace subsequence (matched {matched_count} frames: {matched_subset})")
+            #         found_match = True
+            #         break
+            #     else:
+            #         print(f"DEBUG: {crash_file} matched only {matched_count} frames: {matched_subset} (required {match_required})")
                 
         if found_match:
             tte_ms = elapsed_ms

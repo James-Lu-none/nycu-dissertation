@@ -137,7 +137,7 @@ def build_docker_images(benchmark_dir):
         print(f"Error building Docker images: {e}")
         return False
 
-def triage_crashes_in_container(image_name, binary, flags, local_crashes_dir, target_trace, cve_name=""):
+def triage_crashes_in_container(image_name, binary, flags, local_crashes_dir, target_trace, cve_name="", method="", trial="", root_dir="./artifact"):
     local_crashes_dir = os.path.abspath(local_crashes_dir)
     
     trace_path = os.path.join(local_crashes_dir, ".target_trace")
@@ -153,8 +153,13 @@ def triage_crashes_in_container(image_name, binary, flags, local_crashes_dir, ta
     with open(triage_helper_path, 'r') as f:
         triage_script_content = f.read()
 
-    if "2017-11729" in cve_name:
-        triage_script_content = triage_script_content.replace("USE_11729_TRIAGE = False", "USE_11729_TRIAGE = True")
+    triage_script_content = triage_script_content.replace("PLACEHOLDER_CVE_NAME", cve_name)
+
+    # Copy triage.py library to local_crashes_dir so the container can import it
+    triage_lib_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "triage.py")
+    dest_triage_lib = os.path.join(local_crashes_dir, "triage.py")
+    import shutil
+    shutil.copy(triage_lib_path, dest_triage_lib)
 
     triage_script_path = os.path.join(local_crashes_dir, ".triage.py")
     with open(triage_script_path, 'w') as f:
@@ -203,7 +208,21 @@ def triage_crashes_in_container(image_name, binary, flags, local_crashes_dir, ta
                 tte_ms = int(lines[1])
                 matching_crash = lines[2]
                 
-    for p in [trace_path, triage_script_path, result_path]:
+    # Copy full logs to the host's artifact directory
+    if method and trial:
+        host_logs_dir = os.path.join(local_crashes_dir, "full_logs")
+        if os.path.exists(host_logs_dir):
+            dest_logs_dir = os.path.join(root_dir, cve_name, "TTE_check", method, f"{trial}_full_logs")
+            try:
+                if os.path.exists(dest_logs_dir):
+                    shutil.rmtree(dest_logs_dir)
+                os.makedirs(os.path.dirname(dest_logs_dir), exist_ok=True)
+                shutil.move(host_logs_dir, dest_logs_dir)
+                print(f"  [+] Copied full logs to {dest_logs_dir}")
+            except Exception as e:
+                print(f"  [!] Failed to move full logs to {dest_logs_dir}: {e}")
+
+    for p in [trace_path, triage_script_path, result_path, dest_triage_lib]:
         if os.path.exists(p):
             try:
                 os.remove(p)
@@ -337,7 +356,10 @@ def main():
                 flags=flags,
                 local_crashes_dir=local_crashes_dir,
                 target_trace=target_trace,
-                cve_name=args.bench
+                cve_name=args.bench,
+                method=method,
+                trial=trial,
+                root_dir=args.root
             )
             
             if tte_ms is not None:
