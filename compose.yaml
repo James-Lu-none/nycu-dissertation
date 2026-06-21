@@ -1,8 +1,0 @@
-services:
-  afl:
-    container_name: my-aflplusplus
-    image: my-aflplusplus:latest
-    command: /bin/bash -c "sleep infinity"
-    working_dir: /workspace
-    volumes:
-      - ./test:/workspace/test
