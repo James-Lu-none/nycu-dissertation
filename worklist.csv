@@ -15,8 +15,8 @@ v,libjpeg-2.0.4_cjpeg_CVE-2020-13790, 10/40 TTE, 可編譯、但只找到2個 co
 v,binutils-2.29_readelf_CVE-2017-16828, 比較慢, 可編譯、有找到target、但 control dependency 是斷掉的，dgf_target_reached 執行好久之後還是空的，且原論文使用ASAN之後才有好的結果
 
 ,原論文跑的完但 TTE 秒數超過四位數的CVE:
-v,libming-4.7_swftophp_2017-9988,,可編譯、且靜態分析 (data/control dependency) 皆正常
-v,libming-4.7_swftophp_2017-11728,,可編譯、且靜態分析 (data/control dependency) 皆正常
+v,libming-4.7_swftophp_CVE-2017-9988,,可編譯、且靜態分析 (data/control dependency) 皆正常
+v,libming-4.7_swftophp_CVE-2017-11728,,可編譯、且靜態分析 (data/control dependency) 皆正常
 v,libming-4.8_swftophp_CVE-2018-11225,,可編譯、且靜態分析 (data/control dependency) 皆正常
 v,libming-4.8_swftophp_CVE-2018-11226,,可編譯、且靜態分析 (data/control dependency) 皆正常
 v,libming-4.8_swftophp_CVE-2019-12982,,可編譯、且靜態分析 (data/control dependency) 皆正常
