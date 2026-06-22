@@ -69,7 +69,34 @@ if [ -z "$COMMAND" ]; then
 fi
 
 # Determine target CVEs
-if [ -n "$TARGET_CVE" ]; then
+if [ "$COMMAND" = "down" ]; then
+  # For down command, always force interactive number selection and 2-step confirmation
+  ALL_CVES=($(get_cves))
+  if [ ${#ALL_CVES[@]} -eq 0 ]; then
+    echo "No active CVEs found to down."
+    exit 0
+  fi
+  echo "Active CVEs:"
+  for i in "${!ALL_CVES[@]}"; do
+    echo "$((i+1)). ${ALL_CVES[$i]}"
+  done
+  
+  read -p "Select a CVE to down (1-${#ALL_CVES[@]}): " selection
+  if [[ ! "$selection" =~ ^[0-9]+$ ]] || [ "$selection" -lt 1 ] || [ "$selection" -gt "${#ALL_CVES[@]}" ]; then
+    echo "Error: Invalid selection."
+    exit 1
+  fi
+  
+  TARGET_CVE="${ALL_CVES[$((selection-1))]}"
+  CVE_LIST=("$TARGET_CVE")
+  
+  echo -e "\nSelected CVE: \033[1;33m$TARGET_CVE\033[0m"
+  read -p "Are you sure you want to stop and remove volumes for $TARGET_CVE? (y/N): " confirm1
+  if [[ ! "$confirm1" =~ ^[Yy]$ ]]; then
+    echo "Aborted."
+    exit 0
+  fi
+elif [ -n "$TARGET_CVE" ]; then
   # Verify directory exists under bench/
   if [ ! -d "$ROOT_DIR/bench/$TARGET_CVE" ]; then
     echo "Error: Benchmark directory 'bench/$TARGET_CVE' not found."
