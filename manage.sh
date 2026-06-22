@@ -3,6 +3,10 @@
 # Root directory helper
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Dynamic trial number config
+export NUM_TRIALS=${NUM_TRIALS:-5}
+
+
 # Function to extract active CVEs from cves.env or cves.env.template
 get_cves() {
   if [ -f "$ROOT_DIR/cves.env" ]; then
@@ -52,6 +56,8 @@ for arg in "$@"; do
   arg_lower=$(echo "$arg" | tr '[:upper:]' '[:lower:]')
   if [ -z "$COMMAND" ] && [[ "$arg_lower" =~ ^(up|down|build|status|log|clean|copy|stat_plot|tte_check|tte_plot|ttr)$ ]]; then
     COMMAND="$arg_lower"
+  elif [[ "$arg" =~ ^[0-9]+$ ]]; then
+    export NUM_TRIALS="$arg"
   elif [[ "$arg" == -* ]]; then
     EXTRA_ARGS+=("$arg")
   else
@@ -161,7 +167,7 @@ fi
 
 if [ "$COMMAND" = "copy" ]; then
   cd "$ROOT_DIR"
-  trial=(1 2 3 4 5)
+  trial=($(seq 1 $NUM_TRIALS))
   methods=("base" "dd" "cd" "dual-dd" "dual-cd")
   suffixes=("afl-base" "afl-dd" "afl-cd" "afl-dual-dd" "afl-dual-cd")
   for CVE in "${CVE_LIST[@]}"; do
@@ -248,7 +254,7 @@ if [ "$COMMAND" = "ttr" ]; then
   fi
 
   cd "$ROOT_DIR"
-  trial=(1 2 3 4 5)
+  trial=($(seq 1 $NUM_TRIALS))
   methods=("base" "dd" "cd" "dual-dd" "dual-cd")
   suffixes=("afl-base" "afl-dd" "afl-cd" "afl-dual-dd" "afl-dual-cd")
   for CVE in "${CVE_LIST[@]}"; do
@@ -290,6 +296,9 @@ fi
 for cve in "${CVE_LIST[@]}"; do
   echo -e "\n\033[1;34m[Docker-Compose]\033[0m \033[1;35m$cve\033[0m >> \033[1;32m$COMMAND ${EXTRA_ARGS[*]}\033[0m"
   
+  # Auto-generate docker-compose.master.yml before executing docker compose commands
+  python3 "$ROOT_DIR/scripts/generate_master_compose.py" "$NUM_TRIALS"
+
   if [ ! -f "$ROOT_DIR/bench/$cve/compose.yaml" ]; then
     echo "Warning: compose.yaml not found in bench/$cve. Skipping."
     continue
