@@ -44,73 +44,19 @@ def parse_fuzzer_command(benchmark_dir):
     return None
 
 def get_docker_image_name(benchmark_dir, method):
-    compose_files = []
-    if os.path.exists(benchmark_dir):
-        for f in os.listdir(benchmark_dir):
-            if (f.endswith(".yaml") or f.endswith(".yml")) and "compose" in f:
-                compose_files.append(os.path.join(benchmark_dir, f))
+    env_path = os.path.join(benchmark_dir, ".env")
+    if not os.path.exists(env_path):
+        return None
     
-    target_files = []
-    if "dual" in method:
-        target_files = [
-            "dual.compose.yaml", "dual.compose.yml",
-            "cd.compose.yaml", "cd.compose.yml",
-            "dd.compose.yaml", "dd.compose.yml"
-        ]
-    elif "cd" in method:
-        target_files = [
-            "cd.compose.yaml", "cd.compose.yml",
-            "dual.compose.yaml", "dual.compose.yml"
-        ]
-    elif "dd" in method:
-        target_files = [
-            "dd.compose.yaml", "dd.compose.yml",
-            "dual.compose.yaml", "dual.compose.yml"
-        ]
-    elif "base" in method:
-        target_files = [
-            "base.compose.yaml", "base.compose.yml",
-            "compose.yaml", "compose.yml"
-        ]
-    else:
-        target_files = [
-            "compose.yaml", "compose.yml"
-        ]
-        
-    def matches_method(img, meth):
-        img_lower = img.lower()
-        meth_lower = meth.lower()
-        if "dual-cd" in meth_lower:
-            return "cd" in img_lower or "dd" in img_lower or "multistage" in img_lower
-        elif "cd" in meth_lower:
-            return "cd" in img_lower or "cafl" in img_lower or "multistage" in img_lower
-        elif "dd" in meth_lower:
-            return "dd" in img_lower or "dafl" in img_lower or "multistage" in img_lower
-        elif "base" in meth_lower:
-            return "base" in img_lower or "multistage" in img_lower
-        else:
-            return "multistage" in img_lower or ("cafl" not in img_lower and "dafl" not in img_lower)
-
-    for tf in target_files:
-        p = os.path.join(benchmark_dir, tf)
-        if os.path.exists(p):
-            with open(p, 'r') as f:
-                content = f.read()
-                images = re.findall(r'image:\s*([^\s]+)', content)
-                for img in images:
-                    img_clean = img.strip().strip('"').strip("'")
-                    if matches_method(img_clean, method):
-                        return img_clean
-                        
-    for fpath in compose_files:
-        with open(fpath, 'r') as f:
-            content = f.read()
-            images = re.findall(r'image:\s*([^\s]+)', content)
-            for img in images:
-                img_clean = img.strip().strip('"').strip("'")
-                if matches_method(img_clean, method):
-                    return img_clean
-                
+    with open(env_path, 'r') as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith('#'):
+                continue
+            if '=' in line:
+                k, v = line.split('=', 1)
+                if k.strip() == "IMAGE_NAME":
+                    return v.strip().strip('"').strip("'")
     return None
 
 def check_image_exists(image_name):
@@ -118,24 +64,6 @@ def check_image_exists(image_name):
         res = subprocess.run(["docker", "image", "inspect", image_name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         return res.returncode == 0
     except Exception:
-        return False
-
-def build_docker_images(benchmark_dir):
-    print(f"Building Docker images in {benchmark_dir}...")
-    try:
-        compose_path = os.path.join(benchmark_dir, "compose.yaml")
-        if os.path.exists(compose_path):
-            subprocess.run(["docker", "compose", "-f", compose_path, "build"], check=True)
-            return True
-        
-        built = False
-        for f in os.listdir(benchmark_dir):
-            if f.endswith(".compose.yaml") or f.endswith(".compose.yml"):
-                subprocess.run(["docker", "compose", "-f", os.path.join(benchmark_dir, f), "build"], check=True)
-                built = True
-        return built
-    except Exception as e:
-        print(f"Error building Docker images: {e}")
         return False
 
 def triage_crashes_in_container(image_name, binary, flags, local_crashes_dir, target_trace, cve_name="", method="", trial="", root_dir="./artifact"):
@@ -292,15 +220,9 @@ def main():
         print(f"Docker image mapped for {method} (using multistage version): {image_name}")
         
         image_exists = check_image_exists(image_name)
-        if not image_exists or args.build:
-            if not image_exists:
-                print(f"Docker image {image_name} not found locally.")
-            else:
-                print(f"Force build specified. Rebuilding image...")
-            success = build_docker_images(bench_dir)
-            if not success:
-                print(f"Failed to build Docker images. Skipping method {method}.")
-                continue
+        if not image_exists:
+            print(f"Docker image {image_name} not found locally.")
+            continue
         else:
             print(f"Docker image {image_name} is available locally.")
             
