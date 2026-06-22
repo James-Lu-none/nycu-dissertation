@@ -6,7 +6,6 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Dynamic trial number config
 export NUM_TRIALS=${NUM_TRIALS:-5}
 
-
 # Function to extract active CVEs from cves.env or cves.env.template
 get_cves() {
   if [ -f "$ROOT_DIR/cves.env" ]; then
@@ -27,7 +26,6 @@ get_cves() {
   fi
 }
 
-
 show_usage() {
   echo "Usage: $0 {up|down|build|status|log|clean|copy|stat_plot|tte_check|tte_plot|ttr} [cve_name]"
   echo "Commands:"
@@ -47,8 +45,50 @@ show_usage() {
   exit 1
 }
 
+is_cve() {
+  local arg="$1"
+  local active_cves
+  active_cves=($(get_cves))
+  for cve in "${active_cves[@]}"; do
+    if [ "$cve" = "$arg" ]; then
+      return 0
+    fi
+  done
+  if [ -d "$ROOT_DIR/bench/$arg" ]; then
+    return 0
+  fi
+  return 1
+}
+
+get_active_trial_name() {
+  local CVE="$1"
+  local container_name="${CVE}-afl-base-1"
+  local trial_name=""
+  
+  if [ "$(docker ps -a -q -f name="^/${container_name}$")" ]; then
+    trial_name=$(docker inspect --format='{{range .Config.Env}}{{println .}}{{end}}' "$container_name" 2>/dev/null | grep '^TRIAL_NAME=' | cut -d= -f2 | tr -d '\r' | tr -d '\n')
+  fi
+  
+  if [ -z "$trial_name" ]; then
+    if [ -f "$ROOT_DIR/bench/${CVE}/.current_session" ]; then
+      trial_name=$(grep '^TRIAL_NAME=' "$ROOT_DIR/bench/${CVE}/.current_session" | cut -d= -f2 | tr -d '\r' | tr -d '\n')
+    fi
+  fi
+  
+  if [ -z "$trial_name" ] && [ -d "$ROOT_DIR/artifact/${CVE}" ]; then
+    trial_name=$(find "$ROOT_DIR/artifact/${CVE}" -maxdepth 1 -mindepth 1 -type d ! -name "plot" ! -name "TTE_check" -printf "%T@ %p\n" 2>/dev/null | sort -n | tail -1 | awk '{print $2}' | xargs basename 2>/dev/null | sed -E -e 's/_[0-9]{8}_[0-9]{6}$//g' -e 's/_[0-9]{8}_[0-9]{6}_trial[0-9]+$//g' -e 's/_trial[0-9]+$//g' | uniq)
+  fi
+  
+  if [ -z "$trial_name" ]; then
+    trial_name="trial_default"
+  fi
+  
+  echo "$trial_name"
+}
+
 COMMAND=""
 TARGET_CVE=""
+TRIAL_NAME=""
 EXTRA_ARGS=()
 
 for arg in "$@"; do
@@ -61,10 +101,10 @@ for arg in "$@"; do
   elif [[ "$arg" == -* ]]; then
     EXTRA_ARGS+=("$arg")
   else
-    if [ -z "$TARGET_CVE" ]; then
+    if is_cve "$arg"; then
       TARGET_CVE="$arg"
     else
-      EXTRA_ARGS+=("$arg")
+      TRIAL_NAME="$arg"
     fi
   fi
 done
@@ -171,25 +211,63 @@ if [ "$COMMAND" = "copy" ]; then
   methods=("base" "dd" "cd" "dual-dd" "dual-cd")
   suffixes=("afl-base" "afl-dd" "afl-cd" "afl-dual-dd" "afl-dual-cd")
   for CVE in "${CVE_LIST[@]}"; do
-    root="./artifact/${CVE}"
-    mkdir -p "${root}"
-    for i in "${trial[@]}"; do
-      for idx in "${!methods[@]}"; do
-        method="${methods[$idx]}"
-        suffix="${suffixes[$idx]}"
-        mkdir -p "${root}/${method}/trial${i}"
+    container_name="${CVE}-afl-base-1"
+    session_id=""
+    trial_name=""
+    
+    if [ "$(docker ps -a -q -f name="^/${container_name}$")" ]; then
+      session_id=$(docker inspect --format='{{range .Config.Env}}{{println .}}{{end}}' "$container_name" 2>/dev/null | grep '^SESSION_ID=' | cut -d= -f2 | tr -d '\r' | tr -d '\n')
+      trial_name=$(docker inspect --format='{{range .Config.Env}}{{println .}}{{end}}' "$container_name" 2>/dev/null | grep '^TRIAL_NAME=' | cut -d= -f2 | tr -d '\r' | tr -d '\n')
+    fi
+    
+    if [ -z "$session_id" ] || [ -z "$trial_name" ]; then
+      if [ -f "$ROOT_DIR/bench/${CVE}/.current_session" ]; then
+        session_id=$(grep '^SESSION_ID=' "$ROOT_DIR/bench/${CVE}/.current_session" | cut -d= -f2 | tr -d '\r' | tr -d '\n')
+        trial_name=$(grep '^TRIAL_NAME=' "$ROOT_DIR/bench/${CVE}/.current_session" | cut -d= -f2 | tr -d '\r' | tr -d '\n')
+      fi
+    fi
+    
+    if [ -z "$trial_name" ]; then
+      trial_name="trial_$(date +%Y%m%d_%H%M%S)"
+    fi
+    if [ -z "$session_id" ]; then
+      session_id="session_$(date +%Y%m%d_%H%M%S)"
+    fi
+    
+    if [ -d "./artifact/${CVE}/${trial_name}" ]; then
+      exist_session_id=""
+      if [ -f "./artifact/${CVE}/${trial_name}/.session_id" ]; then
+        exist_session_id=$(cat "./artifact/${CVE}/${trial_name}/.session_id" | tr -d '\r' | tr -d '\n')
+      fi
+      if [ "$exist_session_id" != "$session_id" ]; then
+        trial_name="${trial_name}_$(date +%Y%m%d_%H%M%S)"
+      fi
+    fi
+    
+    echo -e "Copying results for trial run: \033[1;35m${trial_name}\033[0m"
+
+    mkdir -p "./artifact/${CVE}/${trial_name}"
+    echo "$session_id" > "./artifact/${CVE}/${trial_name}/.session_id"
+
+    for idx in "${!methods[@]}"; do
+      method="${methods[$idx]}"
+      suffix="${suffixes[$idx]}"
+      
+      for i in "${trial[@]}"; do
+        target_dir="./artifact/${CVE}/${trial_name}/${method}/trial${i}"
+        mkdir -p "${target_dir}"
         printf "Copying results from %-55s... " "${CVE}-${suffix}-${i}"
         if [ "$(docker inspect -f '{{.State.Running}}' "${CVE}-${suffix}-${i}" 2>/dev/null)" = "true" ]; then
-          docker exec "${CVE}-${suffix}-${i}" tar -cf - -C /workspace out --exclude=".cur_input" --exclude="*.pyc" --exclude="__pycache__" 2>/dev/null | tar -xf - -C "${root}/${method}/trial${i}/" 2>/dev/null || true
+          docker exec "${CVE}-${suffix}-${i}" tar -cf - -C /workspace out --exclude=".cur_input" --exclude="*.pyc" --exclude="__pycache__" 2>/dev/null | tar -xf - -C "${target_dir}/" 2>/dev/null || true
         else
-          docker cp "${CVE}-${suffix}-${i}:/workspace/out" "${root}/${method}/trial${i}/" 2>/dev/null || true
+          docker cp "${CVE}-${suffix}-${i}:/workspace/out" "${target_dir}/" 2>/dev/null || true
         fi
-        sudo find "${root}/${method}/trial${i}" -name "*.pyc" -delete 2>/dev/null || true
-        sudo find "${root}/${method}/trial${i}" -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
-        sudo chown -R "$(id -u):$(id -g)" "${root}/${method}/trial${i}" 2>/dev/null || true
+        sudo find "${target_dir}" -name "*.pyc" -delete 2>/dev/null || true
+        sudo find "${target_dir}" -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+        sudo chown -R "$(id -u):$(id -g)" "${target_dir}" 2>/dev/null || true
         
         # Calculate and display size
-        size=$(du -sh "${root}/${method}/trial${i}/out" 2>/dev/null | awk '{print $1}')
+        size=$(du -sh "${target_dir}/out" 2>/dev/null | awk '{print $1}')
         if [ -n "$size" ]; then
           printf "\033[1;32mDone\033[0m (size: %s)\n" "$size"
         else
@@ -210,8 +288,9 @@ if [ "$COMMAND" = "stat_plot" ]; then
 
   cd "$ROOT_DIR"
   for CVE in "${CVE_LIST[@]}"; do
-    root="./artifact/${CVE}"
-    python3 scripts/stat_plot.py --root "${root}" --methods base dd cd dual-dd dual-cd --cve "${CVE}"
+    trial_name=$(get_active_trial_name "$CVE")
+    echo -e "Running stat_plot.py on: \033[1;35m${CVE}\033[0m with trial: \033[1;35m$trial_name\033[0m"
+    python3 scripts/stat_plot.py --root "./artifact/${CVE}" --methods base dd cd dual-dd dual-cd --cve "${CVE}" --trial-name "${trial_name}"
   done
   echo -e "\n\033[1;32mDone.\033[0m"
   exit 0
@@ -225,8 +304,9 @@ if [ "$COMMAND" = "tte_check" ]; then
 
   cd "$ROOT_DIR"
   for cve in "${CVE_LIST[@]}"; do
-    echo "Running TTE_check.py for $cve"
-    python3 scripts/TTE_check.py --bench "$cve"
+    trial_name=$(get_active_trial_name "$cve")
+    echo -e "Running TTE_check.py for $cve with trial: \033[1;35m$trial_name\033[0m"
+    python3 scripts/TTE_check.py --bench "$cve" --trial-name "$trial_name"
   done
   echo -e "\n\033[1;32mDone.\033[0m"
   exit 0
@@ -240,8 +320,9 @@ if [ "$COMMAND" = "tte_plot" ]; then
 
   cd "$ROOT_DIR"
   for cve in "${CVE_LIST[@]}"; do
-    echo "Running TTE_plot.py for $cve"
-    python3 scripts/TTE_plot.py --bench "$cve"
+    trial_name=$(get_active_trial_name "$cve")
+    echo -e "Running TTE_plot.py for $cve with trial: \033[1;35m$trial_name\033[0m"
+    python3 scripts/TTE_plot.py --bench "$cve" --trial-name "$trial_name"
   done
   echo -e "\n\033[1;32mDone.\033[0m"
   exit 0
@@ -258,26 +339,64 @@ if [ "$COMMAND" = "ttr" ]; then
   methods=("base" "dd" "cd" "dual-dd" "dual-cd")
   suffixes=("afl-base" "afl-dd" "afl-cd" "afl-dual-dd" "afl-dual-cd")
   for CVE in "${CVE_LIST[@]}"; do
-    root="./artifact/${CVE}"
-    mkdir -p "${root}"
-    for i in "${trial[@]}"; do
-      for idx in "${!methods[@]}"; do
-        method="${methods[$idx]}"
-        suffix="${suffixes[$idx]}"
-        mkdir -p "${root}/${method}/trial${i}"
+    container_name="${CVE}-afl-base-1"
+    session_id=""
+    trial_name=""
+    
+    if [ "$(docker ps -a -q -f name="^/${container_name}$")" ]; then
+      session_id=$(docker inspect --format='{{range .Config.Env}}{{println .}}{{end}}' "$container_name" 2>/dev/null | grep '^SESSION_ID=' | cut -d= -f2 | tr -d '\r' | tr -d '\n')
+      trial_name=$(docker inspect --format='{{range .Config.Env}}{{println .}}{{end}}' "$container_name" 2>/dev/null | grep '^TRIAL_NAME=' | cut -d= -f2 | tr -d '\r' | tr -d '\n')
+    fi
+    
+    if [ -z "$session_id" ] || [ -z "$trial_name" ]; then
+      if [ -f "$ROOT_DIR/bench/${CVE}/.current_session" ]; then
+        session_id=$(grep '^SESSION_ID=' "$ROOT_DIR/bench/${CVE}/.current_session" | cut -d= -f2 | tr -d '\r' | tr -d '\n')
+        trial_name=$(grep '^TRIAL_NAME=' "$ROOT_DIR/bench/${CVE}/.current_session" | cut -d= -f2 | tr -d '\r' | tr -d '\n')
+      fi
+    fi
+    
+    if [ -z "$trial_name" ]; then
+      trial_name="trial_$(date +%Y%m%d_%H%M%S)"
+    fi
+    if [ -z "$session_id" ]; then
+      session_id="session_$(date +%Y%m%d_%H%M%S)"
+    fi
+    
+    if [ -d "./artifact/${CVE}/${trial_name}" ]; then
+      exist_session_id=""
+      if [ -f "./artifact/${CVE}/${trial_name}/.session_id" ]; then
+        exist_session_id=$(cat "./artifact/${CVE}/${trial_name}/.session_id" | tr -d '\r' | tr -d '\n')
+      fi
+      if [ "$exist_session_id" != "$session_id" ]; then
+        trial_name="${trial_name}_$(date +%Y%m%d_%H%M%S)"
+      fi
+    fi
+    
+    echo -e "Copying TTR logs for trial run: \033[1;35m${trial_name}\033[0m"
+
+    mkdir -p "./artifact/${CVE}/${trial_name}"
+    echo "$session_id" > "./artifact/${CVE}/${trial_name}/.session_id"
+
+    for idx in "${!methods[@]}"; do
+      method="${methods[$idx]}"
+      suffix="${suffixes[$idx]}"
+      
+      for i in "${trial[@]}"; do
+        target_dir="./artifact/${CVE}/${trial_name}/${method}/trial${i}"
+        mkdir -p "${target_dir}"
         printf "Copying TTR logs from %-55s... " "${CVE}-${suffix}-${i}"
-        docker cp "${CVE}-${suffix}-${i}:/workspace/dgf_blocks_hit.txt" "${root}/${method}/trial${i}/" 2>/dev/null || true
-        docker cp "${CVE}-${suffix}-${i}:/workspace/dgf_target_reached.txt" "${root}/${method}/trial${i}/" 2>/dev/null || true
-        docker cp "${CVE}-${suffix}-${i}:/workspace/dgf_block_mapping.txt" "${root}/${method}/trial${i}/" 2>/dev/null || true
-        docker cp "${CVE}-${suffix}-${i}:/workspace/dgf_compile_info.txt" "${root}/${method}/trial${i}/" 2>/dev/null || true
+        docker cp "${CVE}-${suffix}-${i}:/workspace/dgf_blocks_hit.txt" "${target_dir}/" 2>/dev/null 2>&1 || true
+        docker cp "${CVE}-${suffix}-${i}:/workspace/dgf_target_reached.txt" "${target_dir}/" >/dev/null 2>&1 || true
+        docker cp "${CVE}-${suffix}-${i}:/workspace/dgf_block_mapping.txt" "${target_dir}/" >/dev/null 2>&1 || true
+        docker cp "${CVE}-${suffix}-${i}:/workspace/dgf_compile_info.txt" "${target_dir}/" >/dev/null 2>&1 || true
         if [ "$(docker inspect -f '{{.State.Running}}' "${CVE}-${suffix}-${i}" 2>/dev/null)" = "true" ]; then
-          docker exec "${CVE}-${suffix}-${i}" tar -cf - -C /workspace out --exclude=".cur_input" --exclude="*.pyc" --exclude="__pycache__" 2>/dev/null | tar -xf - -C "${root}/${method}/trial${i}/" 2>/dev/null || true
+          docker exec "${CVE}-${suffix}-${i}" tar -cf - -C /workspace out --exclude=".cur_input" --exclude="*.pyc" --exclude="__pycache__" 2>/dev/null | tar -xf - -C "${target_dir}/" 2>/dev/null || true
         else
-          docker cp "${CVE}-${suffix}-${i}:/workspace/out" "${root}/${method}/trial${i}/" 2>/dev/null || true
+          docker cp "${CVE}-${suffix}-${i}:/workspace/out" "${target_dir}/" 2>/dev/null || true
         fi
         
         # Calculate and display size
-        size=$(du -sh "${root}/${method}/trial${i}/out" 2>/dev/null | awk '{print $1}')
+        size=$(du -sh "${target_dir}/out" 2>/dev/null | awk '{print $1}')
         if [ -n "$size" ]; then
           printf "\033[1;32mDone\033[0m (size: %s)\n" "$size"
         else
@@ -285,8 +404,8 @@ if [ "$COMMAND" = "ttr" ]; then
         fi
       done
     done
-    sudo chown -R "$(id -u):$(id -g)" "${root}" 2>/dev/null || true
-    python3 scripts/TTR.py --root "${root}" --methods base dd cd dual-dd dual-cd --cve "${CVE}"
+    sudo chown -R "$(id -u):$(id -g)" "./artifact/${CVE}/${trial_name}" 2>/dev/null || true
+    python3 scripts/TTR.py --root "./artifact/${CVE}" --methods base dd cd dual-dd dual-cd --cve "${CVE}" --trial-name "${trial_name}"
   done
   echo -e "\n\033[1;32mDone.\033[0m"
   exit 0
@@ -296,6 +415,29 @@ fi
 for cve in "${CVE_LIST[@]}"; do
   echo -e "\n\033[1;34m[Docker-Compose]\033[0m \033[1;35m$cve\033[0m >> \033[1;32m$COMMAND ${EXTRA_ARGS[*]}\033[0m"
   
+  if [ "$COMMAND" = "up" ]; then
+    active_trial_name="$TRIAL_NAME"
+    if [ -z "$active_trial_name" ]; then
+      active_trial_name="trial_$(date +%Y%m%d_%H%M%S)"
+    fi
+    active_session_id="session_$(date +%Y%m%d_%H%M%S)"
+    
+    mkdir -p "$ROOT_DIR/bench/${cve}"
+    echo "SESSION_ID=${active_session_id}" > "$ROOT_DIR/bench/${cve}/.current_session"
+    echo "TRIAL_NAME=${active_trial_name}" >> "$ROOT_DIR/bench/${cve}/.current_session"
+    
+    export SESSION_ID="${active_session_id}"
+    export TRIAL_NAME="${active_trial_name}"
+    echo -e "Starting run with SESSION_ID=\033[1;36m$SESSION_ID\033[0m and TRIAL_NAME=\033[1;35m$TRIAL_NAME\033[0m"
+  else
+    if [ -f "$ROOT_DIR/bench/${cve}/.current_session" ]; then
+      export SESSION_ID=$(grep '^SESSION_ID=' "$ROOT_DIR/bench/${cve}/.current_session" | cut -d= -f2)
+      export TRIAL_NAME=$(grep '^TRIAL_NAME=' "$ROOT_DIR/bench/${cve}/.current_session" | cut -d= -f2)
+    fi
+    export SESSION_ID=${SESSION_ID:-dummy_session}
+    export TRIAL_NAME=${TRIAL_NAME:-dummy_trial}
+  fi
+
   # Auto-generate docker-compose.master.yml before executing docker compose commands
   python3 "$ROOT_DIR/scripts/generate_master_compose.py" "$NUM_TRIALS"
 

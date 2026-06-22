@@ -6,7 +6,7 @@ def generate_compose(num_trials):
     volumes_lines = ["volumes:"]
     
     for i in range(1, num_trials + 1):
-        # 只有第一個 base 服務需要包含 build，其餘的與其他服務都使用 image 欄位
+        # only first service needs build context
         build_str = ""
         if i == 1:
             build_str = """    build:
@@ -26,6 +26,8 @@ def generate_compose(num_trials):
       - FUZZER_BIN=afl-fuzz
       - FUZZER_ROLE=M
       - FUZZER_NAME=main
+      - SESSION_ID=${{SESSION_ID}}
+      - TRIAL_NAME=${{TRIAL_NAME}}
     volumes:
       - "afl-out-base-{i}:/workspace/out"
       - "./script.sh:/workspace/script.sh:ro"
@@ -47,6 +49,8 @@ def generate_compose(num_trials):
       - FUZZER_BIN=afl-fuzz-cd
       - FUZZER_ROLE=M
       - FUZZER_NAME=main
+      - SESSION_ID=${{SESSION_ID}}
+      - TRIAL_NAME=${{TRIAL_NAME}}
     volumes:
       - "afl-out-cd-{i}:/workspace/out"
       - "./script.sh:/workspace/script.sh:ro"
@@ -68,6 +72,8 @@ def generate_compose(num_trials):
       - FUZZER_BIN=afl-fuzz-dd
       - FUZZER_ROLE=M
       - FUZZER_NAME=main
+      - SESSION_ID=${{SESSION_ID}}
+      - TRIAL_NAME=${{TRIAL_NAME}}
     volumes:
       - "afl-out-dd-{i}:/workspace/out"
       - "./script.sh:/workspace/script.sh:ro"
@@ -89,6 +95,8 @@ def generate_compose(num_trials):
       - FUZZER_BIN=afl-fuzz-dd
       - FUZZER_ROLE=M
       - FUZZER_NAME=dd
+      - SESSION_ID=${{SESSION_ID}}
+      - TRIAL_NAME=${{TRIAL_NAME}}
     volumes:
       - "afl-dual-out-{i}:/workspace/out"
       - "./script.sh:/workspace/script.sh:ro"
@@ -106,6 +114,8 @@ def generate_compose(num_trials):
       - FUZZER_BIN=afl-fuzz-cd
       - FUZZER_ROLE=S
       - FUZZER_NAME=cd
+      - SESSION_ID=${{SESSION_ID}}
+      - TRIAL_NAME=${{TRIAL_NAME}}
     volumes:
       - "afl-dual-out-{i}:/workspace/out"
       - "./script.sh:/workspace/script.sh:ro"
@@ -116,10 +126,10 @@ def generate_compose(num_trials):
 
     full_content = "\n".join(services_lines) + "\n" + "\n".join(volumes_lines)
     
-    # 寫入到同級目錄下的 ../bench/docker-compose.master.yml
+    # write to ../bench/docker-compose.master.yml
     master_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../bench/docker-compose.master.yml"))
     
-    # 確保父目錄存在
+    # make sure parent directory exists
     os.makedirs(os.path.dirname(master_path), exist_ok=True)
     
     with open(master_path, "w") as f:

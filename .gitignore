@@ -2,3 +2,4 @@ myAngora
 **/artifact
 cves.env
 bench/docker-compose.master.yml
+**/.current_session

@@ -66,7 +66,7 @@ def check_image_exists(image_name):
     except Exception:
         return False
 
-def triage_crashes_in_container(image_name, binary, flags, local_crashes_dir, target_trace, cve_name="", method="", trial="", root_dir="./artifact"):
+def triage_crashes_in_container(image_name, binary, flags, local_crashes_dir, target_trace, dest_logs_dir=None):
     local_crashes_dir = os.path.abspath(local_crashes_dir)
     
     trace_path = os.path.join(local_crashes_dir, ".target_trace")
@@ -82,12 +82,11 @@ def triage_crashes_in_container(image_name, binary, flags, local_crashes_dir, ta
     with open(triage_helper_path, 'r') as f:
         triage_script_content = f.read()
 
-    triage_script_content = triage_script_content.replace("PLACEHOLDER_CVE_NAME", cve_name)
+    triage_script_content = triage_script_content.replace("PLACEHOLDER_CVE_NAME", "CVE")
 
     # Copy triage.py library to local_crashes_dir so the container can import it
     triage_lib_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "triage.py")
     dest_triage_lib = os.path.join(local_crashes_dir, "triage.py")
-    import shutil
     shutil.copy(triage_lib_path, dest_triage_lib)
 
     triage_script_path = os.path.join(local_crashes_dir, ".triage.py")
@@ -138,10 +137,9 @@ def triage_crashes_in_container(image_name, binary, flags, local_crashes_dir, ta
                 matching_crash = lines[2]
                 
     # Copy full logs to the host's artifact directory
-    if method and trial:
+    if dest_logs_dir:
         host_logs_dir = os.path.join(local_crashes_dir, "full_logs")
         if os.path.exists(host_logs_dir):
-            dest_logs_dir = os.path.join(root_dir, cve_name, "TTE_check", method, f"{trial}_full_logs")
             try:
                 if os.path.exists(dest_logs_dir):
                     shutil.rmtree(dest_logs_dir)
@@ -166,6 +164,7 @@ def main():
     parser.add_argument("--root", default="./artifact", help="Root directory of the CVE artifact data")
     parser.add_argument("--build", action="store_true", help="Force rebuild of Docker images")
     parser.add_argument("--update-reached", action="store_true", help="Deprecated/Compatibility flag")
+    parser.add_argument("--trial-name", type=str, help="Specific trial run name to check. If not specified, the latest one will be used.")
     args = parser.parse_args()
 
     # Locate artifact directory
@@ -174,11 +173,80 @@ def main():
         print(f"Error: Artifact directory {artifact_dir} not found. Exiting.")
         sys.exit(1)
         
-    methods = [d for d in os.listdir(artifact_dir) if os.path.isdir(os.path.join(artifact_dir, d)) and d != "plot"]
-    if not methods:
-        print(f"Error: No fuzzer method directories found under {artifact_dir}. Exiting.")
+    trial_names = set()
+    for d in os.listdir(artifact_dir):
+        if os.path.isdir(os.path.join(artifact_dir, d)) and d not in ["plot", "TTE_check"]:
+            base = re.sub(r'_\d{8}_\d{6}$', '', d)
+            trial_names.add(base)
+    
+    if not trial_names:
+        print(f"Error: No trial runs found under {artifact_dir}. Exiting.")
         sys.exit(1)
+        
+    trial_name = args.trial_name
+    if trial_name:
+        trial_name_base = re.sub(r'_\d{8}_\d{6}$', '', trial_name)
+    else:
+        trial_name_base = None
+
+    if not trial_name_base:
+        def get_trial_mtime(tn):
+            times = [os.path.getmtime(os.path.join(artifact_dir, d)) for d in os.listdir(artifact_dir) if re.match(r"^" + re.escape(tn) + r"(_\d{8}_\d{6})?$", d)]
+            return max(times) if times else 0
+        trial_names_list = list(trial_names)
+        trial_names_list.sort(key=get_trial_mtime, reverse=True)
+        trial_name_base = trial_names_list[0]
+        trial_name = trial_name_base
+        print(f"No --trial-name specified. Automatically selected the latest trial: {trial_name_base}")
+    else:
+        if trial_name_base not in trial_names:
+            print(f"Error: Specified trial-name '{trial_name}' not found under {artifact_dir}. Available base names: {list(trial_names)}")
+            sys.exit(1)
+            
+    # Find matching session directories
+    session_dirs = []
+    for d in os.listdir(artifact_dir):
+        if os.path.isdir(os.path.join(artifact_dir, d)) and d not in ["plot", "TTE_check"]:
+            if re.match(r"^" + re.escape(trial_name_base) + r"(_\d{8}_\d{6})?$", d):
+                session_dirs.append(d)
+                
+    def sort_session_key(x):
+        ts_match = re.search(r'_(\d{8}_\d{6})$', x)
+        return ts_match.group(1) if ts_match else ""
+    session_dirs.sort(key=sort_session_key)
+
+    # Find fuzzer methods from the first session path
+    first_session_path = os.path.join(artifact_dir, session_dirs[0])
+    methods = [d for d in os.listdir(first_session_path) if os.path.isdir(os.path.join(first_session_path, d)) and d not in ["plot", "TTE_check", ".session_id"]]
+    if not methods:
+        print(f"Error: No fuzzer method directories found under {first_session_path}. Exiting.")
+        sys.exit(1)
+        
+    # Gather all trial items under matching sessions
+    trial_items = []
+    def sort_trial_key(x):
+        digits = re.search(r'\d+', x)
+        return int(digits.group()) if digits else 999
+
+    for session_dir in session_dirs:
+        session_path = os.path.join(artifact_dir, session_dir)
+        existing_trials = set()
+        for m in os.listdir(session_path):
+            m_path = os.path.join(session_path, m)
+            if os.path.isdir(m_path) and m not in ["plot", "TTE_check"]:
+                for t in os.listdir(m_path):
+                    if os.path.isdir(os.path.join(m_path, t)) and t.startswith("trial"):
+                        existing_trials.add(t)
+        sorted_existing = sorted(list(existing_trials), key=sort_trial_key)
+        for t in sorted_existing:
+            trial_items.append({
+                "session_dir": session_dir,
+                "trial": t,
+                "label": f"{session_dir}_{t}" if len(session_dirs) > 1 else t
+            })
+            
     print(f"Detected fuzzer methods: {methods}")
+    print(f"Detected matching trial items ({len(trial_items)}): {[t['label'] for t in trial_items]}")
 
     # 1. Locate benchmark directory
     bench_dir = os.path.join("bench", args.bench)
@@ -226,22 +294,8 @@ def main():
         else:
             print(f"Docker image {image_name} is available locally.")
             
-        method_dir = os.path.join(artifact_dir, method)
-        trials = [t for t in os.listdir(method_dir) if os.path.isdir(os.path.join(method_dir, t)) and t.startswith("trial")]
-        
-        def sort_key(x):
-            digits = re.search(r'\d+', x)
-            return (0, int(digits.group())) if digits else (1, x)
-        trials.sort(key=sort_key)
-        
-        if not trials:
-            print(f"No trial folders found under {method_dir}. Skipping.")
-            continue
-            
-        print(f"Found trials to triage: {trials}")
-        
-        for trial in trials:
-            local_trial_dir = os.path.join(method_dir, trial)
+        for item in trial_items:
+            local_trial_dir = os.path.join(artifact_dir, item["session_dir"], method, item["trial"])
             if "dual-cd" in method:
                 fuzzer_name = "cd"
             elif "dual-dd" in method:
@@ -252,14 +306,14 @@ def main():
             exposure_file_path = os.path.join(local_trial_dir, "dgf_target_exposure.txt")
             
             if not os.path.exists(local_crashes_dir):
-                print(f"Trial {trial}: Crashes directory not found at {local_crashes_dir}. Writing TTE: inf.")
+                print(f"Trial {item['label']}: Crashes directory not found at {local_crashes_dir}. Writing TTE: inf.")
                 with open(exposure_file_path, "w") as ef:
                     ef.write("Target not reached\n")
                 continue
                 
             crash_files = [f for f in os.listdir(local_crashes_dir) if f.startswith("id:")]
             if not crash_files:
-                print(f"Trial {trial}: No crash files found. Writing TTE: inf.")
+                print(f"Trial {item['label']}: No crash files found. Writing TTE: inf.")
                 with open(exposure_file_path, "w") as ef:
                     ef.write("Target not reached\n")
                 continue
@@ -270,33 +324,33 @@ def main():
                 
             crash_files.sort(key=get_crash_time)
             
-            print(f"Trial {trial}: Triaging {len(crash_files)} crash files in a single container run...")
+            print(f"Trial {item['label']}: Triaging {len(crash_files)} crash files in a single container run...")
             
             if binary.endswith("-base"):
                 asan_binary = binary[:-5] + "-asan"
             else:
                 asan_binary = f"{binary}-asan"
+                
+            dest_logs_dir = os.path.join(artifact_dir, item["session_dir"], "TTE_check", f"{method}_{item['trial']}_full_logs")
+            
             tte_ms, matching_crash = triage_crashes_in_container(
                 image_name=image_name,
                 binary=asan_binary,
                 flags=flags,
                 local_crashes_dir=local_crashes_dir,
                 target_trace=target_trace,
-                cve_name=args.bench,
-                method=method,
-                trial=trial,
-                root_dir=args.root
+                dest_logs_dir=dest_logs_dir
             )
             
             if tte_ms is not None:
                 tte_sec = tte_ms / 1000.0
-                print(f"  [+] Trial {trial} True TTE: {tte_sec:.3f} seconds ({tte_ms} ms) | Crash: {matching_crash}")
+                print(f"  [+] Trial {item['label']} True TTE: {tte_sec:.3f} seconds ({tte_ms} ms) | Crash: {matching_crash}")
                 with open(exposure_file_path, "w") as ef:
                     ef.write("Target reached!\n")
                     ef.write(f"Elapsed:    {tte_sec:.3f} seconds ({tte_ms} ms)\n")
                     ef.write(f"Crash File: {matching_crash}\n")
             else:
-                print(f"  [-] Trial {trial} target was not reached by any crash.")
+                print(f"  [-] Trial {item['label']} target was not reached by any crash.")
                 with open(exposure_file_path, "w") as ef:
                     ef.write("Target not reached\n")
 

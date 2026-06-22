@@ -1,13 +1,12 @@
+#!/usr/bin/env python3
 import os
 import re
+import sys
 import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 
 def parse_target_reached(file_path):
-    """
-    Parses dgf_target_reached.txt to get the elapsed time in seconds.
-    """
     if not os.path.exists(file_path):
         return None
     try:
@@ -24,9 +23,6 @@ def parse_target_reached(file_path):
     return None
 
 def parse_blocks_hit_cumulative(file_path, limit_time=None):
-    """
-    Parses dgf_blocks_hit.txt and returns lists of (seconds, cumulative_hits)
-    """
     if not os.path.exists(file_path):
         return [], []
     
@@ -62,7 +58,6 @@ def parse_blocks_hit_cumulative(file_path, limit_time=None):
             times.append(sec)
             counts.append(len(seen_blocks))
             
-    # Add a final point at limit_time to extend the line flat to the target reached time
     if limit_time is not None and (not times or times[-1] < limit_time):
         times.append(limit_time)
         counts.append(counts[-1] if counts else 0)
@@ -70,16 +65,13 @@ def parse_blocks_hit_cumulative(file_path, limit_time=None):
     return times, counts
 
 def parse_dgf_log_raw(filepath, limit_time=None):
-    """
-    Parses dgf_blocks_hit.txt and returns raw hit times: dict of {id: elapsed_ms}
-    """
     control_hits = {}
     caller_hits = {}
     if not os.path.exists(filepath):
         return control_hits, caller_hits
     try:
         with open(filepath, 'r') as f:
-            f.readline()  # Skip header
+            f.readline()
             for line in f:
                 line = line.strip()
                 if not line:
@@ -101,15 +93,11 @@ def parse_dgf_log_raw(filepath, limit_time=None):
     return control_hits, caller_hits
 
 def find_target_id_and_type(block_mapping_path):
-    """
-    Searches dgf_block_mapping.txt for the target function 'decompileSETPROPERTY'
-    to retrieve its Block ID and Type (Control/Caller).
-    """
     if not os.path.exists(block_mapping_path):
         return None, None
     try:
         with open(block_mapping_path, 'r') as f:
-            f.readline()  # skip header
+            f.readline()
             for line in f:
                 line = line.strip()
                 if not line:
@@ -128,18 +116,18 @@ def find_target_id_and_type(block_mapping_path):
 def get_method_info(method):
     m_low = method.lower()
     if "dual-cd" in m_low:
-        return "Dual CD+DD (CD Fuzzer)", "#d62728" # red
+        return "Dual CD+DD (CD Fuzzer)", "#d62728"
     elif "dual-dd" in m_low:
-        return "Dual CD+DD (DD Fuzzer)", "#ff7f0e" # orange
+        return "Dual CD+DD (DD Fuzzer)", "#ff7f0e"
     elif "cd" in m_low:
-        return "Control Dependency (cd)", "#2ca02c" # green
+        return "Control Dependency (cd)", "#2ca02c"
     elif "dd" in m_low:
-        return "Data Dependency (dd)", "#1f77b4" # blue
+        return "Data Dependency (dd)", "#1f77b4"
     elif "base" in m_low:
-        return "Baseline (base)", "#7f7f7f" # gray
+        return "Baseline (base)", "#7f7f7f"
     return method, "#7f7f7f"
 
-def generate_cumulative_plot(methods, method_dirs, use_ttr_limit, output_filename, total_blocks=None, cve="CVE-2018-20427"):
+def generate_cumulative_plot(methods, method_dirs, use_ttr_limit, output_filename, total_blocks=None, cve="CVE"):
     reached_times = {}
     run_data = {}
     
@@ -219,16 +207,13 @@ def generate_cumulative_plot(methods, method_dirs, use_ttr_limit, output_filenam
     print(f"Comparison plot successfully saved as '{output_filename}'")
 
 def parse_block_mapping_ids(block_mapping_path):
-    """
-    Parses dgf_block_mapping.txt to get all control and caller block IDs.
-    """
     control_ids = []
     caller_ids = []
     if not os.path.exists(block_mapping_path):
         return control_ids, caller_ids
     try:
         with open(block_mapping_path, 'r') as f:
-            f.readline()  # skip header
+            f.readline()
             for line in f:
                 line = line.strip()
                 if not line:
@@ -248,7 +233,7 @@ def parse_block_mapping_ids(block_mapping_path):
         print(f"Error parsing mapping IDs from {block_mapping_path}: {e}")
     return control_ids, caller_ids
 
-def generate_bar_plot(methods, method_dirs, work_mapping_file, use_ttr_limit, output_filename, cve="CVE-2018-20427"):
+def generate_bar_plot(methods, method_dirs, work_mapping_file, use_ttr_limit, output_filename, cve="CVE"):
     reached_times = {}
     method_ctrl_hits = {}
     method_call_hits = {}
@@ -374,10 +359,6 @@ def generate_bar_plot(methods, method_dirs, work_mapping_file, use_ttr_limit, ou
     print(f"Bar comparison plot successfully saved as '{output_filename}'")
 
 def interpolate_run(times, counts, common_times):
-    """
-    Interpolates cumulative hit counts onto common_times.
-    Extends the last count flat if common_times goes beyond times.
-    """
     if not times:
         return np.zeros_like(common_times)
     
@@ -395,16 +376,13 @@ def interpolate_run(times, counts, common_times):
     return np.interp(common_times, t_arr, c_arr)
 
 def geometric_mean(arrays, axis=0):
-    """
-    Computes geometric mean along the specified axis.
-    """
     with np.errstate(divide='ignore', invalid='ignore'):
         log_data = np.log(arrays)
         mean_log = np.mean(log_data, axis=axis)
         geomean = np.exp(mean_log)
     return np.nan_to_num(geomean, nan=0.0)
 
-def generate_cumulative_summary_plot(methods, method_runs_data, method_reached_times, use_ttr_limit, output_filename, total_blocks=None, cve="CVE-2018-20427"):
+def generate_cumulative_summary_plot(methods, method_runs_data, method_reached_times, use_ttr_limit, output_filename, total_blocks=None, cve="CVE"):
     valid_methods = [m for m in methods if method_runs_data.get(m)]
     if not valid_methods:
         print("No runs data available for TTR summary plot.")
@@ -484,7 +462,7 @@ def generate_cumulative_summary_plot(methods, method_runs_data, method_reached_t
                   verticalalignment='top', bbox=props, fontweight='bold')
                   
     title_suffix = " (Up to Target Reached)" if use_ttr_limit else " (Full Run)"
-    plt.title(f'Time to Reach Target (TTR) and Unique Blocks Hit Summary ({cve})' + title_suffix, fontsize=14, fontweight='bold', pad=15)
+    plt.title(f'Time to Reach Target (TTR) and Unique Blocks Hit Comparison ({cve})' + title_suffix, fontsize=14, fontweight='bold', pad=15)
     plt.xlabel('Elapsed Time (seconds)', fontsize=12)
     plt.ylabel('Cumulative Unique Basic Blocks Hit', fontsize=12)
     
@@ -505,7 +483,7 @@ def geometric_mean_of_list(vals):
         return 0.0
     return np.exp(np.mean(np.log(vals)))
 
-def generate_bar_summary_plot(methods, method_runs_raw, work_mapping_file, use_ttr_limit, output_filename, cve="CVE-2018-20427"):
+def generate_bar_summary_plot(methods, method_runs_raw, work_mapping_file, use_ttr_limit, output_filename, cve="CVE"):
     valid_methods = [m for m in methods if method_runs_raw.get(m)]
     if not valid_methods:
         print("No runs raw data available for TTR bar summary plot.")
@@ -628,9 +606,6 @@ def generate_bar_summary_plot(methods, method_runs_raw, work_mapping_file, use_t
     print(f"Bar summary plot successfully saved as '{output_filename}'")
 
 def parse_total_unique_blocks(compile_info_path):
-    """
-    Parses dgf_compile_info.txt to retrieve the sum of Control BBs and Caller BBs.
-    """
     if not os.path.exists(compile_info_path):
         return None
     control_bbs = None
@@ -656,43 +631,91 @@ def main():
     parser = argparse.ArgumentParser(description="Generate TTR plots.")
     parser.add_argument("--root", type=str, required=True, help="Root directory of the CVE artifact data")
     parser.add_argument("--methods", type=str, nargs="+", required=True, help="Fuzzer methods to compare")
-    parser.add_argument("--cve", type=str, default="CVE-2018-20427", help="CVE identifier")
+    parser.add_argument("--cve", type=str, default="CVE", help="CVE identifier")
+    parser.add_argument("--trial-name", type=str, help="Specific trial run name to check. If not specified, the latest one will be used.")
     args = parser.parse_args()
     
     root = os.path.expanduser(args.root)
     methods = args.methods
     plot_base_dir = os.path.join(root, "plot")
     
-    valid_methods = [m for m in methods if os.path.exists(os.path.join(root, m))]
+    trial_names = set()
+    for d in os.listdir(root):
+        if os.path.isdir(os.path.join(root, d)) and d not in ["plot", "TTE_check"]:
+            base = re.sub(r'_\d{8}_\d{6}$', '', d)
+            trial_names.add(base)
+                
+    if not trial_names:
+        print("Error: No trial runs found.")
+        return
+        
+    trial_name = args.trial_name
+    if trial_name:
+        trial_name_base = re.sub(r'_\d{8}_\d{6}$', '', trial_name)
+    else:
+        trial_name_base = None
+
+    if not trial_name_base:
+        def get_trial_mtime(tn):
+            times = [os.path.getmtime(os.path.join(root, d)) for d in os.listdir(root) if re.match(r"^" + re.escape(tn) + r"(_\d{8}_\d{6})?$", d)]
+            return max(times) if times else 0
+        trial_names_list = list(trial_names)
+        trial_names_list.sort(key=get_trial_mtime, reverse=True)
+        trial_name_base = trial_names_list[0]
+        trial_name = trial_name_base
+        print(f"No --trial-name specified. Automatically selected the latest trial: {trial_name_base}")
+    else:
+        if trial_name_base not in trial_names:
+            print(f"Error: Specified trial-name '{trial_name}' not found. Available base names: {list(trial_names)}")
+            sys.exit(1)
+            
+    # Find matching session directories
+    session_dirs = []
+    for d in os.listdir(root):
+        if os.path.isdir(os.path.join(root, d)) and d not in ["plot", "TTE_check"]:
+            if re.match(r"^" + re.escape(trial_name_base) + r"(_\d{8}_\d{6})?$", d):
+                session_dirs.append(d)
+                
+    def sort_session_key(x):
+        ts_match = re.search(r'_(\d{8}_\d{6})$', x)
+        return ts_match.group(1) if ts_match else ""
+    session_dirs.sort(key=sort_session_key)
+
+    # Find fuzzer methods from the first session path
+    first_session_path = os.path.join(root, session_dirs[0])
+    valid_methods = [m for m in methods if os.path.exists(os.path.join(first_session_path, m))]
     if not valid_methods:
         print("No valid method directories found.")
         return
-        
-    detected = set()
-    for method in valid_methods:
-        method_dir = os.path.join(root, method)
-        for name in os.listdir(method_dir):
-            match = re.match(r'^trial(\w+)$', name)
-            if match:
-                detected.add(match.group(1))
-                
-    def sort_key(x):
-        digits = re.search(r'\d+', x)
-        return (0, int(digits.group())) if digits else (1, x)
-    trial_suffixes = sorted(list(detected), key=sort_key)
-    if not trial_suffixes:
-        print("Error: No trial folders (e.g. trial1) found automatically.")
-        return
-    print(f"Automatically detected trials: {trial_suffixes}")
-
-    trials = ["trial" + t for t in trial_suffixes]
-    trials.sort(key=lambda x: int(re.search(r'\d+', x).group()) if re.search(r'\d+', x) else x)
     
+    # Gather all trial items under matching sessions
+    trial_items = []
+    def sort_trial_key(x):
+        digits = re.search(r'\d+', x)
+        return int(digits.group()) if digits else 999
+
+    for session_dir in session_dirs:
+        session_path = os.path.join(root, session_dir)
+        existing_trials = set()
+        for m in os.listdir(session_path):
+            m_path = os.path.join(session_path, m)
+            if os.path.isdir(m_path) and m not in ["plot", "TTE_check"]:
+                for t in os.listdir(m_path):
+                    if os.path.isdir(os.path.join(m_path, t)) and t.startswith("trial"):
+                        existing_trials.add(t)
+        sorted_existing = sorted(list(existing_trials), key=sort_trial_key)
+        for t in sorted_existing:
+            trial_items.append({
+                "session_dir": session_dir,
+                "trial": t,
+                "label": f"{session_dir}_{t}" if len(session_dirs) > 1 else t
+            })
+            
     total_blocks = None
     work_mapping_file = None
     for method in valid_methods:
-        for trial in trials:
-            compile_info_path = os.path.join(root, method, trial, "dgf_compile_info.txt")
+        for item in trial_items:
+            compile_info_path = os.path.join(root, item["session_dir"], method, item["trial"], "dgf_compile_info.txt")
             total_blocks = parse_total_unique_blocks(compile_info_path)
             if total_blocks:
                 break
@@ -700,14 +723,14 @@ def main():
             break
             
     for method in valid_methods:
-        for trial in trials:
-            mapping_path = os.path.join(root, method, trial, "dgf_block_mapping.txt")
+        for item in trial_items:
+            mapping_path = os.path.join(root, item["session_dir"], method, item["trial"], "dgf_block_mapping.txt")
             if os.path.exists(mapping_path):
                 work_mapping_file = mapping_path
                 break
         if work_mapping_file:
             break
-            
+        
     if total_blocks:
         print(f"Parsed total unique blocks: {total_blocks}")
     if work_mapping_file:
@@ -719,13 +742,13 @@ def main():
     method_runs_raw_limit = {m: [] for m in valid_methods}
     method_runs_raw_full = {m: [] for m in valid_methods}
     
-    for trial in trials:
-        print(f"\n================ Processing {trial} ================")
-        trial_method_dirs = [os.path.join(root, m, trial) for m in valid_methods]
-        output_dir = os.path.join(plot_base_dir, trial)
+    for item in trial_items:
+        print(f"\n================ Processing {item['label']} ================")
+        output_dir = os.path.join(plot_base_dir, item["session_dir"], item["trial"])
         os.makedirs(output_dir, exist_ok=True)
+        trial_method_dirs = [os.path.join(root, item["session_dir"], m, item["trial"]) for m in valid_methods]
         
-        print(f"Generating TTR-limited plots for {trial}...")
+        print(f"Generating TTR-limited plots for {item['label']}...")
         ttr_comp_path = os.path.join(output_dir, "TTR_comparison.png")
         ttr_bars_path = os.path.join(output_dir, "TTR_bars.png")
         
@@ -746,7 +769,7 @@ def main():
             ctrl_l, call_l = parse_dgf_log_raw(hit_file, limit_time=target_time)
             method_runs_raw_limit[method].append((ctrl_l, call_l))
             
-        print(f"Generating Full Run (unlimited) plots for {trial}...")
+        print(f"Generating Full Run (unlimited) plots for {item['label']}...")
         ttr_comp_full_path = os.path.join(output_dir, "TTR_comparison_full.png")
         ttr_bars_full_path = os.path.join(output_dir, "TTR_bars_full.png")
         
@@ -764,18 +787,19 @@ def main():
             method_runs_raw_full[method].append((ctrl_f, call_f))
             
     print("\n================ Generating TTR Summary Plots ================")
-    ttr_summary_path = os.path.join(plot_base_dir, "TTR_comparison_summary.png")
+    ttr_summary_path = os.path.join(plot_base_dir, f"{trial_name}_TTR_comparison_summary.png")
     generate_cumulative_summary_plot(valid_methods, method_runs_limit, method_reached_times, use_ttr_limit=True, output_filename=ttr_summary_path, total_blocks=total_blocks, cve=args.cve)
     
-    ttr_summary_full_path = os.path.join(plot_base_dir, "TTR_comparison_full_summary.png")
+    ttr_summary_full_path = os.path.join(plot_base_dir, f"{trial_name}_TTR_comparison_full_summary.png")
     generate_cumulative_summary_plot(valid_methods, method_runs_full, method_reached_times, use_ttr_limit=False, output_filename=ttr_summary_full_path, total_blocks=total_blocks, cve=args.cve)
     
     if work_mapping_file:
         print("\n================ Generating TTR Bar Summary Plots ================")
-        ttr_bars_summary_path = os.path.join(plot_base_dir, "TTR_bars_summary.png")
+        ttr_bars_summary_path = os.path.join(plot_base_dir, f"{trial_name}_TTR_bars_summary.png")
         generate_bar_summary_plot(valid_methods, method_runs_raw_limit, work_mapping_file, use_ttr_limit=True, output_filename=ttr_bars_summary_path, cve=args.cve)
         
-        ttr_bars_summary_full_path = os.path.join(plot_base_dir, "TTR_bars_full_summary.png")
+        ttr_bars_summary_full_path = os.path.join(plot_base_dir, f"{trial_name}_TTR_bars_full_summary.png")
         generate_bar_summary_plot(valid_methods, method_runs_raw_full, work_mapping_file, use_ttr_limit=False, output_filename=ttr_bars_summary_full_path, cve=args.cve)
+
 if __name__ == '__main__':
     main()

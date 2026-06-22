@@ -29,12 +29,10 @@ def generate_tte_summary_plot(method_ttes, output_path, cve):
         print("Warning: matplotlib, numpy or textwrap not installed. Skipping plot generation.")
         return
 
-    # Filter out empty datasets
     data_to_plot = []
     labels = []
     text_lines = []
 
-    # Sort methods: base (0), dd (1), cd (2), dual (3)
     def get_sort_key(m):
         m_low = m.lower()
         if "dual" in m_low:
@@ -55,7 +53,6 @@ def generate_tte_summary_plot(method_ttes, output_path, cve):
         if total_trials == 0:
             continue
 
-        # Filter and sort valid TTEs
         valid_ttes = [t for t in ttes if t is not None]
         valid_ttes.sort()
 
@@ -68,7 +65,6 @@ def generate_tte_summary_plot(method_ttes, output_path, cve):
         wrapped_label = textwrap.fill(raw_label, width=20)
         labels.append(wrapped_label)
 
-        # Calculate metrics
         if valid_ttes:
             geo_mean = np.exp(np.mean(np.log(valid_ttes)))
             mean_val = np.mean(valid_ttes)
@@ -93,7 +89,6 @@ def generate_tte_summary_plot(method_ttes, output_path, cve):
         'base': '#7f7f7f'      # gray
     }
 
-    # Calculate speedup relative to the baseline (base, otherwise dd)
     base_method = next((m for m in method_ttes.keys() if 'base' in m.lower()), None)
     if not base_method:
         base_method = next((m for m in method_ttes.keys() if 'dd' in m.lower() and 'cd' not in m.lower()), None)
@@ -112,26 +107,22 @@ def generate_tte_summary_plot(method_ttes, output_path, cve):
                         speedup = geo_mean_base / geo_mean_m
                         text_lines.append(f"Geo Mean Speedup ({method} vs {base_method}): {speedup:.2f}x")
 
-    # Create box plot
     bp = plt.boxplot(data_to_plot, patch_artist=True, tick_labels=labels, widths=0.5,
                      showmeans=False,
                      medianprops=dict(color='black', linewidth=1.5))
 
-    # Color boxes and set custom styles
     for i, (patch, method) in enumerate(zip(bp['boxes'], sorted_methods)):
-        color = '#1f77b4'  # default blue
+        color = '#1f77b4'
         for key, val in colors_map.items():
             if key in method.lower():
                 color = val
                 break
         
-        # Style the box
         patch.set_facecolor(color)
         patch.set_alpha(0.6)
         patch.set_edgecolor(color)
         patch.set_linewidth(1.5)
 
-        # Style whiskers, caps, and fliers matching the box color
         bp['whiskers'][2*i].set_color(color)
         bp['whiskers'][2*i].set_linewidth(1.5)
         bp['whiskers'][2*i+1].set_color(color)
@@ -146,14 +137,12 @@ def generate_tte_summary_plot(method_ttes, output_path, cve):
         bp['fliers'][i].set_marker('o')
         bp['fliers'][i].set_markersize(6)
 
-        # Overlay individual trial points (jittered)
         ttes = method_ttes[method]
         valid_ttes = [t for t in ttes if t is not None]
         if valid_ttes:
             x_jitter = np.random.normal(i + 1, 0.04, size=len(valid_ttes))
             plt.scatter(x_jitter, valid_ttes, color=color, edgecolor='black', alpha=0.8, s=45, zorder=3)
             
-            # Plot Geometric Mean as a red dashed line across the box
             geo_mean = np.exp(np.mean(np.log(valid_ttes)))
             plt.hlines(y=geo_mean, xmin=i + 1 - 0.25, xmax=i + 1 + 0.25, colors='red', linestyles='--', linewidth=1.8, zorder=4)
 
@@ -162,7 +151,6 @@ def generate_tte_summary_plot(method_ttes, output_path, cve):
     plt.ylabel('Elapsed Time to Exposure (seconds)', fontsize=12)
     plt.grid(True, axis='y', linestyle=':', alpha=0.6)
 
-    # Add legend manually
     import matplotlib.patches as mpatches
     legend_patches = []
     for method in sorted_methods:
@@ -184,6 +172,7 @@ def generate_tte_summary_plot(method_ttes, output_path, cve):
     plt.tight_layout()
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
     plt.close()
+
 def generate_tte_table_image(method_ttes, output_path, cve):
     try:
         import matplotlib.pyplot as plt
@@ -197,10 +186,8 @@ def generate_tte_table_image(method_ttes, output_path, cve):
     except ImportError:
         mannwhitneyu = None
 
-    # 1. Prepare table data
     columns = ["Configuration", "Success Rate", "Geo Mean TTE", "Mean TTE", "Speedup", "p-value"]
     
-    # Sort methods
     def get_sort_key(m):
         m_low = m.lower()
         if "dual" in m_low:
@@ -266,11 +253,9 @@ def generate_tte_table_image(method_ttes, output_path, cve):
         label = get_method_label(method)
         cell_text.append([label, success_str, geo_mean_str, mean_str, speedup_str, p_val_str])
         
-    # 2. Draw table
     fig, ax = plt.subplots(figsize=(7.5, len(sorted_methods) * 0.4 + 0.5))
     ax.axis('off')
     
-    # Styled table
     table = ax.table(
         cellText=cell_text,
         colLabels=columns,
@@ -278,16 +263,14 @@ def generate_tte_table_image(method_ttes, output_path, cve):
         cellLoc='center'
     )
     
-    # Beautify table styling (like a latex booktabs table)
     table.auto_set_font_size(False)
     table.set_fontsize(11)
-    table.scale(1.2, 1.8) # Adjust scale for generous padding
+    table.scale(1.2, 1.8)
     
-    # Apply booktabs style: bold header, light borders, clean lines
     for (row, col), cell in table.get_celld().items():
         if row == 0:
             cell.set_text_props(weight='bold', color='white')
-            cell.set_facecolor('#1f77b4') # Header background color
+            cell.set_facecolor('#1f77b4')
             cell.set_edgecolor('#1f77b4')
         else:
             if row % 2 == 0:
@@ -301,7 +284,6 @@ def generate_tte_table_image(method_ttes, output_path, cve):
     plt.close()
     print(f"Summary table successfully saved as '{output_path}'")
 
-    # 3. Output CSV file
     import csv
     csv_path = output_path.replace(".png", ".csv")
     try:
@@ -332,35 +314,94 @@ def main():
     parser = argparse.ArgumentParser(description="Generate TTE comparison summary plot from exposure files.")
     parser.add_argument("--bench", required=True, help="Full benchmark directory name (e.g. libming-4.8.1_swftophp_CVE-2019-9114)")
     parser.add_argument("--root", default="./artifact", help="Root directory of the CVE artifact data")
+    parser.add_argument("--trial-name", type=str, help="Specific trial run name to plot. If not specified, the latest one will be used.")
     args = parser.parse_args()
 
-    # Locate artifact directory
     artifact_dir = os.path.join(args.root, args.bench)
     if not os.path.exists(artifact_dir):
         print(f"Error: Artifact directory {artifact_dir} not found. Exiting.")
         sys.exit(1)
         
-    methods = [d for d in os.listdir(artifact_dir) if os.path.isdir(os.path.join(artifact_dir, d)) and d not in ["plot", "TTE_check"]]
-    if not methods:
-        print(f"Error: No fuzzer method directories found under {artifact_dir}. Exiting.")
+    trial_names = set()
+    for d in os.listdir(artifact_dir):
+        if os.path.isdir(os.path.join(artifact_dir, d)) and d not in ["plot", "TTE_check"]:
+            base = re.sub(r'_\d{8}_\d{6}$', '', d)
+            trial_names.add(base)
+    
+    if not trial_names:
+        print(f"Error: No trial runs found under {artifact_dir}. Exiting.")
         sys.exit(1)
-    print(f"Detected fuzzer methods: {methods}")
+        
+    trial_name = args.trial_name
+    if trial_name:
+        trial_name_base = re.sub(r'_\d{8}_\d{6}$', '', trial_name)
+    else:
+        trial_name_base = None
 
-    # Read TTEs from existing dgf_target_exposure.txt files
+    if not trial_name_base:
+        def get_trial_mtime(tn):
+            times = [os.path.getmtime(os.path.join(artifact_dir, d)) for d in os.listdir(artifact_dir) if re.match(r"^" + re.escape(tn) + r"(_\d{8}_\d{6})?$", d)]
+            return max(times) if times else 0
+        trial_names_list = list(trial_names)
+        trial_names_list.sort(key=get_trial_mtime, reverse=True)
+        trial_name_base = trial_names_list[0]
+        trial_name = trial_name_base
+        print(f"No --trial-name specified. Automatically selected the latest trial: {trial_name_base}")
+    else:
+        if trial_name_base not in trial_names:
+            print(f"Error: Specified trial-name '{trial_name}' not found under {artifact_dir}. Available base names: {list(trial_names)}")
+            sys.exit(1)
+            
+    # Find matching session directories
+    session_dirs = []
+    for d in os.listdir(artifact_dir):
+        if os.path.isdir(os.path.join(artifact_dir, d)) and d not in ["plot", "TTE_check"]:
+            if re.match(r"^" + re.escape(trial_name_base) + r"(_\d{8}_\d{6})?$", d):
+                session_dirs.append(d)
+                
+    def sort_session_key(x):
+        ts_match = re.search(r'_(\d{8}_\d{6})$', x)
+        return ts_match.group(1) if ts_match else ""
+    session_dirs.sort(key=sort_session_key)
+
+    # Find fuzzer methods from the first session path
+    first_session_path = os.path.join(artifact_dir, session_dirs[0])
+    methods = [d for d in os.listdir(first_session_path) if os.path.isdir(os.path.join(first_session_path, d)) and d not in ["plot", "TTE_check", ".session_id"]]
+    if not methods:
+        print(f"Error: No fuzzer method directories found under {first_session_path}. Exiting.")
+        sys.exit(1)
+        
+    # Gather all trial items under matching sessions
+    trial_items = []
+    def sort_trial_key(x):
+        digits = re.search(r'\d+', x)
+        return int(digits.group()) if digits else 999
+
+    for session_dir in session_dirs:
+        session_path = os.path.join(artifact_dir, session_dir)
+        existing_trials = set()
+        for m in os.listdir(session_path):
+            m_path = os.path.join(session_path, m)
+            if os.path.isdir(m_path) and m not in ["plot", "TTE_check"]:
+                for t in os.listdir(m_path):
+                    if os.path.isdir(os.path.join(m_path, t)) and t.startswith("trial"):
+                        existing_trials.add(t)
+        sorted_existing = sorted(list(existing_trials), key=sort_trial_key)
+        for t in sorted_existing:
+            trial_items.append({
+                "session_dir": session_dir,
+                "trial": t,
+                "label": f"{session_dir}_{t}" if len(session_dirs) > 1 else t
+            })
+            
+    print(f"Detected fuzzer methods: {methods}")
+    print(f"Detected matching trial items ({len(trial_items)}): {[t['label'] for t in trial_items]}")
     print("Reading TTEs from existing dgf_target_exposure.txt files...")
     method_ttes = {}
     for method in methods:
-        method_dir = os.path.join(artifact_dir, method)
-        trials = [t for t in os.listdir(method_dir) if os.path.isdir(os.path.join(method_dir, t)) and t.startswith("trial")]
-        
-        def sort_key(x):
-            digits = re.search(r'\d+', x)
-            return (0, int(digits.group())) if digits else (1, x)
-        trials.sort(key=sort_key)
-        
         method_ttes[method] = []
-        for trial in trials:
-            exposure_file_path = os.path.join(method_dir, trial, "dgf_target_exposure.txt")
+        for item in trial_items:
+            exposure_file_path = os.path.join(artifact_dir, item["session_dir"], method, item["trial"], "dgf_target_exposure.txt")
             tte = parse_exposure_file(exposure_file_path)
             method_ttes[method].append(tte)
 
@@ -382,16 +423,15 @@ def main():
             del method_ttes[k]
         method_ttes["dual"] = dual_ttes
 
-    # Generate overall summary TTE plot and table
     if method_ttes:
         print("\n================ Generating TTE Summary Plot & Table ================")
         plot_dir = os.path.join(artifact_dir, "plot")
         os.makedirs(plot_dir, exist_ok=True)
-        tte_summary_path = os.path.join(plot_dir, "TTE_comparison_summary.png")
+        
+        tte_summary_path = os.path.join(plot_dir, f"{trial_name}_TTE_comparison_summary.png")
         generate_tte_summary_plot(method_ttes, tte_summary_path, args.bench)
         
-        # Generate summary table image
-        tte_table_path = os.path.join(plot_dir, "TTE_summary_table.png")
+        tte_table_path = os.path.join(plot_dir, f"{trial_name}_TTE_summary_table.png")
         generate_tte_table_image(method_ttes, tte_table_path, args.bench)
 
 if __name__ == '__main__':

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import os
 import re
 import argparse
@@ -5,10 +6,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 def parse_plot_data(file_path):
-    """
-    Parses AFL plot_data file.
-    Returns: times (list of floats), edges (list of ints), execs (list of ints)
-    """
     times = []
     edges = []
     execs = []
@@ -25,7 +22,6 @@ def parse_plot_data(file_path):
             if not line:
                 continue
             if line.startswith('#'):
-                # Extract headers
                 header_parts = [h.strip() for h in line.lstrip('#').split(',')]
                 header = header_parts
                 continue
@@ -53,32 +49,23 @@ def parse_plot_data(file_path):
     return times, edges, execs
 
 def interpolate_run(times, values, common_grid):
-    """
-    Interpolates value series onto a common grid.
-    If the grid extends beyond the last recorded point, the value remains constant.
-    """
     if not times or not values:
         return np.zeros_like(common_grid)
     
     t_arr = np.array(times)
     v_arr = np.array(values)
     
-    # Extend to cover the full grid range if needed
     if t_arr[-1] < common_grid[-1]:
         t_arr = np.append(t_arr, common_grid[-1])
         v_arr = np.append(v_arr, v_arr[-1])
         
-    # Extend down to 0 if needed
     if t_arr[0] > common_grid[0]:
         t_arr = np.insert(t_arr, 0, common_grid[0])
-        v_arr = np.insert(v_arr, 0, v_arr[1]) # Keep first value
+        v_arr = np.insert(v_arr, 0, v_arr[1])
         
     return np.interp(common_grid, t_arr, v_arr)
 
 def geometric_mean(arrays, axis=0):
-    """
-    Computes geometric mean along the specified axis.
-    """
     with np.errstate(divide='ignore', invalid='ignore'):
         log_data = np.log(arrays)
         mean_log = np.mean(log_data, axis=axis)
@@ -110,21 +97,18 @@ def get_fuzzer_name(method):
 def get_method_info(method):
     m_low = method.lower()
     if "dual-cd" in m_low:
-        return "Dual CD+DD (CD Fuzzer)", "#d62728" # red
+        return "Dual CD+DD (CD Fuzzer)", "#d62728"
     elif "dual-dd" in m_low:
-        return "Dual CD+DD (DD Fuzzer)", "#ff7f0e" # orange
+        return "Dual CD+DD (DD Fuzzer)", "#ff7f0e"
     elif "cd" in m_low:
-        return "Control Dependency (cd)", "#2ca02c" # green
+        return "Control Dependency (cd)", "#2ca02c"
     elif "dd" in m_low:
-        return "Data Dependency (dd)", "#1f77b4" # blue
+        return "Data Dependency (dd)", "#1f77b4"
     elif "base" in m_low:
-        return "Baseline (base)", "#7f7f7f" # gray
+        return "Baseline (base)", "#7f7f7f"
     return method, "#7f7f7f"
 
-def plot_single_trial(methods, method_data, output_dir, cve="CVE-2018-20427"):
-    """
-    method_data: dict of {method: (times, edges, execs)}
-    """
+def plot_single_trial(methods, method_data, output_dir, cve="CVE"):
     os.makedirs(output_dir, exist_ok=True)
     
     text_lines = []
@@ -143,7 +127,6 @@ def plot_single_trial(methods, method_data, output_dir, cve="CVE-2018-20427"):
     textstr = "\n".join(text_lines) if text_lines else ""
     props = dict(boxstyle='round', facecolor='#e6f2ff', alpha=0.8, edgecolor='#1f77b4')
     
-    # 1. Coverage vs Time (Seconds)
     plt.figure(figsize=(10, 6))
     for method in methods:
         times, edges, _ = method_data[method]
@@ -164,7 +147,6 @@ def plot_single_trial(methods, method_data, output_dir, cve="CVE-2018-20427"):
     plt.savefig(os.path.join(output_dir, 'coverage_time.png'), dpi=300, bbox_inches='tight')
     plt.close()
     
-    # 2. Coverage vs Executions (Millions)
     plt.figure(figsize=(10, 6))
     for method in methods:
         _, edges, execs = method_data[method]
@@ -189,40 +171,88 @@ def main():
     parser = argparse.ArgumentParser(description="Generate coverage plots.")
     parser.add_argument("--root", type=str, required=True, help="Root directory of the CVE artifact data")
     parser.add_argument("--methods", type=str, nargs="+", required=True, help="Fuzzer methods to compare")
-    parser.add_argument("--cve", type=str, default="CVE-2018-20427", help="CVE identifier")
+    parser.add_argument("--cve", type=str, default="CVE", help="CVE identifier")
+    parser.add_argument("--trial-name", type=str, help="Specific trial run name to plot. If not specified, the latest one will be used.")
     args = parser.parse_args()
     
     root = os.path.expanduser(args.root)
     methods = args.methods
     plot_base_dir = os.path.join(root, "plot")
     
-    valid_methods = [m for m in methods if os.path.exists(os.path.join(root, m))]
+    trial_names = set()
+    for d in os.listdir(root):
+        if os.path.isdir(os.path.join(root, d)) and d not in ["plot", "TTE_check"]:
+            base = re.sub(r'_\d{8}_\d{6}$', '', d)
+            trial_names.add(base)
+                
+    if not trial_names:
+        print("Error: No trial runs found.")
+        return
+        
+    trial_name = args.trial_name
+    if trial_name:
+        trial_name_base = re.sub(r'_\d{8}_\d{6}$', '', trial_name)
+    else:
+        trial_name_base = None
+
+    if not trial_name_base:
+        def get_trial_mtime(tn):
+            times = [os.path.getmtime(os.path.join(root, d)) for d in os.listdir(root) if re.match(r"^" + re.escape(tn) + r"(_\d{8}_\d{6})?$", d)]
+            return max(times) if times else 0
+        trial_names_list = list(trial_names)
+        trial_names_list.sort(key=get_trial_mtime, reverse=True)
+        trial_name_base = trial_names_list[0]
+        trial_name = trial_name_base
+        print(f"No --trial-name specified. Automatically selected the latest trial: {trial_name_base}")
+    else:
+        if trial_name_base not in trial_names:
+            print(f"Error: Specified trial-name '{trial_name}' not found. Available base names: {list(trial_names)}")
+            sys.exit(1)
+            
+    # Find matching session directories
+    session_dirs = []
+    for d in os.listdir(root):
+        if os.path.isdir(os.path.join(root, d)) and d not in ["plot", "TTE_check"]:
+            if re.match(r"^" + re.escape(trial_name_base) + r"(_\d{8}_\d{6})?$", d):
+                session_dirs.append(d)
+                
+    def sort_session_key(x):
+        ts_match = re.search(r'_(\d{8}_\d{6})$', x)
+        return ts_match.group(1) if ts_match else ""
+    session_dirs.sort(key=sort_session_key)
+
+    # Find fuzzer methods from the first session path
+    first_session_path = os.path.join(root, session_dirs[0])
+    valid_methods = [m for m in methods if os.path.exists(os.path.join(first_session_path, m))]
     if not valid_methods:
         print("No valid method directories found.")
         return
         
-    detected = set()
-    for method in valid_methods:
-        method_dir = os.path.join(root, method)
-        for name in os.listdir(method_dir):
-            match = re.match(r'^trial(\w+)$', name)
-            if match:
-                detected.add(match.group(1))
-                
-    def sort_key(x):
+    # Gather all trial items under matching sessions
+    trial_items = []
+    def sort_trial_key(x):
         digits = re.search(r'\d+', x)
-        return (0, int(digits.group())) if digits else (1, x)
-    trial_suffixes = sorted(list(detected), key=sort_key)
-    if not trial_suffixes:
-        print("Error: No trial folders (e.g. trial1) found automatically.")
-        return
-    print(f"Automatically detected trials: {trial_suffixes}")
+        return int(digits.group()) if digits else 999
 
-    trials = ["trial" + t for t in trial_suffixes]
-    trials.sort(key=lambda x: int(re.search(r'\d+', x).group()) if re.search(r'\d+', x) else x)
-    
+    for session_dir in session_dirs:
+        session_path = os.path.join(root, session_dir)
+        existing_trials = set()
+        for m in os.listdir(session_path):
+            m_path = os.path.join(session_path, m)
+            if os.path.isdir(m_path) and m not in ["plot", "TTE_check"]:
+                for t in os.listdir(m_path):
+                    if os.path.isdir(os.path.join(m_path, t)) and t.startswith("trial"):
+                        existing_trials.add(t)
+        sorted_existing = sorted(list(existing_trials), key=sort_trial_key)
+        for t in sorted_existing:
+            trial_items.append({
+                "session_dir": session_dir,
+                "trial": t,
+                "label": f"{session_dir}_{t}" if len(session_dirs) > 1 else t
+            })
+            
     print(f"Valid methods: {valid_methods}")
-    print(f"Found trials for coverage plotting: {trials}")
+    print(f"Detected matching trial items ({len(trial_items)}): {[t['label'] for t in trial_items]}")
     
     method_runs_time = {m: [] for m in valid_methods}
     method_runs_exec = {m: [] for m in valid_methods}
@@ -230,13 +260,13 @@ def main():
     max_time_all = 0
     max_exec_all = 0
     
-    for trial in trials:
-        print(f"\n================ Processing Coverage for {trial} ================")
+    for item in trial_items:
+        print(f"\n================ Processing Coverage for {item['label']} ================")
         trial_method_data = {}
         
         for method in valid_methods:
             fuzzer_name = get_fuzzer_name(method)
-            plot_file = os.path.join(root, method, trial, f"out/{fuzzer_name}/plot_data")
+            plot_file = os.path.join(root, item["session_dir"], method, item["trial"], f"out/{fuzzer_name}/plot_data")
             times, edges, execs = parse_plot_data(plot_file)
             trial_method_data[method] = (times, edges, execs)
             
@@ -246,7 +276,7 @@ def main():
                 max_time_all = max(max_time_all, times[-1])
                 max_exec_all = max(max_exec_all, execs[-1])
                 
-        output_dir = os.path.join(plot_base_dir, trial)
+        output_dir = os.path.join(plot_base_dir, item["session_dir"], item["trial"])
         print(f"Plotting single-trial coverage to {output_dir}...")
         plot_single_trial(valid_methods, trial_method_data, output_dir, cve=args.cve)
         
@@ -300,9 +330,10 @@ def main():
     plt.grid(True, linestyle=':', alpha=0.6)
     plt.legend(loc='lower right', fontsize=10)
     plt.tight_layout()
-    plt.savefig(os.path.join(plot_base_dir, 'coverage_time_summary.png'), dpi=300, bbox_inches='tight')
+    time_summary_path = os.path.join(plot_base_dir, f'{trial_name}_coverage_time_summary.png')
+    plt.savefig(time_summary_path, dpi=300, bbox_inches='tight')
     plt.close()
-    print(f"Summary plot saved as '{os.path.join(plot_base_dir, 'coverage_time_summary.png')}'")
+    print(f"Summary plot saved as '{time_summary_path}'")
     
     common_execs = np.linspace(0, max_exec_all, num=1000)
     plt.figure(figsize=(10, 6))
@@ -350,11 +381,11 @@ def main():
     plt.grid(True, linestyle=':', alpha=0.6)
     plt.legend(loc='lower right', fontsize=10)
     plt.tight_layout()
-    plt.savefig(os.path.join(plot_base_dir, 'coverage_execs_summary.png'), dpi=300, bbox_inches='tight')
+    execs_summary_path = os.path.join(plot_base_dir, f'{trial_name}_coverage_execs_summary.png')
+    plt.savefig(execs_summary_path, dpi=300, bbox_inches='tight')
     plt.close()
-    print(f"Summary plot saved as '{os.path.join(plot_base_dir, 'coverage_execs_summary.png')}'")
+    print(f"Summary plot saved as '{execs_summary_path}'")
 
-    # Generate box plot for corpus_imported in dual instances
     dual_methods = [m for m in valid_methods if "dual" in m.lower()]
     if dual_methods:
         print("\n================ Generating Corpus Imported Box Plot ================")
@@ -364,8 +395,8 @@ def main():
         for method in dual_methods:
             values = []
             fuzzer_name = get_fuzzer_name(method)
-            for trial in trials:
-                stats_file = os.path.join(root, method, trial, f"out/{fuzzer_name}/fuzzer_stats")
+            for trial_dir in trial_dirs:
+                stats_file = os.path.join(root, trial_dir, method, f"out/{fuzzer_name}/fuzzer_stats")
                 val = parse_corpus_imported(stats_file)
                 if val is not None:
                     values.append(val)
@@ -382,11 +413,11 @@ def main():
                              medianprops=dict(color='black', linewidth=1.5),
                              meanprops=dict(color='red', linewidth=1.5, linestyle='--'))
                              
-            for i, (patch, color) in enumerate(zip(bp['boxes'], colors)):
-                patch.set_facecolor(color)
-                patch.set_alpha(0.6)
-                patch.set_edgecolor(color)
-                patch.set_linewidth(1.5)
+            for i, color in enumerate(colors):
+                bp['boxes'][i].set_facecolor(color)
+                bp['boxes'][i].set_alpha(0.6)
+                bp['boxes'][i].set_edgecolor(color)
+                bp['boxes'][i].set_linewidth(1.5)
                 bp['whiskers'][2*i].set_color(color)
                 bp['whiskers'][2*i].set_linewidth(1.5)
                 bp['whiskers'][2*i+1].set_color(color)
@@ -406,7 +437,7 @@ def main():
             plt.grid(True, axis='y', linestyle=':', alpha=0.6)
             plt.tight_layout()
             
-            boxplot_path = os.path.join(plot_base_dir, 'corpus_imported_boxplot.png')
+            boxplot_path = os.path.join(plot_base_dir, f'{trial_name}_corpus_imported_boxplot.png')
             plt.savefig(boxplot_path, dpi=300, bbox_inches='tight')
             plt.close()
             print(f"Corpus imported boxplot successfully saved as '{boxplot_path}'")
