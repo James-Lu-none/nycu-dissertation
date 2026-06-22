@@ -208,7 +208,9 @@ def main():
         session_dirs = []
         for d in os.listdir(artifact_dir):
             if os.path.isdir(os.path.join(artifact_dir, d)) and d not in ["plot", "TTE_check"]:
-                if re.match(r"^" + re.escape(trial_name_base) + r"(_\d{8}_\d{6})?$", d):
+                if d == trial_name:
+                    session_dirs.append(d)
+                elif not re.search(r'_\d{8}_\d{6}$', trial_name) and re.match(r"^" + re.escape(trial_name_base) + r"(_\d{8}_\d{6})?$", d):
                     session_dirs.append(d)
                 
     def sort_session_key(x):
