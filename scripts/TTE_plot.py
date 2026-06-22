@@ -202,6 +202,8 @@ def generate_tte_table_image(method_ttes, output_path, cve):
     sorted_methods = sorted(method_ttes.keys(), key=get_sort_key)
     
     base_method = next((m for m in method_ttes.keys() if 'base' in m.lower()), None)
+    if not base_method:
+        base_method = next((m for m in method_ttes.keys() if 'dd' in m.lower() and 'cd' not in m.lower()), None)
     base_geo_mean = None
     base_valid = []
     if base_method:
@@ -431,6 +433,7 @@ def main():
         plot_dir = os.path.join(artifact_dir, "plot")
         os.makedirs(plot_dir, exist_ok=True)
         
+        # 1. Generate full comparison plots (all methods)
         if trial_name == "all":
             tte_summary_path = os.path.join(plot_dir, "TTE_comparison_summary.png")
             tte_table_path = os.path.join(plot_dir, "TTE_summary_table.png")
@@ -440,6 +443,20 @@ def main():
             
         generate_tte_summary_plot(method_ttes, tte_summary_path, args.bench)
         generate_tte_table_image(method_ttes, tte_table_path, args.bench)
+        
+        # 2. Generate dd vs dual only comparison plots
+        dd_dual_ttes = {k: v for k, v in method_ttes.items() if k in ["dd", "dual"]}
+        if len(dd_dual_ttes) > 0:
+            print("\n================ Generating TTE Summary Plot & Table (dd vs dual only) ================")
+            if trial_name == "all":
+                tte_summary_path_dd_dual = os.path.join(plot_dir, "TTE_comparison_summary_dd_dual.png")
+                tte_table_path_dd_dual = os.path.join(plot_dir, "TTE_summary_table_dd_dual.png")
+            else:
+                tte_summary_path_dd_dual = os.path.join(plot_dir, f"{trial_name}_TTE_comparison_summary_dd_dual.png")
+                tte_table_path_dd_dual = os.path.join(plot_dir, f"{trial_name}_TTE_summary_table_dd_dual.png")
+                
+            generate_tte_summary_plot(dd_dual_ttes, tte_summary_path_dd_dual, args.bench)
+            generate_tte_table_image(dd_dual_ttes, tte_table_path_dd_dual, args.bench)
 
 if __name__ == '__main__':
     main()

@@ -351,40 +351,8 @@ if [ "$COMMAND" = "tte_plot" ]; then
 
   cd "$ROOT_DIR"
   for cve in "${CVE_LIST[@]}"; do
-    selected_trial=""
-    if [ -n "$TRIAL_NAME" ]; then
-      selected_trial="$TRIAL_NAME"
-    else
-      # Find all available trial directories
-      trials=()
-      if [ -d "$ROOT_DIR/artifact/$cve" ]; then
-        while IFS= read -r d; do
-          [ -n "$d" ] && trials+=("$d")
-        done < <(find "$ROOT_DIR/artifact/$cve" -maxdepth 1 -mindepth 1 -type d ! -name "plot" ! -name "TTE_check" -exec basename {} \; 2>/dev/null | sort -r)
-      fi
-      
-      if [ ${#trials[@]} -eq 0 ]; then
-        selected_trial=$(get_active_trial_name "$cve")
-      elif [ ${#trials[@]} -eq 1 ]; then
-        selected_trial="${trials[0]}"
-      else
-        echo -e "\nAvailable trials for \033[1;35m$cve\033[0m:"
-        for i in "${!trials[@]}"; do
-          echo "$((i+1)). ${trials[$i]}"
-        done
-        read -p "Select a trial (1-${#trials[@]}, default 1: ${trials[0]}): " selection
-        if [ -z "$selection" ]; then
-          selected_trial="${trials[0]}"
-        elif [[ "$selection" =~ ^[0-9]+$ ]] && [ "$selection" -ge 1 ] && [ "$selection" -le "${#trials[@]}" ]; then
-          selected_trial="${trials[$((selection-1))]}"
-        else
-          echo "Error: Invalid selection. Using default: ${trials[0]}"
-          selected_trial="${trials[0]}"
-        fi
-      fi
-    fi
-    echo -e "Running TTE_plot.py for $cve with trial: \033[1;35m$selected_trial\033[0m"
-    python3 scripts/TTE_plot.py --bench "$cve" --trial-name "$selected_trial"
+    echo -e "Running TTE_plot.py for $cve with trial: \033[1;35m${TRIAL_NAME:-all}\033[0m"
+    python3 scripts/TTE_plot.py --bench "$cve" --trial-name "${TRIAL_NAME:-all}"
   done
   echo -e "\n\033[1;32mDone.\033[0m"
   exit 0
