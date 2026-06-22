@@ -289,8 +289,8 @@ if [ "$COMMAND" = "stat_plot" ]; then
   cd "$ROOT_DIR"
   for CVE in "${CVE_LIST[@]}"; do
     trial_name=$(get_active_trial_name "$CVE")
-    echo -e "Running stat_plot.py on: \033[1;35m${CVE}\033[0m with trial: \033[1;35m$trial_name\033[0m"
-    python3 scripts/stat_plot.py --root "./artifact/${CVE}" --methods base dd cd dual-dd dual-cd --cve "${CVE}" --trial-name "${trial_name}"
+    echo -e "Running stat_plot.py on: \033[1;35m${CVE}\033[0m with trial: \033[1;35m${TRIAL_NAME:-$trial_name}\033[0m"
+    python3 scripts/stat_plot.py --root "./artifact/${CVE}" --methods base dd cd dual-dd dual-cd --cve "${CVE}" --trial-name "${TRIAL_NAME:-${trial_name}}"
   done
   echo -e "\n\033[1;32mDone.\033[0m"
   exit 0
@@ -305,8 +305,8 @@ if [ "$COMMAND" = "tte_check" ]; then
   cd "$ROOT_DIR"
   for cve in "${CVE_LIST[@]}"; do
     trial_name=$(get_active_trial_name "$cve")
-    echo -e "Running TTE_check.py for $cve with trial: \033[1;35m$trial_name\033[0m"
-    python3 scripts/TTE_check.py --bench "$cve" --trial-name "$trial_name"
+    echo -e "Running TTE_check.py for $cve with trial: \033[1;35m${TRIAL_NAME:-$trial_name}\033[0m"
+    python3 scripts/TTE_check.py --bench "$cve" --trial-name "${TRIAL_NAME:-${trial_name}}"
   done
   echo -e "\n\033[1;32mDone.\033[0m"
   exit 0
@@ -321,8 +321,8 @@ if [ "$COMMAND" = "tte_plot" ]; then
   cd "$ROOT_DIR"
   for cve in "${CVE_LIST[@]}"; do
     trial_name=$(get_active_trial_name "$cve")
-    echo -e "Running TTE_plot.py for $cve with trial: \033[1;35m$trial_name\033[0m"
-    python3 scripts/TTE_plot.py --bench "$cve" --trial-name "$trial_name"
+    echo -e "Running TTE_plot.py for $cve with trial: \033[1;35m${TRIAL_NAME:-$trial_name}\033[0m"
+    python3 scripts/TTE_plot.py --bench "$cve" --trial-name "${TRIAL_NAME:-${trial_name}}"
   done
   echo -e "\n\033[1;32mDone.\033[0m"
   exit 0
@@ -405,7 +405,7 @@ if [ "$COMMAND" = "ttr" ]; then
       done
     done
     sudo chown -R "$(id -u):$(id -g)" "./artifact/${CVE}/${trial_name}" 2>/dev/null || true
-    python3 scripts/TTR.py --root "./artifact/${CVE}" --methods base dd cd dual-dd dual-cd --cve "${CVE}" --trial-name "${trial_name}"
+    python3 scripts/TTR.py --root "./artifact/${CVE}" --methods base dd cd dual-dd dual-cd --cve "${CVE}" --trial-name "${TRIAL_NAME:-${trial_name}}"
   done
   echo -e "\n\033[1;32mDone.\033[0m"
   exit 0

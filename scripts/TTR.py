@@ -650,31 +650,32 @@ def main():
         return
         
     trial_name = args.trial_name
-    if trial_name:
+    if trial_name and trial_name.lower() != 'all':
         trial_name_base = re.sub(r'_\d{8}_\d{6}$', '', trial_name)
     else:
         trial_name_base = None
 
     if not trial_name_base:
-        def get_trial_mtime(tn):
-            times = [os.path.getmtime(os.path.join(root, d)) for d in os.listdir(root) if re.match(r"^" + re.escape(tn) + r"(_\d{8}_\d{6})?$", d)]
-            return max(times) if times else 0
-        trial_names_list = list(trial_names)
-        trial_names_list.sort(key=get_trial_mtime, reverse=True)
-        trial_name_base = trial_names_list[0]
-        trial_name = trial_name_base
-        print(f"No --trial-name specified. Automatically selected the latest trial: {trial_name_base}")
+        session_dirs = []
+        for d in os.listdir(root):
+            if os.path.isdir(os.path.join(root, d)) and d not in ["plot", "TTE_check"]:
+                session_dirs.append(d)
+        if not session_dirs:
+            print(f"Error: No trial runs found under {root}. Exiting.")
+            sys.exit(1)
+        trial_name = "all"
+        trial_name_base = "all"
     else:
         if trial_name_base not in trial_names:
             print(f"Error: Specified trial-name '{trial_name}' not found. Available base names: {list(trial_names)}")
             sys.exit(1)
             
-    # Find matching session directories
-    session_dirs = []
-    for d in os.listdir(root):
-        if os.path.isdir(os.path.join(root, d)) and d not in ["plot", "TTE_check"]:
-            if re.match(r"^" + re.escape(trial_name_base) + r"(_\d{8}_\d{6})?$", d):
-                session_dirs.append(d)
+        # Find matching session directories
+        session_dirs = []
+        for d in os.listdir(root):
+            if os.path.isdir(os.path.join(root, d)) and d not in ["plot", "TTE_check"]:
+                if re.match(r"^" + re.escape(trial_name_base) + r"(_\d{8}_\d{6})?$", d):
+                    session_dirs.append(d)
                 
     def sort_session_key(x):
         ts_match = re.search(r'_(\d{8}_\d{6})$', x)
@@ -787,18 +788,26 @@ def main():
             method_runs_raw_full[method].append((ctrl_f, call_f))
             
     print("\n================ Generating TTR Summary Plots ================")
-    ttr_summary_path = os.path.join(plot_base_dir, f"{trial_name}_TTR_comparison_summary.png")
+    if trial_name == "all":
+        ttr_summary_path = os.path.join(plot_base_dir, "TTR_comparison_summary.png")
+        ttr_summary_full_path = os.path.join(plot_base_dir, "TTR_comparison_full_summary.png")
+    else:
+        ttr_summary_path = os.path.join(plot_base_dir, f"{trial_name}_TTR_comparison_summary.png")
+        ttr_summary_full_path = os.path.join(plot_base_dir, f"{trial_name}_TTR_comparison_full_summary.png")
+        
     generate_cumulative_summary_plot(valid_methods, method_runs_limit, method_reached_times, use_ttr_limit=True, output_filename=ttr_summary_path, total_blocks=total_blocks, cve=args.cve)
-    
-    ttr_summary_full_path = os.path.join(plot_base_dir, f"{trial_name}_TTR_comparison_full_summary.png")
     generate_cumulative_summary_plot(valid_methods, method_runs_full, method_reached_times, use_ttr_limit=False, output_filename=ttr_summary_full_path, total_blocks=total_blocks, cve=args.cve)
     
     if work_mapping_file:
         print("\n================ Generating TTR Bar Summary Plots ================")
-        ttr_bars_summary_path = os.path.join(plot_base_dir, f"{trial_name}_TTR_bars_summary.png")
+        if trial_name == "all":
+            ttr_bars_summary_path = os.path.join(plot_base_dir, "TTR_bars_summary.png")
+            ttr_bars_summary_full_path = os.path.join(plot_base_dir, "TTR_bars_full_summary.png")
+        else:
+            ttr_bars_summary_path = os.path.join(plot_base_dir, f"{trial_name}_TTR_bars_summary.png")
+            ttr_bars_summary_full_path = os.path.join(plot_base_dir, f"{trial_name}_TTR_bars_full_summary.png")
+            
         generate_bar_summary_plot(valid_methods, method_runs_raw_limit, work_mapping_file, use_ttr_limit=True, output_filename=ttr_bars_summary_path, cve=args.cve)
-        
-        ttr_bars_summary_full_path = os.path.join(plot_base_dir, f"{trial_name}_TTR_bars_full_summary.png")
         generate_bar_summary_plot(valid_methods, method_runs_raw_full, work_mapping_file, use_ttr_limit=False, output_filename=ttr_bars_summary_full_path, cve=args.cve)
 
 if __name__ == '__main__':

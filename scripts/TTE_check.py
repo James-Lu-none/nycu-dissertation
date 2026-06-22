@@ -66,7 +66,7 @@ def check_image_exists(image_name):
     except Exception:
         return False
 
-def triage_crashes_in_container(image_name, binary, flags, local_crashes_dir, target_trace, dest_logs_dir=None):
+def triage_crashes_in_container(image_name, binary, flags, local_crashes_dir, target_trace, cve_name, dest_logs_dir=None):
     local_crashes_dir = os.path.abspath(local_crashes_dir)
     
     trace_path = os.path.join(local_crashes_dir, ".target_trace")
@@ -82,7 +82,7 @@ def triage_crashes_in_container(image_name, binary, flags, local_crashes_dir, ta
     with open(triage_helper_path, 'r') as f:
         triage_script_content = f.read()
 
-    triage_script_content = triage_script_content.replace("PLACEHOLDER_CVE_NAME", "CVE")
+    triage_script_content = triage_script_content.replace("PLACEHOLDER_CVE_NAME", cve_name)
 
     # Copy triage.py library to local_crashes_dir so the container can import it
     triage_lib_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "triage.py")
@@ -184,31 +184,32 @@ def main():
         sys.exit(1)
         
     trial_name = args.trial_name
-    if trial_name:
+    if trial_name and trial_name.lower() != 'all':
         trial_name_base = re.sub(r'_\d{8}_\d{6}$', '', trial_name)
     else:
         trial_name_base = None
 
     if not trial_name_base:
-        def get_trial_mtime(tn):
-            times = [os.path.getmtime(os.path.join(artifact_dir, d)) for d in os.listdir(artifact_dir) if re.match(r"^" + re.escape(tn) + r"(_\d{8}_\d{6})?$", d)]
-            return max(times) if times else 0
-        trial_names_list = list(trial_names)
-        trial_names_list.sort(key=get_trial_mtime, reverse=True)
-        trial_name_base = trial_names_list[0]
-        trial_name = trial_name_base
-        print(f"No --trial-name specified. Automatically selected the latest trial: {trial_name_base}")
+        session_dirs = []
+        for d in os.listdir(artifact_dir):
+            if os.path.isdir(os.path.join(artifact_dir, d)) and d not in ["plot", "TTE_check"]:
+                session_dirs.append(d)
+        if not session_dirs:
+            print(f"Error: No trial runs found under {artifact_dir}. Exiting.")
+            sys.exit(1)
+        trial_name = "all"
+        trial_name_base = "all"
     else:
         if trial_name_base not in trial_names:
             print(f"Error: Specified trial-name '{trial_name}' not found under {artifact_dir}. Available base names: {list(trial_names)}")
             sys.exit(1)
             
-    # Find matching session directories
-    session_dirs = []
-    for d in os.listdir(artifact_dir):
-        if os.path.isdir(os.path.join(artifact_dir, d)) and d not in ["plot", "TTE_check"]:
-            if re.match(r"^" + re.escape(trial_name_base) + r"(_\d{8}_\d{6})?$", d):
-                session_dirs.append(d)
+        # Find matching session directories
+        session_dirs = []
+        for d in os.listdir(artifact_dir):
+            if os.path.isdir(os.path.join(artifact_dir, d)) and d not in ["plot", "TTE_check"]:
+                if re.match(r"^" + re.escape(trial_name_base) + r"(_\d{8}_\d{6})?$", d):
+                    session_dirs.append(d)
                 
     def sort_session_key(x):
         ts_match = re.search(r'_(\d{8}_\d{6})$', x)
@@ -339,6 +340,7 @@ def main():
                 flags=flags,
                 local_crashes_dir=local_crashes_dir,
                 target_trace=target_trace,
+                cve_name=args.bench,
                 dest_logs_dir=dest_logs_dir
             )
             

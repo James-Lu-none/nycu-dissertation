@@ -190,31 +190,32 @@ def main():
         return
         
     trial_name = args.trial_name
-    if trial_name:
+    if trial_name and trial_name.lower() != 'all':
         trial_name_base = re.sub(r'_\d{8}_\d{6}$', '', trial_name)
     else:
         trial_name_base = None
 
     if not trial_name_base:
-        def get_trial_mtime(tn):
-            times = [os.path.getmtime(os.path.join(root, d)) for d in os.listdir(root) if re.match(r"^" + re.escape(tn) + r"(_\d{8}_\d{6})?$", d)]
-            return max(times) if times else 0
-        trial_names_list = list(trial_names)
-        trial_names_list.sort(key=get_trial_mtime, reverse=True)
-        trial_name_base = trial_names_list[0]
-        trial_name = trial_name_base
-        print(f"No --trial-name specified. Automatically selected the latest trial: {trial_name_base}")
+        session_dirs = []
+        for d in os.listdir(root):
+            if os.path.isdir(os.path.join(root, d)) and d not in ["plot", "TTE_check"]:
+                session_dirs.append(d)
+        if not session_dirs:
+            print("Error: No trial runs found.")
+            return
+        trial_name = "all"
+        trial_name_base = "all"
     else:
         if trial_name_base not in trial_names:
             print(f"Error: Specified trial-name '{trial_name}' not found. Available base names: {list(trial_names)}")
             sys.exit(1)
             
-    # Find matching session directories
-    session_dirs = []
-    for d in os.listdir(root):
-        if os.path.isdir(os.path.join(root, d)) and d not in ["plot", "TTE_check"]:
-            if re.match(r"^" + re.escape(trial_name_base) + r"(_\d{8}_\d{6})?$", d):
-                session_dirs.append(d)
+        # Find matching session directories
+        session_dirs = []
+        for d in os.listdir(root):
+            if os.path.isdir(os.path.join(root, d)) and d not in ["plot", "TTE_check"]:
+                if re.match(r"^" + re.escape(trial_name_base) + r"(_\d{8}_\d{6})?$", d):
+                    session_dirs.append(d)
                 
     def sort_session_key(x):
         ts_match = re.search(r'_(\d{8}_\d{6})$', x)
@@ -330,7 +331,10 @@ def main():
     plt.grid(True, linestyle=':', alpha=0.6)
     plt.legend(loc='lower right', fontsize=10)
     plt.tight_layout()
-    time_summary_path = os.path.join(plot_base_dir, f'{trial_name}_coverage_time_summary.png')
+    if trial_name == "all":
+        time_summary_path = os.path.join(plot_base_dir, 'coverage_time_summary.png')
+    else:
+        time_summary_path = os.path.join(plot_base_dir, f'{trial_name}_coverage_time_summary.png')
     plt.savefig(time_summary_path, dpi=300, bbox_inches='tight')
     plt.close()
     print(f"Summary plot saved as '{time_summary_path}'")
@@ -381,7 +385,10 @@ def main():
     plt.grid(True, linestyle=':', alpha=0.6)
     plt.legend(loc='lower right', fontsize=10)
     plt.tight_layout()
-    execs_summary_path = os.path.join(plot_base_dir, f'{trial_name}_coverage_execs_summary.png')
+    if trial_name == "all":
+        execs_summary_path = os.path.join(plot_base_dir, 'coverage_execs_summary.png')
+    else:
+        execs_summary_path = os.path.join(plot_base_dir, f'{trial_name}_coverage_execs_summary.png')
     plt.savefig(execs_summary_path, dpi=300, bbox_inches='tight')
     plt.close()
     print(f"Summary plot saved as '{execs_summary_path}'")
@@ -395,8 +402,8 @@ def main():
         for method in dual_methods:
             values = []
             fuzzer_name = get_fuzzer_name(method)
-            for trial_dir in trial_dirs:
-                stats_file = os.path.join(root, trial_dir, method, f"out/{fuzzer_name}/fuzzer_stats")
+            for item in trial_items:
+                stats_file = os.path.join(root, item["session_dir"], method, item["trial"], f"out/{fuzzer_name}/fuzzer_stats")
                 val = parse_corpus_imported(stats_file)
                 if val is not None:
                     values.append(val)
@@ -437,7 +444,10 @@ def main():
             plt.grid(True, axis='y', linestyle=':', alpha=0.6)
             plt.tight_layout()
             
-            boxplot_path = os.path.join(plot_base_dir, f'{trial_name}_corpus_imported_boxplot.png')
+            if trial_name == "all":
+                boxplot_path = os.path.join(plot_base_dir, 'corpus_imported_boxplot.png')
+            else:
+                boxplot_path = os.path.join(plot_base_dir, f'{trial_name}_corpus_imported_boxplot.png')
             plt.savefig(boxplot_path, dpi=300, bbox_inches='tight')
             plt.close()
             print(f"Corpus imported boxplot successfully saved as '{boxplot_path}'")
