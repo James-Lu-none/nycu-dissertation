@@ -27,7 +27,7 @@ get_cves() {
 }
 
 show_usage() {
-  echo "Usage: $0 {up|down|build|status|log|clean|copy|stat_plot|tte_check|tte_plot|ttr} [cve_name]"
+  echo "Usage: $0 {up|down|build|status|log|clean|copy|stat_plot|tte_check|tte_plot|ttr} [cve_name] [-y|--yes|--non-interactive]"
   echo "Commands:"
   echo "  up        : Start docker containers for CVE trials"
   echo "  down      : Stop docker containers and remove named volumes (-v)"
@@ -40,6 +40,9 @@ show_usage() {
   echo "  tte_check : Run TTE_check.py on active CVEs"
   echo "  tte_plot  : Run TTE_plot.py on active CVEs"
   echo "  ttr       : Run TTR.py on active CVEs (copies TTR logs/stats and plots)"
+  echo ""
+  echo "Options:"
+  echo "  -y, --yes, --non-interactive : Skip interactive selection and confirmation prompts"
   echo ""
   echo "If [cve_name] is omitted, the command runs on all active CVEs defined in cves.env."
   exit 1
@@ -86,6 +89,7 @@ get_active_trial_name() {
   echo "$trial_name"
 }
 
+NON_INTERACTIVE=false
 COMMAND=""
 TARGET_CVE=""
 TRIAL_NAME=""
@@ -94,7 +98,9 @@ EXTRA_ARGS=()
 for arg in "$@"; do
   # Convert arg to lowercase to accept case-insensitive commands
   arg_lower=$(echo "$arg" | tr '[:upper:]' '[:lower:]')
-  if [ -z "$COMMAND" ] && [[ "$arg_lower" =~ ^(up|down|build|status|log|clean|copy|stat_plot|tte_check|tte_plot|ttr)$ ]]; then
+  if [[ "$arg_lower" == "-y" || "$arg_lower" == "--yes" || "$arg_lower" == "--non-interactive" ]]; then
+    NON_INTERACTIVE=true
+  elif [ -z "$COMMAND" ] && [[ "$arg_lower" =~ ^(up|down|build|status|log|clean|copy|stat_plot|tte_check|tte_plot|ttr)$ ]]; then
     COMMAND="$arg_lower"
   elif [[ "$arg" =~ ^[0-9]+$ ]]; then
     export NUM_TRIALS="$arg"
@@ -116,54 +122,62 @@ fi
 
 # Determine target CVEs
 if [ "$COMMAND" = "down" ]; then
-  # For down command, always force interactive number selection and 2-step confirmation
-  ALL_CVES=($(get_cves))
-  if [ ${#ALL_CVES[@]} -eq 0 ]; then
-    echo "No active CVEs found to down."
-    exit 0
-  fi
-  echo "CVE list:"
-  for i in "${!ALL_CVES[@]}"; do
-    echo "$((i+1)). ${ALL_CVES[$i]}"
-  done
-  
-  read -p "Select a CVE to down (1-${#ALL_CVES[@]}): " selection
-  if [[ ! "$selection" =~ ^[0-9]+$ ]] || [ "$selection" -lt 1 ] || [ "$selection" -gt "${#ALL_CVES[@]}" ]; then
-    echo "Error: Invalid selection."
-    exit 1
-  fi
-  
-  TARGET_CVE="${ALL_CVES[$((selection-1))]}"
-  CVE_LIST=("$TARGET_CVE")
-  
-  echo -e "\nSelected CVE: \033[1;33m$TARGET_CVE\033[0m"
-  read -p "Are you sure you want to stop and remove volumes for $TARGET_CVE? (y/N): " confirm1
-  if [[ ! "$confirm1" =~ ^[Yy]$ ]]; then
-    echo "Aborted."
-    exit 0
+  if [ "$NON_INTERACTIVE" = "true" ] && [ -n "$TARGET_CVE" ]; then
+    CVE_LIST=("$TARGET_CVE")
+  else
+    # For down command, always force interactive number selection and 2-step confirmation
+    ALL_CVES=($(get_cves))
+    if [ ${#ALL_CVES[@]} -eq 0 ]; then
+      echo "No active CVEs found to down."
+      exit 0
+    fi
+    echo "CVE list:"
+    for i in "${!ALL_CVES[@]}"; do
+      echo "$((i+1)). ${ALL_CVES[$i]}"
+    done
+    
+    read -p "Select a CVE to down (1-${#ALL_CVES[@]}): " selection
+    if [[ ! "$selection" =~ ^[0-9]+$ ]] || [ "$selection" -lt 1 ] || [ "$selection" -gt "${#ALL_CVES[@]}" ]; then
+      echo "Error: Invalid selection."
+      exit 1
+    fi
+    
+    TARGET_CVE="${ALL_CVES[$((selection-1))]}"
+    CVE_LIST=("$TARGET_CVE")
+    
+    echo -e "\nSelected CVE: \033[1;33m$TARGET_CVE\033[0m"
+    read -p "Are you sure you want to stop and remove volumes for $TARGET_CVE? (y/N): " confirm1
+    if [[ ! "$confirm1" =~ ^[Yy]$ ]]; then
+      echo "Aborted."
+      exit 0
+    fi
   fi
 elif [ "$COMMAND" = "up" ]; then
-  # For up command, always force interactive number selection without confirmation
-  ALL_CVES=($(get_cves))
-  if [ ${#ALL_CVES[@]} -eq 0 ]; then
-    echo "No active CVEs found to up."
-    exit 0
+  if [ "$NON_INTERACTIVE" = "true" ] && [ -n "$TARGET_CVE" ]; then
+    CVE_LIST=("$TARGET_CVE")
+  else
+    # For up command, always force interactive number selection without confirmation
+    ALL_CVES=($(get_cves))
+    if [ ${#ALL_CVES[@]} -eq 0 ]; then
+      echo "No active CVEs found to up."
+      exit 0
+    fi
+    echo "CVE list:"
+    for i in "${!ALL_CVES[@]}"; do
+      echo "$((i+1)). ${ALL_CVES[$i]}"
+    done
+    
+    read -p "Select a CVE to up (1-${#ALL_CVES[@]}): " selection
+    if [[ ! "$selection" =~ ^[0-9]+$ ]] || [ "$selection" -lt 1 ] || [ "$selection" -gt "${#ALL_CVES[@]}" ]; then
+      echo "Error: Invalid selection."
+      exit 1
+    fi
+    
+    TARGET_CVE="${ALL_CVES[$((selection-1))]}"
+    CVE_LIST=("$TARGET_CVE")
+    
+    echo -e "\nSelected CVE: \033[1;33m$TARGET_CVE\033[0m"
   fi
-  echo "CVE list:"
-  for i in "${!ALL_CVES[@]}"; do
-    echo "$((i+1)). ${ALL_CVES[$i]}"
-  done
-  
-  read -p "Select a CVE to up (1-${#ALL_CVES[@]}): " selection
-  if [[ ! "$selection" =~ ^[0-9]+$ ]] || [ "$selection" -lt 1 ] || [ "$selection" -gt "${#ALL_CVES[@]}" ]; then
-    echo "Error: Invalid selection."
-    exit 1
-  fi
-  
-  TARGET_CVE="${ALL_CVES[$((selection-1))]}"
-  CVE_LIST=("$TARGET_CVE")
-  
-  echo -e "\nSelected CVE: \033[1;33m$TARGET_CVE\033[0m"
 elif [ -n "$TARGET_CVE" ]; then
   # Verify directory exists under bench/
   if [ ! -d "$ROOT_DIR/bench/$TARGET_CVE" ]; then
@@ -321,18 +335,22 @@ if [ "$COMMAND" = "tte_check" ]; then
       elif [ ${#trials[@]} -eq 1 ]; then
         selected_trial="${trials[0]}"
       else
-        echo -e "\nAvailable trials for \033[1;35m$cve\033[0m:"
-        for i in "${!trials[@]}"; do
-          echo "$((i+1)). ${trials[$i]}"
-        done
-        read -p "Select a trial (1-${#trials[@]}, default 1: ${trials[0]}): " selection
-        if [ -z "$selection" ]; then
+        if [ "$NON_INTERACTIVE" = "true" ]; then
           selected_trial="${trials[0]}"
-        elif [[ "$selection" =~ ^[0-9]+$ ]] && [ "$selection" -ge 1 ] && [ "$selection" -le "${#trials[@]}" ]; then
-          selected_trial="${trials[$((selection-1))]}"
         else
-          echo "Error: Invalid selection. Using default: ${trials[0]}"
-          selected_trial="${trials[0]}"
+          echo -e "\nAvailable trials for \033[1;35m$cve\033[0m:"
+          for i in "${!trials[@]}"; do
+            echo "$((i+1)). ${trials[$i]}"
+          done
+          read -p "Select a trial (1-${#trials[@]}, default 1: ${trials[0]}): " selection
+          if [ -z "$selection" ]; then
+            selected_trial="${trials[0]}"
+          elif [[ "$selection" =~ ^[0-9]+$ ]] && [ "$selection" -ge 1 ] && [ "$selection" -le "${#trials[@]}" ]; then
+            selected_trial="${trials[$((selection-1))]}"
+          else
+            echo "Error: Invalid selection. Using default: ${trials[0]}"
+            selected_trial="${trials[0]}"
+          fi
         fi
       fi
     fi
