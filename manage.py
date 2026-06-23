@@ -111,7 +111,7 @@ def parse_arguments(root_dir):
     
     command = None
     target_cve = None
-    num_trials = int(os.environ.get("NUM_TRIALS", 5))
+    num_trials = None
     trial_name = None
     run_all = False
     yes = False
@@ -705,7 +705,31 @@ def run_ttr(root_dir, cve_list, num_trials, trial_name_arg):
         ttr_cmd = [python_bin, "scripts/TTR.py", "--root", os.path.join(root_dir, "artifact", cve), "--methods", "base", "dd", "cd", "dual-dd", "dual-cd", "--cve", cve, "--trial-name", trial_name_arg if trial_name_arg else trial_name]
         subprocess.run(ttr_cmd)
         
-    print("\n\033[1;32mDone.\033[0m")
+def detect_num_trials(root_dir, cve_list):
+    max_trial = 0
+    for cve in cve_list:
+        # Check containers
+        res = subprocess.run(["docker", "ps", "-a", "--filter", f"name=^/{cve}-afl-", "--format", "{{.Names}}"], capture_output=True, text=True)
+        if res.returncode == 0:
+            for name in res.stdout.strip().splitlines():
+                match = re.search(r'-(\d+)$', name)
+                if match:
+                    val = int(match.group(1))
+                    if val > max_trial:
+                        max_trial = val
+                        
+        # Check volumes
+        res_vol = subprocess.run(["docker", "volume", "ls", "--filter", f"name={cve}-afl-", "--format", "{{.Name}}"], capture_output=True, text=True)
+        if res_vol.returncode == 0:
+            for name in res_vol.stdout.strip().splitlines():
+                match = re.search(r'-(\d+)$', name)
+                if match:
+                    val = int(match.group(1))
+                    if val > max_trial:
+                        max_trial = val
+    if max_trial > 0:
+        return max_trial
+    return None
 
 def main():
     root_dir = os.path.abspath(os.path.dirname(__file__))
@@ -751,6 +775,12 @@ def main():
         print("No active CVEs found to manage.")
         sys.exit(0)
         
+    if num_trials is None:
+        num_trials = detect_num_trials(root_dir, cve_list)
+        if num_trials is None:
+            print("Error: Could not detect number of trials. Use --trials N to specify.")
+            sys.exit(1)
+
     # Execute commands
     if command in ["up", "down", "build"]:
         run_docker_compose_command(root_dir, command, cve_list, num_trials, run_all, yes, extra_args, trial_name_arg)
