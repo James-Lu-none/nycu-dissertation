@@ -9,6 +9,11 @@ import argparse
 def main():
     root_dir = os.path.abspath(os.path.dirname(__file__))
     
+    # Automatically re-execute within the virtualenv if it exists and we're not inside it
+    venv_python = os.path.abspath(os.path.join(root_dir, "../.venv/bin/python3"))
+    if os.path.isfile(venv_python) and os.path.abspath(sys.executable) != venv_python:
+        os.execv(venv_python, [venv_python] + sys.argv)
+        
     parser = argparse.ArgumentParser(description="Continuous Trial Runner Loop")
     parser.add_argument("duration", type=int, help="Duration of fuzzing per trial in seconds")
     parser.add_argument("cve", help="CVE identifier")
@@ -37,11 +42,11 @@ def main():
         
         # Step A: Start containers
         print("\n\033[1;33m[Step 1/4] Starting containers...\033[0m")
-        subprocess.run([python_bin, manage_py, "up", cve, "12", "-y"])
+        subprocess.run([python_bin, manage_py, "up", cve, "15", "-y"])
         
         # Step B: Wait for the duration
         print(f"\n\033[1;33m[Step 2/4] Fuzzing for {duration} seconds...\033[0m")
-        sleep_interval = 60
+        sleep_interval = 300
         if duration < 60:
             sleep_interval = 10
         if duration < 10:

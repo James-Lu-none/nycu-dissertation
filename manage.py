@@ -677,10 +677,12 @@ def run_ttr(root_dir, cve_list, num_trials, trial_name_arg):
     print("\n\033[1;32mDone.\033[0m")
 
 def main():
-    # run . ../.venv/bin/activate
-    
-
     root_dir = os.path.abspath(os.path.dirname(__file__))
+    
+    # Automatically re-execute within the virtualenv if it exists and we're not inside it
+    venv_python = os.path.abspath(os.path.join(root_dir, "../.venv/bin/python3"))
+    if os.path.isfile(venv_python) and os.path.abspath(sys.executable) != venv_python:
+        os.execv(venv_python, [venv_python] + sys.argv)
     command, target_cve, num_trials, trial_name_arg, run_all, yes, extra_args = parse_arguments(root_dir)
     
     if not command:
