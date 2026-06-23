@@ -472,14 +472,50 @@ def run_log(cve_list):
             print(f"\n\033[1;36m>>> Logs for {container}:\033[0m")
             subprocess.run(["docker", "exec", container, "cat", "/workspace/cpu_binding.log"])
 
-def run_stat_plot(root_dir, cve_list, trial_name_arg):
+def select_trial_interactively(root_dir, cve, yes):
+    artifact_cve_dir = os.path.join(root_dir, "artifact", cve)
+    trials = []
+    if os.path.isdir(artifact_cve_dir):
+        for item in os.listdir(artifact_cve_dir):
+            item_path = os.path.join(artifact_cve_dir, item)
+            if os.path.isdir(item_path) and item not in ["plot", "TTE_check"]:
+                trials.append(item)
+    trials.sort(reverse=True)
+    
+    if not trials:
+        return get_active_trial_name(root_dir, cve)
+    elif len(trials) == 1:
+        return trials[0]
+    else:
+        if yes:
+            return trials[0]
+        
+        print(f"\nAvailable trials for \033[1;35m{cve}\033[0m:")
+        for idx, t in enumerate(trials):
+            print(f"{idx+1}. {t}")
+        try:
+            selection = input(f"Select a trial (1-{len(trials)}, default 1: {trials[0]}): ").strip()
+            if not selection:
+                return trials[0]
+            else:
+                sel_idx = int(selection) - 1
+                if 0 <= sel_idx < len(trials):
+                    return trials[sel_idx]
+                else:
+                    print(f"Error: Invalid selection. Using default: {trials[0]}")
+                    return trials[0]
+        except (ValueError, IndexError, KeyboardInterrupt):
+            print(f"Using default: {trials[0]}")
+            return trials[0]
+
+def run_stat_plot(root_dir, cve_list, trial_name_arg, yes):
     venv_activate = os.path.join(root_dir, "../.venv/bin/activate")
     python_bin = sys.executable
     if os.path.isfile(venv_activate):
         python_bin = os.path.abspath(os.path.join(root_dir, "../.venv/bin/python3"))
         
     for cve in cve_list:
-        trial_name = trial_name_arg if trial_name_arg else get_active_trial_name(root_dir, cve)
+        trial_name = trial_name_arg if trial_name_arg else select_trial_interactively(root_dir, cve, yes)
         print(f"Running stat_plot.py on: \033[1;35m{cve}\033[0m with trial: \033[1;35m{trial_name}\033[0m")
         cmd = [python_bin, "scripts/stat_plot.py", "--root", os.path.join(root_dir, "artifact", cve), "--methods", "base", "dd", "cd", "dual-dd", "dual-cd", "--cve", cve, "--trial-name", trial_name]
         subprocess.run(cmd)
@@ -493,43 +529,7 @@ def run_tte_check(root_dir, cve_list, trial_name_arg, yes):
         python_bin = os.path.abspath(os.path.join(root_dir, "../.venv/bin/python3"))
         
     for cve in cve_list:
-        trial_name = trial_name_arg
-        if not trial_name:
-            artifact_cve_dir = os.path.join(root_dir, "artifact", cve)
-            trials = []
-            if os.path.isdir(artifact_cve_dir):
-                for item in os.listdir(artifact_cve_dir):
-                    item_path = os.path.join(artifact_cve_dir, item)
-                    if os.path.isdir(item_path) and item not in ["plot", "TTE_check"]:
-                        trials.append(item)
-            trials.sort(reverse=True)
-            
-            if not trials:
-                trial_name = get_active_trial_name(root_dir, cve)
-            elif len(trials) == 1:
-                trial_name = trials[0]
-            else:
-                if yes:
-                    trial_name = trials[0]
-                else:
-                    print(f"\nAvailable trials for \033[1;35m{cve}\033[0m:")
-                    for idx, t in enumerate(trials):
-                        print(f"{idx+1}. {t}")
-                    try:
-                        selection = input(f"Select a trial (1-{len(trials)}, default 1: {trials[0]}): ").strip()
-                        if not selection:
-                            trial_name = trials[0]
-                        else:
-                            sel_idx = int(selection) - 1
-                            if 0 <= sel_idx < len(trials):
-                                trial_name = trials[sel_idx]
-                            else:
-                                print(f"Error: Invalid selection. Using default: {trials[0]}")
-                                trial_name = trials[0]
-                    except (ValueError, IndexError, KeyboardInterrupt):
-                        print(f"Using default: {trials[0]}")
-                        trial_name = trials[0]
-                        
+        trial_name = trial_name_arg if trial_name_arg else select_trial_interactively(root_dir, cve, yes)
         print(f"Running TTE_check.py for {cve} with trial: \033[1;35m{trial_name}\033[0m")
         cmd = [python_bin, "scripts/TTE_check.py", "--bench", cve, "--trial-name", trial_name]
         subprocess.run(cmd)
@@ -730,7 +730,7 @@ def main():
     elif command == "log":
         run_log(cve_list)
     elif command == "stat_plot":
-        run_stat_plot(root_dir, cve_list, trial_name_arg)
+        run_stat_plot(root_dir, cve_list, trial_name_arg, yes)
     elif command == "tte_check":
         run_tte_check(root_dir, cve_list, trial_name_arg, yes)
     elif command == "tte_plot":
