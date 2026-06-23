@@ -1,0 +1,740 @@
+#!/usr/bin/env python3
+import sys
+import os
+import subprocess
+import re
+import datetime
+import shutil
+import time
+
+def get_cves(root_dir):
+    cves_path = os.path.join(root_dir, "cves.env")
+    cves_template_path = os.path.join(root_dir, "cves.env.template")
+    cves = []
+    if os.path.isfile(cves_path):
+        with open(cves_path, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+                cve = line.replace('"', '').replace("'", '').replace(" ", "").replace("\r", "")
+                if cve:
+                    cves.append(cve)
+    elif os.path.isfile(cves_template_path):
+        with open(cves_template_path, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+                cve = line.replace('"', '').replace("'", '').replace(" ", "").replace("\r", "")
+                if cve:
+                    cves.append(cve)
+    else:
+        # Fallback to directories under bench/ containing .env
+        bench_dir = os.path.join(root_dir, "bench")
+        if os.path.isdir(bench_dir):
+            for item in os.listdir(bench_dir):
+                item_path = os.path.join(bench_dir, item)
+                if os.path.isdir(item_path) and os.path.isfile(os.path.join(item_path, ".env")):
+                    cves.append(item)
+    return cves
+
+def is_cve(root_dir, arg):
+    active_cves = get_cves(root_dir)
+    if arg in active_cves:
+        return True
+    if os.path.isdir(os.path.join(root_dir, "bench", arg)):
+        return True
+    return False
+
+def get_active_trial_name(root_dir, cve):
+    container_name = f"{cve}-afl-base-1"
+    try:
+        res = subprocess.run(["docker", "ps", "-a", "-q", "-f", f"name=^/{container_name}$"], capture_output=True, text=True)
+        if res.returncode == 0 and res.stdout.strip():
+            inspect_res = subprocess.run(["docker", "inspect", "--format", "{{range .Config.Env}}{{println .}}{{end}}", container_name], capture_output=True, text=True)
+            if inspect_res.returncode == 0:
+                for line in inspect_res.stdout.splitlines():
+                    if line.startswith("TRIAL_NAME="):
+                        return line.split("=", 1)[1].strip()
+    except Exception:
+        pass
+
+    curr_session_path = os.path.join(root_dir, "bench", cve, ".current_session")
+    if os.path.isfile(curr_session_path):
+        try:
+            with open(curr_session_path, 'r') as f:
+                for line in f:
+                    if line.startswith("TRIAL_NAME="):
+                        return line.split("=", 1)[1].strip()
+        except Exception:
+            pass
+
+    artifact_cve_dir = os.path.join(root_dir, "artifact", cve)
+    if os.path.isdir(artifact_cve_dir):
+        try:
+            candidates = []
+            for item in os.listdir(artifact_cve_dir):
+                item_path = os.path.join(artifact_cve_dir, item)
+                if os.path.isdir(item_path) and item not in ["plot", "TTE_check"]:
+                    mtime = os.path.getmtime(item_path)
+                    candidates.append((mtime, item))
+            if candidates:
+                candidates.sort()
+                latest_dir = candidates[-1][1]
+                normalized = re.sub(r'_\d{8}_\d{6}$', '', latest_dir)
+                normalized = re.sub(r'_\d{8}_\d{6}_trial\d+$', '', normalized)
+                normalized = re.sub(r'_trial\d+$', '', normalized)
+                return normalized
+        except Exception:
+            pass
+
+    return "trial_default"
+
+def print_usage():
+    print("Usage: python3 manage.py {up|down|build|status|log|clean|copy|stat_plot|tte_check|tte_plot|ttr} [cve_name] [trials] [trial_name] [--all] [-y]")
+    print("\nCommands:")
+    print("  up        : Start docker containers for CVE trials")
+    print("  down      : Stop docker containers and remove named volumes (-v)")
+    print("  build     : Build docker images for CVE trials")
+    print("  status    : Check if fuzzer process is active inside containers")
+    print("  log       : Print /workspace/cpu_binding.log from inside containers")
+    print("  clean     : Force stop and remove containers, volumes, and images")
+    print("  copy      : Copy stats from docker containers (excluding .cur_input)")
+    print("  stat_plot : Run stat_plot.py on active CVEs (plots already copied stats)")
+    print("  tte_check : Run TTE_check.py on active CVEs")
+    print("  tte_plot  : Run TTE_plot.py on active CVEs")
+    print("  ttr       : Run TTR.py on active CVEs (copies TTR logs/stats and plots)")
+
+def parse_arguments(root_dir):
+    args = sys.argv[1:]
+    
+    command = None
+    target_cve = None
+    num_trials = int(os.environ.get("NUM_TRIALS", 5))
+    trial_name = None
+    run_all = False
+    yes = False
+    extra_args = []
+    
+    valid_commands = ["up", "down", "build", "status", "log", "clean", "copy", "stat_plot", "tte_check", "tte_plot", "ttr"]
+    
+    for arg in args:
+        arg_lower = arg.lower()
+        if arg_lower == "--all":
+            run_all = True
+        elif arg_lower in ["-y", "--yes", "--non-interactive"]:
+            yes = True
+        elif arg_lower in ["-h", "--help"]:
+            print_usage()
+            sys.exit(0)
+        elif arg.startswith("-"):
+            extra_args.append(arg)
+        elif command is None and arg_lower in valid_commands:
+            command = arg_lower
+        elif arg.isdigit():
+            num_trials = int(arg)
+        elif is_cve(root_dir, arg):
+            target_cve = arg
+        else:
+            trial_name = arg
+            
+    return command, target_cve, num_trials, trial_name, run_all, yes, extra_args
+
+def select_cve_interactively(root_dir, action, yes):
+    all_cves = get_cves(root_dir)
+    if not all_cves:
+        print(f"No active CVEs found to {action}.")
+        return None
+        
+    if yes:
+        return all_cves[0]
+        
+    print("CVE list:")
+    for idx, cve in enumerate(all_cves):
+        print(f"{idx+1}. {cve}")
+        
+    try:
+        selection = input(f"Select a CVE to {action} (1-{len(all_cves)}): ").strip()
+        sel_idx = int(selection) - 1
+        if 0 <= sel_idx < len(all_cves):
+            selected_cve = all_cves[sel_idx]
+            
+            if action == "down":
+                print(f"\nSelected CVE: \033[1;33m{selected_cve}\033[0m")
+                confirm = input(f"Are you sure you want to stop and remove volumes for {selected_cve}? (y/N): ").strip().lower()
+                if confirm != 'y':
+                    print("Aborted.")
+                    return None
+            return selected_cve
+        else:
+            print("Error: Invalid selection.")
+            return None
+    except (ValueError, IndexError, KeyboardInterrupt):
+        print("\nAborted.")
+        return None
+
+def run_clean():
+    print("\n\033[1;31m[Docker-Prune] Stopping and removing all containers & pruning volumes...\033[0m")
+    res = subprocess.run(["docker", "ps", "-aq"], capture_output=True, text=True)
+    container_ids = res.stdout.strip().split()
+    if container_ids:
+        print("Stopping all containers...")
+        subprocess.run(["docker", "stop"] + container_ids, stderr=subprocess.DEVNULL)
+        print("Removing all containers...")
+        subprocess.run(["docker", "rm"] + container_ids, stderr=subprocess.DEVNULL)
+    else:
+        print("No containers to stop/remove.")
+    print("Pruning all unused volumes...")
+    subprocess.run(["docker", "volume", "prune", "-a", "-f"])
+    
+    print("\n\033[1;34m[Docker Volumes]\033[0m")
+    subprocess.run(["docker", "volume", "ls"])
+    
+    print("\n\033[1;34m[Docker Containers]\033[0m")
+    subprocess.run(["docker", "ps", "-a"])
+    print("\n\033[1;32mDone.\033[0m")
+
+def run_docker_compose_command(root_dir, command, cve_list, num_trials, run_all, yes, extra_args, trial_name_arg=None):
+    python_bin = sys.executable
+    gen_cmd = [python_bin, os.path.join(root_dir, "scripts/generate_master_compose.py"), str(num_trials)]
+    subprocess.run(gen_cmd)
+    
+    for cve in cve_list:
+        print(f"\n\033[1;34m[Docker-Compose]\033[0m \033[1;35m{cve}\033[0m >> \033[1;32m{command} {' '.join(extra_args)}\033[0m")
+        
+        cve_bench_dir = os.path.join(root_dir, "bench", cve)
+        if not os.path.isdir(cve_bench_dir):
+            print(f"Warning: Benchmark directory 'bench/{cve}' not found. Skipping.")
+            continue
+            
+        current_session_file = os.path.join(cve_bench_dir, ".current_session")
+        env_dict = os.environ.copy()
+        
+        if command == "up":
+            active_trial_name = trial_name_arg if trial_name_arg else f"trial_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            active_session_id = f"session_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            
+            os.makedirs(cve_bench_dir, exist_ok=True)
+            with open(current_session_file, "w") as f:
+                f.write(f"SESSION_ID={active_session_id}\n")
+                f.write(f"TRIAL_NAME={active_trial_name}\n")
+                
+            env_dict["SESSION_ID"] = active_session_id
+            env_dict["TRIAL_NAME"] = active_trial_name
+            print(f"Starting run with SESSION_ID=\033[1;36m{active_session_id}\033[0m and TRIAL_NAME=\033[1;35m{active_trial_name}\033[0m")
+        else:
+            session_id = "dummy_session"
+            trial_name = "dummy_trial"
+            if os.path.isfile(current_session_file):
+                with open(current_session_file, 'r') as f:
+                    for line in f:
+                        if line.startswith("SESSION_ID="):
+                            session_id = line.split("=", 1)[1].strip()
+                        elif line.startswith("TRIAL_NAME="):
+                            trial_name = line.split("=", 1)[1].strip()
+            env_dict["SESSION_ID"] = session_id
+            env_dict["TRIAL_NAME"] = trial_name
+            
+        compose_yaml_path = os.path.join(cve_bench_dir, "compose.yaml")
+        if not os.path.isfile(compose_yaml_path):
+            print(f"Warning: compose.yaml not found in bench/{cve}. Skipping.")
+            continue
+            
+        cmd_args = ["docker", "compose"]
+        if command == "up":
+            cmd_args += ["up", "-d", "--build"] + extra_args
+            services = []
+            for i in range(1, num_trials + 1):
+                if run_all:
+                    services += [f"afl-base-{i}", f"afl-base-slave-{i}", f"afl-cd-{i}", f"afl-cd-slave-{i}"]
+                services += [f"afl-dd-{i}", f"afl-dd-slave-{i}", f"afl-dual-dd-{i}", f"afl-dual-cd-{i}"]
+            cmd_args += services
+        elif command == "down":
+            cmd_args += ["down"]
+            if not extra_args:
+                cmd_args.append("-v")
+            else:
+                cmd_args += extra_args
+        elif command == "build":
+            cmd_args += ["build"] + extra_args
+            
+        subprocess.run(cmd_args, cwd=cve_bench_dir, env=env_dict)
+        
+    print("\n\033[1;32mDone.\033[0m")
+
+def run_copy(root_dir, cve_list, num_trials, trial_name_arg):
+    methods = ["base", "dd", "cd", "dual-dd", "dual-cd"]
+    suffixes = ["afl-base", "afl-dd", "afl-cd", "afl-dual-dd", "afl-dual-cd"]
+    trials = list(range(1, num_trials + 1))
+    
+    for cve in cve_list:
+        container_name = f"{cve}-afl-base-1"
+        res = subprocess.run(["docker", "ps", "-a", "-q", "-f", f"name=^/{container_name}$"], capture_output=True, text=True)
+        if not res.stdout.strip():
+            container_name = f"{cve}-afl-dd-1"
+            
+        session_id = ""
+        trial_name = ""
+        
+        res = subprocess.run(["docker", "ps", "-a", "-q", "-f", f"name=^/{container_name}$"], capture_output=True, text=True)
+        if res.stdout.strip():
+            inspect_res = subprocess.run(["docker", "inspect", "--format", "{{range .Config.Env}}{{println .}}{{end}}", container_name], capture_output=True, text=True)
+            if inspect_res.returncode == 0:
+                for line in inspect_res.stdout.splitlines():
+                    if line.startswith("SESSION_ID="):
+                        session_id = line.split("=", 1)[1].strip()
+                    elif line.startswith("TRIAL_NAME="):
+                        trial_name = line.split("=", 1)[1].strip()
+                        
+        if not session_id or not trial_name:
+            curr_session_path = os.path.join(root_dir, "bench", cve, ".current_session")
+            if os.path.isfile(curr_session_path):
+                with open(curr_session_path, 'r') as f:
+                    for line in f:
+                        if line.startswith("SESSION_ID="):
+                            session_id = line.split("=", 1)[1].strip()
+                        elif line.startswith("TRIAL_NAME="):
+                            trial_name = line.split("=", 1)[1].strip()
+                            
+        now_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        if not trial_name:
+            trial_name = f"trial_{now_str}"
+        if not session_id:
+            session_id = f"session_{now_str}"
+            
+        artifact_trial_dir = os.path.join(root_dir, "artifact", cve, trial_name)
+        if os.path.isdir(artifact_trial_dir):
+            exist_session_id = ""
+            session_id_file = os.path.join(artifact_trial_dir, ".session_id")
+            if os.path.isfile(session_id_file):
+                with open(session_id_file, 'r') as f:
+                    exist_session_id = f.read().strip()
+            if exist_session_id != session_id:
+                trial_name = f"{trial_name}_{now_str}"
+                artifact_trial_dir = os.path.join(root_dir, "artifact", cve, trial_name)
+                
+        print(f"Copying results for trial run: \033[1;35m{trial_name}\033[0m")
+        os.makedirs(artifact_trial_dir, exist_ok=True)
+        with open(os.path.join(artifact_trial_dir, ".session_id"), "w") as f:
+            f.write(session_id)
+            
+        for idx, method in enumerate(methods):
+            suffix = suffixes[idx]
+            for i in trials:
+                c_name = f"{cve}-{suffix}-{i}"
+                res = subprocess.run(["docker", "ps", "-a", "-q", "-f", f"name=^/{c_name}$"], capture_output=True, text=True)
+                if not res.stdout.strip():
+                    continue
+                    
+                target_dir = os.path.join(artifact_trial_dir, method, f"trial{i}")
+                os.makedirs(target_dir, exist_ok=True)
+                print(f"Copying results from {c_name:<55}... ", end="", flush=True)
+                
+                res_run = subprocess.run(["docker", "inspect", "-f", "{{.State.Running}}", c_name], capture_output=True, text=True)
+                running = res_run.stdout.strip() == "true"
+                
+                success = False
+                if running:
+                    tar_cmd = f"docker exec {c_name} tar -cf - -C /workspace out --exclude=.cur_input --exclude=*.pyc --exclude=__pycache__"
+                    try:
+                        p1 = subprocess.Popen(tar_cmd.split(), stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+                        p2 = subprocess.Popen(["tar", "-xf", "-", "-C", target_dir], stdin=p1.stdout, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                        p1.stdout.close()
+                        p2.communicate()
+                        success = p2.returncode == 0
+                    except Exception:
+                        pass
+                else:
+                    res_cp = subprocess.run(["docker", "cp", f"{c_name}:/workspace/out", target_dir], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    success = res_cp.returncode == 0
+                    
+                for root, dirs, files in os.walk(target_dir):
+                    for file in files:
+                        if file.endswith(".pyc"):
+                            try:
+                                os.remove(os.path.join(root, file))
+                            except Exception:
+                                pass
+                    for d in list(dirs):
+                        if d == "__pycache__":
+                            try:
+                                shutil.rmtree(os.path.join(root, d))
+                            except Exception:
+                                pass
+                
+                size_res = subprocess.run(["du", "-sh", os.path.join(target_dir, "out")], capture_output=True, text=True)
+                size = size_res.stdout.strip().split()[0] if size_res.returncode == 0 and size_res.stdout.strip() else ""
+                
+                if success and size:
+                    print(f"\033[1;32mDone\033[0m (size: {size})")
+                else:
+                    print("\033[1;31mFailed\033[0m")
+                    
+    print("\n\033[1;32mDone.\033[0m")
+
+def run_status(cve_list):
+    for cve in cve_list:
+        print(f"\n\033[1;34m[Status]\033[0m \033[1;35m{cve}\033[0m")
+        res = subprocess.run(["docker", "ps", "-a", "--filter", f"name=^/{cve}-afl-", "--format", "{{.Names}}"], capture_output=True, text=True)
+        containers = sorted(res.stdout.strip().split())
+        if not containers:
+            print(f"No containers found for {cve}.")
+            continue
+            
+        for container in containers:
+            print(f"{container:<55} : ", end="", flush=True)
+            res_run = subprocess.run(["docker", "inspect", "-f", "{{.State.Running}}", container], capture_output=True, text=True)
+            is_running = res_run.stdout.strip() == "true"
+            if is_running:
+                res_env = subprocess.run(["docker", "inspect", "--format", "{{range .Config.Env}}{{println .}}{{end}}", container], capture_output=True, text=True)
+                target_bin = ""
+                fuzzer_name = "main"
+                for line in res_env.stdout.splitlines():
+                    if line.startswith("TARGET_BIN="):
+                        target_bin = line.split("=", 1)[1].strip()
+                    elif line.startswith("FUZZER_NAME="):
+                        fuzzer_name = line.split("=", 1)[1].strip()
+                
+                session_name = os.path.basename(target_bin) if target_bin else ""
+                tmux_cmd = f"tmux list-panes -t {session_name} -F '#{{pane_pid}}' 2>/dev/null" if session_name else ""
+                fuzzer_pid = ""
+                if tmux_cmd:
+                    res_pid = subprocess.run(["docker", "exec", container, "bash", "-c", tmux_cmd], capture_output=True, text=True)
+                    fuzzer_pid = res_pid.stdout.strip()
+                    
+                fuzzer_active = False
+                core_info = "core: unknown"
+                if fuzzer_pid.isdigit():
+                    pid = int(fuzzer_pid)
+                    status_path = f"/proc/{pid}/status"
+                    if os.path.isfile(status_path):
+                        try:
+                            with open(status_path, 'r') as f:
+                                for line in f:
+                                    if line.startswith("Cpus_allowed_list:"):
+                                        core_info = f"core: {line.split(':', 1)[1].strip()}"
+                                        break
+                            with open(f"/proc/{pid}/cmdline", 'r') as f:
+                                cmdline = f.read().replace('\x00', ' ')
+                                if "afl-fuzz" in cmdline:
+                                    fuzzer_active = True
+                        except Exception:
+                            pass
+                            
+                if fuzzer_active:
+                    print(f"\033[1;32mActive ({core_info})\033[0m", end="", flush=True)
+                    stats_cmd = f"cat /workspace/out/{fuzzer_name}/fuzzer_stats 2>/dev/null"
+                    res_stats = subprocess.run(["docker", "exec", container, "bash", "-c", stats_cmd], capture_output=True, text=True)
+                    stats_content = res_stats.stdout.strip()
+                    if stats_content:
+                        bitmap_cvg = ""
+                        saved_crashes = ""
+                        corpus_imported = ""
+                        last_crash = 0
+                        
+                        for line in stats_content.splitlines():
+                            if line.startswith("bitmap_cvg"):
+                                bitmap_cvg = line.split(":", 1)[1].strip()
+                            elif line.startswith("saved_crashes"):
+                                saved_crashes = line.split(":", 1)[1].strip()
+                            elif line.startswith("corpus_imported"):
+                                corpus_imported = line.split(":", 1)[1].strip()
+                            elif line.startswith("last_crash"):
+                                try:
+                                    last_crash = int(line.split(":", 1)[1].strip())
+                                except ValueError:
+                                    pass
+                                    
+                        last_crash_str = "none"
+                        if last_crash > 0:
+                            diff = int(time.time()) - last_crash
+                            if diff < 0:
+                                diff = 0
+                            hours = diff // 3600
+                            minutes = (diff % 3600) // 60
+                            seconds = diff % 60
+                            last_crash_str = f"{hours}h {minutes}m {seconds}s ago"
+                            
+                        print(f" | cvg: \033[1;36m{bitmap_cvg}\033[0m | crashes: \033[1;31m{saved_crashes}\033[0m | imported: \033[1;33m{corpus_imported}\033[0m | last crash: \033[1;35m{last_crash_str}\033[0m")
+                    else:
+                        print(" | \033[1;30m(No stats available yet)\033[0m")
+                else:
+                    print("\033[1;31mInactive (Fuzzer process died!)\033[0m")
+            else:
+                print("\033[1;30mStopped (Container not running)\033[0m")
+
+def run_log(cve_list):
+    for cve in cve_list:
+        res = subprocess.run(["docker", "ps", "-a", "--filter", f"name=^/{cve}-afl-", "--format", "{{.Names}}"], capture_output=True, text=True)
+        containers = sorted(res.stdout.strip().split())
+        for container in containers:
+            print(f"\n\033[1;36m>>> Logs for {container}:\033[0m")
+            subprocess.run(["docker", "exec", container, "cat", "/workspace/cpu_binding.log"])
+
+def run_stat_plot(root_dir, cve_list, trial_name_arg):
+    venv_activate = os.path.join(root_dir, "../.venv/bin/activate")
+    python_bin = sys.executable
+    if os.path.isfile(venv_activate):
+        python_bin = os.path.abspath(os.path.join(root_dir, "../.venv/bin/python3"))
+        
+    for cve in cve_list:
+        trial_name = trial_name_arg if trial_name_arg else get_active_trial_name(root_dir, cve)
+        print(f"Running stat_plot.py on: \033[1;35m{cve}\033[0m with trial: \033[1;35m{trial_name}\033[0m")
+        cmd = [python_bin, "scripts/stat_plot.py", "--root", os.path.join(root_dir, "artifact", cve), "--methods", "base", "dd", "cd", "dual-dd", "dual-cd", "--cve", cve, "--trial-name", trial_name]
+        subprocess.run(cmd)
+        
+    print("\n\033[1;32mDone.\033[0m")
+
+def run_tte_check(root_dir, cve_list, trial_name_arg, yes):
+    venv_activate = os.path.join(root_dir, "../.venv/bin/activate")
+    python_bin = sys.executable
+    if os.path.isfile(venv_activate):
+        python_bin = os.path.abspath(os.path.join(root_dir, "../.venv/bin/python3"))
+        
+    for cve in cve_list:
+        trial_name = trial_name_arg
+        if not trial_name:
+            artifact_cve_dir = os.path.join(root_dir, "artifact", cve)
+            trials = []
+            if os.path.isdir(artifact_cve_dir):
+                for item in os.listdir(artifact_cve_dir):
+                    item_path = os.path.join(artifact_cve_dir, item)
+                    if os.path.isdir(item_path) and item not in ["plot", "TTE_check"]:
+                        trials.append(item)
+            trials.sort(reverse=True)
+            
+            if not trials:
+                trial_name = get_active_trial_name(root_dir, cve)
+            elif len(trials) == 1:
+                trial_name = trials[0]
+            else:
+                if yes:
+                    trial_name = trials[0]
+                else:
+                    print(f"\nAvailable trials for \033[1;35m{cve}\033[0m:")
+                    for idx, t in enumerate(trials):
+                        print(f"{idx+1}. {t}")
+                    try:
+                        selection = input(f"Select a trial (1-{len(trials)}, default 1: {trials[0]}): ").strip()
+                        if not selection:
+                            trial_name = trials[0]
+                        else:
+                            sel_idx = int(selection) - 1
+                            if 0 <= sel_idx < len(trials):
+                                trial_name = trials[sel_idx]
+                            else:
+                                print(f"Error: Invalid selection. Using default: {trials[0]}")
+                                trial_name = trials[0]
+                    except (ValueError, IndexError, KeyboardInterrupt):
+                        print(f"Using default: {trials[0]}")
+                        trial_name = trials[0]
+                        
+        print(f"Running TTE_check.py for {cve} with trial: \033[1;35m{trial_name}\033[0m")
+        cmd = [python_bin, "scripts/TTE_check.py", "--bench", cve, "--trial-name", trial_name]
+        subprocess.run(cmd)
+        
+    print("\n\033[1;32mDone.\033[0m")
+
+def run_tte_plot(root_dir, cve_list, trial_name_arg):
+    venv_activate = os.path.join(root_dir, "../.venv/bin/activate")
+    python_bin = sys.executable
+    if os.path.isfile(venv_activate):
+        python_bin = os.path.abspath(os.path.join(root_dir, "../.venv/bin/python3"))
+        
+    for cve in cve_list:
+        trial_name = trial_name_arg if trial_name_arg else "all"
+        print(f"Running TTE_plot.py for {cve} with trial: \033[1;35m{trial_name}\033[0m")
+        cmd = [python_bin, "scripts/TTE_plot.py", "--bench", cve, "--trial-name", trial_name]
+        subprocess.run(cmd)
+        
+    print("\n\033[1;32mDone.\033[0m")
+
+def run_ttr(root_dir, cve_list, num_trials, trial_name_arg):
+    methods = ["base", "dd", "cd", "dual-dd", "dual-cd"]
+    suffixes = ["afl-base", "afl-dd", "afl-cd", "afl-dual-dd", "afl-dual-cd"]
+    trials = list(range(1, num_trials + 1))
+    
+    venv_activate = os.path.join(root_dir, "../.venv/bin/activate")
+    python_bin = sys.executable
+    if os.path.isfile(venv_activate):
+        python_bin = os.path.abspath(os.path.join(root_dir, "../.venv/bin/python3"))
+        
+    for cve in cve_list:
+        container_name = f"{cve}-afl-base-1"
+        res = subprocess.run(["docker", "ps", "-a", "-q", "-f", f"name=^/{container_name}$"], capture_output=True, text=True)
+        if not res.stdout.strip():
+            container_name = f"{cve}-afl-dd-1"
+            
+        session_id = ""
+        trial_name = ""
+        
+        res = subprocess.run(["docker", "ps", "-a", "-q", "-f", f"name=^/{container_name}$"], capture_output=True, text=True)
+        if res.stdout.strip():
+            inspect_res = subprocess.run(["docker", "inspect", "--format", "{{range .Config.Env}}{{println .}}{{end}}", container_name], capture_output=True, text=True)
+            if inspect_res.returncode == 0:
+                for line in inspect_res.stdout.splitlines():
+                    if line.startswith("SESSION_ID="):
+                        session_id = line.split("=", 1)[1].strip()
+                    elif line.startswith("TRIAL_NAME="):
+                        trial_name = line.split("=", 1)[1].strip()
+                        
+        if not session_id or not trial_name:
+            curr_session_path = os.path.join(root_dir, "bench", cve, ".current_session")
+            if os.path.isfile(curr_session_path):
+                with open(curr_session_path, 'r') as f:
+                    for line in f:
+                        if line.startswith("SESSION_ID="):
+                            session_id = line.split("=", 1)[1].strip()
+                        elif line.startswith("TRIAL_NAME="):
+                            trial_name = line.split("=", 1)[1].strip()
+                            
+        now_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        if not trial_name:
+            trial_name = f"trial_{now_str}"
+        if not session_id:
+            session_id = f"session_{now_str}"
+            
+        artifact_trial_dir = os.path.join(root_dir, "artifact", cve, trial_name)
+        if os.path.isdir(artifact_trial_dir):
+            exist_session_id = ""
+            session_id_file = os.path.join(artifact_trial_dir, ".session_id")
+            if os.path.isfile(session_id_file):
+                with open(session_id_file, 'r') as f:
+                    exist_session_id = f.read().strip()
+            if exist_session_id != session_id:
+                trial_name = f"{trial_name}_{now_str}"
+                artifact_trial_dir = os.path.join(root_dir, "artifact", cve, trial_name)
+                
+        print(f"Copying TTR logs for trial run: \033[1;35m{trial_name}\033[0m")
+        os.makedirs(artifact_trial_dir, exist_ok=True)
+        with open(os.path.join(artifact_trial_dir, ".session_id"), "w") as f:
+            f.write(session_id)
+            
+        for idx, method in enumerate(methods):
+            suffix = suffixes[idx]
+            for i in trials:
+                c_name = f"{cve}-{suffix}-{i}"
+                res = subprocess.run(["docker", "ps", "-a", "-q", "-f", f"name=^/{c_name}$"], capture_output=True, text=True)
+                if not res.stdout.strip():
+                    continue
+                    
+                target_dir = os.path.join(artifact_trial_dir, method, f"trial{i}")
+                os.makedirs(target_dir, exist_ok=True)
+                print(f"Copying TTR logs from {c_name:<55}... ", end="", flush=True)
+                
+                for f_name in ["dgf_blocks_hit.txt", "dgf_target_reached.txt", "dgf_block_mapping.txt", "dgf_compile_info.txt"]:
+                    subprocess.run(["docker", "cp", f"{c_name}:/workspace/{f_name}", target_dir], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                
+                if suffix in ["afl-base", "afl-cd", "afl-dd"]:
+                    slave_c_name = f"{cve}-{suffix}-slave-{i}"
+                    subprocess.run(["docker", "cp", f"{slave_c_name}:/workspace/dgf_blocks_hit.txt", os.path.join(target_dir, "dgf_blocks_hit_slave.txt")], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    subprocess.run(["docker", "cp", f"{slave_c_name}:/workspace/dgf_target_reached.txt", os.path.join(target_dir, "dgf_target_reached_slave.txt")], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                
+                res_run = subprocess.run(["docker", "inspect", "-f", "{{.State.Running}}", c_name], capture_output=True, text=True)
+                running = res_run.stdout.strip() == "true"
+                
+                success = False
+                if running:
+                    tar_cmd = f"docker exec {c_name} tar -cf - -C /workspace out --exclude=.cur_input --exclude=*.pyc --exclude=__pycache__"
+                    try:
+                        p1 = subprocess.Popen(tar_cmd.split(), stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+                        p2 = subprocess.Popen(["tar", "-xf", "-", "-C", target_dir], stdin=p1.stdout, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                        p1.stdout.close()
+                        p2.communicate()
+                        success = p2.returncode == 0
+                    except Exception:
+                        pass
+                else:
+                    res_cp = subprocess.run(["docker", "cp", f"{c_name}:/workspace/out", target_dir], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    success = res_cp.returncode == 0
+                    
+                for root, dirs, files in os.walk(target_dir):
+                    for file in files:
+                        if file.endswith(".pyc"):
+                            try:
+                                os.remove(os.path.join(root, file))
+                            except Exception:
+                                pass
+                    for d in list(dirs):
+                        if d == "__pycache__":
+                            try:
+                                shutil.rmtree(os.path.join(root, d))
+                            except Exception:
+                                pass
+                
+                size_res = subprocess.run(["du", "-sh", os.path.join(target_dir, "out")], capture_output=True, text=True)
+                size = size_res.stdout.strip().split()[0] if size_res.returncode == 0 and size_res.stdout.strip() else ""
+                
+                if success and size:
+                    print(f"\033[1;32mDone\033[0m (size: {size})")
+                else:
+                    print("\033[1;31mFailed\033[0m")
+                    
+        ttr_cmd = [python_bin, "scripts/TTR.py", "--root", os.path.join(root_dir, "artifact", cve), "--methods", "base", "dd", "cd", "dual-dd", "dual-cd", "--cve", cve, "--trial-name", trial_name_arg if trial_name_arg else trial_name]
+        subprocess.run(ttr_cmd)
+        
+    print("\n\033[1;32mDone.\033[0m")
+
+def main():
+    # run . ../.venv/bin/activate
+    
+
+    root_dir = os.path.abspath(os.path.dirname(__file__))
+    command, target_cve, num_trials, trial_name_arg, run_all, yes, extra_args = parse_arguments(root_dir)
+    
+    if not command:
+        print("Error: Command (up, down, build, status, log, clean, copy, stat_plot, tte_check, tte_plot, ttr) is required.")
+        print_usage()
+        sys.exit(1)
+        
+    cve_list = []
+    if command == "down":
+        if yes and target_cve:
+            cve_list = [target_cve]
+        else:
+            selected = select_cve_interactively(root_dir, "down", yes)
+            if not selected:
+                sys.exit(0)
+            cve_list = [selected]
+    elif command == "up":
+        if yes and target_cve:
+            cve_list = [target_cve]
+        else:
+            selected = select_cve_interactively(root_dir, "up", yes)
+            if not selected:
+                sys.exit(0)
+            cve_list = [selected]
+    elif command == "clean":
+        run_clean()
+        sys.exit(0)
+    else:
+        if target_cve:
+            cve_list = [target_cve]
+        else:
+            cve_list = get_cves(root_dir)
+            
+    if not cve_list:
+        print("No active CVEs found to manage.")
+        sys.exit(0)
+        
+    # Execute commands
+    if command in ["up", "down", "build"]:
+        run_docker_compose_command(root_dir, command, cve_list, num_trials, run_all, yes, extra_args, trial_name_arg)
+    elif command == "copy":
+        run_copy(root_dir, cve_list, num_trials, trial_name_arg)
+    elif command == "status":
+        run_status(cve_list)
+    elif command == "log":
+        run_log(cve_list)
+    elif command == "stat_plot":
+        run_stat_plot(root_dir, cve_list, trial_name_arg)
+    elif command == "tte_check":
+        run_tte_check(root_dir, cve_list, trial_name_arg, yes)
+    elif command == "tte_plot":
+        run_tte_plot(root_dir, cve_list, trial_name_arg)
+    elif command == "ttr":
+        run_ttr(root_dir, cve_list, num_trials, trial_name_arg)
+
+if __name__ == "__main__":
+    main()
