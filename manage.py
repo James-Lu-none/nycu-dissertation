@@ -223,6 +223,37 @@ def run_docker_compose_command(root_dir, command, cve_list, num_trials, run_all,
             env_dict["SESSION_ID"] = active_session_id
             env_dict["TRIAL_NAME"] = active_trial_name
             print(f"Starting run with SESSION_ID=\033[1;36m{active_session_id}\033[0m and TRIAL_NAME=\033[1;35m{active_trial_name}\033[0m")
+            
+            # Check if image is built; if not, build it.
+            image_name = None
+            env_file = os.path.join(cve_bench_dir, ".env")
+            local_env = {}
+            if os.path.isfile(env_file):
+                with open(env_file, 'r') as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith('#') and '=' in line:
+                            k, v = line.split('=', 1)
+                            local_env[k.strip()] = v.strip().strip("'\"")
+            
+            raw_image_name = local_env.get("IMAGE_NAME")
+            if raw_image_name:
+                merge_env = {**env_dict, **local_env}
+                def repl(m):
+                    var_name = m.group(1) or m.group(2)
+                    return merge_env.get(var_name, '')
+                image_name = re.sub(r'\$\{(\w+)\}|\$(\w+)', repl, raw_image_name)
+                
+            if image_name:
+                inspect_cmd = ["docker", "image", "inspect", image_name]
+                res_inspect = subprocess.run(inspect_cmd, capture_output=True)
+                if res_inspect.returncode != 0:
+                    print(f"Image '{image_name}' not found. Building it first...")
+                    build_cmd = ["docker", "compose", "build"]
+                    build_res = subprocess.run(build_cmd, cwd=cve_bench_dir, env=env_dict)
+                    if build_res.returncode != 0:
+                        print(f"Error: Failed to build image '{image_name}'.")
+                        sys.exit(1)
         else:
             session_id = "dummy_session"
             trial_name = "dummy_trial"
