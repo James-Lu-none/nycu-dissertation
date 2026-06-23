@@ -32,6 +32,24 @@ def generate_compose(num_trials):
       - "afl-out-base-{i}:/workspace/out"
       - "./script.sh:/workspace/script.sh:ro"
 """)
+        services_lines.append(f"""  afl-base-slave-{i}:
+    container_name: "${{CVE}}-afl-base-slave-{i}"
+    image: "${{IMAGE_NAME}}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${{TARGET_BIN_BASE}}
+      - TARGET_ARGS=${{TARGET_ARGS}}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=S
+      - FUZZER_NAME=slave
+      - SESSION_ID=${{SESSION_ID}}
+      - TRIAL_NAME=${{TRIAL_NAME}}
+    volumes:
+      - "afl-out-base-{i}:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+""")
         volumes_lines.append(f"""  afl-out-base-{i}:
     name: "${{CVE}}-afl-out-base-{i}"
 """)
@@ -55,6 +73,24 @@ def generate_compose(num_trials):
       - "afl-out-cd-{i}:/workspace/out"
       - "./script.sh:/workspace/script.sh:ro"
 """)
+        services_lines.append(f"""  afl-cd-slave-{i}:
+    container_name: "${{CVE}}-afl-cd-slave-{i}"
+    image: "${{IMAGE_NAME}}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${{TARGET_BIN_CD}}
+      - TARGET_ARGS=${{TARGET_ARGS}}
+      - FUZZER_BIN=afl-fuzz-cd
+      - FUZZER_ROLE=S
+      - FUZZER_NAME=slave
+      - SESSION_ID=${{SESSION_ID}}
+      - TRIAL_NAME=${{TRIAL_NAME}}
+    volumes:
+      - "afl-out-cd-{i}:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+""")
         volumes_lines.append(f"""  afl-out-cd-{i}:
     name: "${{CVE}}-afl-out-cd-{i}"
 """)
@@ -72,6 +108,24 @@ def generate_compose(num_trials):
       - FUZZER_BIN=afl-fuzz-dd
       - FUZZER_ROLE=M
       - FUZZER_NAME=main
+      - SESSION_ID=${{SESSION_ID}}
+      - TRIAL_NAME=${{TRIAL_NAME}}
+    volumes:
+      - "afl-out-dd-{i}:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+""")
+        services_lines.append(f"""  afl-dd-slave-{i}:
+    container_name: "${{CVE}}-afl-dd-slave-{i}"
+    image: "${{IMAGE_NAME}}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${{TARGET_BIN_DD}}
+      - TARGET_ARGS=${{TARGET_ARGS}}
+      - FUZZER_BIN=afl-fuzz-dd
+      - FUZZER_ROLE=S
+      - FUZZER_NAME=slave
       - SESSION_ID=${{SESSION_ID}}
       - TRIAL_NAME=${{TRIAL_NAME}}
     volumes:

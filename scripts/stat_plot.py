@@ -6,47 +6,82 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 def parse_plot_data(file_path):
-    times = []
-    edges = []
-    execs = []
-    if not os.path.exists(file_path):
-        return times, edges, execs
-    
-    try:
-        with open(file_path, 'r') as f:
-            lines = f.readlines()
-            
-        header = None
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-            if line.startswith('#'):
-                header_parts = [h.strip() for h in line.lstrip('#').split(',')]
-                header = header_parts
-                continue
-            
-            parts = [p.strip() for p in line.split(',')]
-            if len(parts) >= 13:
-                try:
-                    if header:
-                        time_idx = header.index('relative_time') if 'relative_time' in header else 0
-                        edges_idx = header.index('edges_found') if 'edges_found' in header else 12
-                        execs_idx = header.index('total_execs') if 'total_execs' in header else 11
-                    else:
-                        time_idx = 0
-                        edges_idx = 12
-                        execs_idx = 11
-                        
-                    times.append(float(parts[time_idx]))
-                    edges.append(int(parts[edges_idx]))
-                    execs.append(int(parts[execs_idx]))
-                except (ValueError, IndexError):
-                    continue
-    except Exception as e:
-        print(f"Error parsing {file_path}: {e}")
+    def parse_single(path):
+        times = []
+        edges = []
+        execs = []
+        if not os.path.exists(path):
+            return times, edges, execs
         
-    return times, edges, execs
+        try:
+            with open(path, 'r') as f:
+                lines = f.readlines()
+                
+            header = None
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+                if line.startswith('#'):
+                    header_parts = [h.strip() for h in line.lstrip('#').split(',')]
+                    header = header_parts
+                    continue
+                
+                parts = [p.strip() for p in line.split(',')]
+                if len(parts) >= 13:
+                    try:
+                        if header:
+                            time_idx = header.index('relative_time') if 'relative_time' in header else 0
+                            edges_idx = header.index('edges_found') if 'edges_found' in header else 12
+                            execs_idx = header.index('total_execs') if 'total_execs' in header else 11
+                        else:
+                            time_idx = 0
+                            edges_idx = 12
+                            execs_idx = 11
+                            
+                        times.append(float(parts[time_idx]))
+                        edges.append(int(parts[edges_idx]))
+                        execs.append(int(parts[execs_idx]))
+                    except (ValueError, IndexError):
+                        continue
+        except Exception as e:
+            print(f"Error parsing {path}: {e}")
+            
+        return times, edges, execs
+
+    series1 = parse_single(file_path)
+    
+    # Check if there is a slave plot_data in the sibling 'slave' folder
+    if "/out/main/" in file_path:
+        slave_path = file_path.replace("/out/main/", "/out/slave/")
+        if os.path.exists(slave_path):
+            series2 = parse_single(slave_path)
+            
+            times1, edges1, execs1 = series1
+            times2, edges2, execs2 = series2
+            
+            if not times1:
+                return times2, edges2, execs2
+            if not times2:
+                return times1, edges1, execs1
+                
+            all_times = sorted(list(set(times1 + times2)))
+            merged_edges = []
+            merged_execs = []
+            
+            for t in all_times:
+                e1 = np.interp(t, times1, edges1)
+                x1 = np.interp(t, times1, execs1)
+                
+                e2 = np.interp(t, times2, edges2)
+                x2 = np.interp(t, times2, execs2)
+                
+                merged_edges.append(int(max(e1, e2)))
+                merged_execs.append(int(x1 + x2))
+                
+            return all_times, merged_edges, merged_execs
+            
+    return series1
 
 def interpolate_run(times, values, common_grid):
     if not times or not values:

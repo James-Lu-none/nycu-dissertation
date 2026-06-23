@@ -89,6 +89,7 @@ get_active_trial_name() {
   echo "$trial_name"
 }
 
+RUN_ALL=false
 NON_INTERACTIVE=false
 COMMAND=""
 TARGET_CVE=""
@@ -98,7 +99,9 @@ EXTRA_ARGS=()
 for arg in "$@"; do
   # Convert arg to lowercase to accept case-insensitive commands
   arg_lower=$(echo "$arg" | tr '[:upper:]' '[:lower:]')
-  if [[ "$arg_lower" == "-y" || "$arg_lower" == "--yes" || "$arg_lower" == "--non-interactive" ]]; then
+  if [[ "$arg_lower" == "--all" ]]; then
+    RUN_ALL=true
+  elif [[ "$arg_lower" == "-y" || "$arg_lower" == "--yes" || "$arg_lower" == "--non-interactive" ]]; then
     NON_INTERACTIVE=true
   elif [ -z "$COMMAND" ] && [[ "$arg_lower" =~ ^(up|down|build|status|log|clean|copy|stat_plot|tte_check|tte_plot|ttr)$ ]]; then
     COMMAND="$arg_lower"
@@ -226,6 +229,9 @@ if [ "$COMMAND" = "copy" ]; then
   suffixes=("afl-base" "afl-dd" "afl-cd" "afl-dual-dd" "afl-dual-cd")
   for CVE in "${CVE_LIST[@]}"; do
     container_name="${CVE}-afl-base-1"
+    if [ ! "$(docker ps -a -q -f name="^/${container_name}$")" ]; then
+      container_name="${CVE}-afl-dd-1"
+    fi
     session_id=""
     trial_name=""
     
@@ -268,6 +274,9 @@ if [ "$COMMAND" = "copy" ]; then
       suffix="${suffixes[$idx]}"
       
       for i in "${trial[@]}"; do
+        if [ -z "$(docker ps -a -q -f name="^/${CVE}-${suffix}-${i}$")" ]; then
+          continue
+        fi
         target_dir="./artifact/${CVE}/${trial_name}/${method}/trial${i}"
         mkdir -p "${target_dir}"
         printf "Copying results from %-55s... " "${CVE}-${suffix}-${i}"
@@ -388,6 +397,9 @@ if [ "$COMMAND" = "ttr" ]; then
   suffixes=("afl-base" "afl-dd" "afl-cd" "afl-dual-dd" "afl-dual-cd")
   for CVE in "${CVE_LIST[@]}"; do
     container_name="${CVE}-afl-base-1"
+    if [ ! "$(docker ps -a -q -f name="^/${container_name}$")" ]; then
+      container_name="${CVE}-afl-dd-1"
+    fi
     session_id=""
     trial_name=""
     
@@ -430,6 +442,9 @@ if [ "$COMMAND" = "ttr" ]; then
       suffix="${suffixes[$idx]}"
       
       for i in "${trial[@]}"; do
+        if [ -z "$(docker ps -a -q -f name="^/${CVE}-${suffix}-${i}$")" ]; then
+          continue
+        fi
         target_dir="./artifact/${CVE}/${trial_name}/${method}/trial${i}"
         mkdir -p "${target_dir}"
         printf "Copying TTR logs from %-55s... " "${CVE}-${suffix}-${i}"
@@ -437,6 +452,10 @@ if [ "$COMMAND" = "ttr" ]; then
         docker cp "${CVE}-${suffix}-${i}:/workspace/dgf_target_reached.txt" "${target_dir}/" >/dev/null 2>&1 || true
         docker cp "${CVE}-${suffix}-${i}:/workspace/dgf_block_mapping.txt" "${target_dir}/" >/dev/null 2>&1 || true
         docker cp "${CVE}-${suffix}-${i}:/workspace/dgf_compile_info.txt" "${target_dir}/" >/dev/null 2>&1 || true
+        if [[ "$suffix" == "afl-base" || "$suffix" == "afl-cd" || "$suffix" == "afl-dd" ]]; then
+          docker cp "${CVE}-${suffix}-slave-${i}:/workspace/dgf_blocks_hit.txt" "${target_dir}/dgf_blocks_hit_slave.txt" >/dev/null 2>&1 || true
+          docker cp "${CVE}-${suffix}-slave-${i}:/workspace/dgf_target_reached.txt" "${target_dir}/dgf_target_reached_slave.txt" >/dev/null 2>&1 || true
+        fi
         if [ "$(docker inspect -f '{{.State.Running}}' "${CVE}-${suffix}-${i}" 2>/dev/null)" = "true" ]; then
           docker exec "${CVE}-${suffix}-${i}" tar -cf - -C /workspace out --exclude=".cur_input" --exclude="*.pyc" --exclude="__pycache__" 2>/dev/null | tar -xf - -C "${target_dir}/" 2>/dev/null || true
         else
@@ -498,7 +517,14 @@ for cve in "${CVE_LIST[@]}"; do
     cd "$ROOT_DIR/bench/$cve" || exit 1
     case "$COMMAND" in
       up)
-        docker compose up -d --build "${EXTRA_ARGS[@]}"
+        SERVICES=()
+        for i in $(seq 1 $NUM_TRIALS); do
+          if [ "$RUN_ALL" = "true" ]; then
+            SERVICES+=("afl-base-$i" "afl-base-slave-$i" "afl-cd-$i" "afl-cd-slave-$i")
+          fi
+          SERVICES+=("afl-dd-$i" "afl-dd-slave-$i" "afl-dual-dd-$i" "afl-dual-cd-$i")
+        done
+        docker compose up -d --build "${EXTRA_ARGS[@]}" "${SERVICES[@]}"
         ;;
       down)
         if [ ${#EXTRA_ARGS[@]} -eq 0 ]; then

@@ -7,45 +7,71 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 def parse_target_reached(file_path):
-    if not os.path.exists(file_path):
+    def parse_single(path):
+        if not os.path.exists(path):
+            return None
+        try:
+            with open(path, 'r') as f:
+                content = f.read()
+                match = re.search(r'Elapsed:\s+([\d\.]+)\s+seconds', content)
+                if match:
+                    return float(match.group(1))
+                match_ms = re.search(r'\((\d+)\s*ms\)', content)
+                if match_ms:
+                    return float(match_ms.group(1)) / 1000.0
+        except Exception as e:
+            print(f"Error parsing {path}: {e}")
         return None
-    try:
-        with open(file_path, 'r') as f:
-            content = f.read()
-            match = re.search(r'Elapsed:\s+([\d\.]+)\s+seconds', content)
-            if match:
-                return float(match.group(1))
-            match_ms = re.search(r'\((\d+)\s*ms\)', content)
-            if match_ms:
-                return float(match_ms.group(1)) / 1000.0
-    except Exception as e:
-        print(f"Error parsing {file_path}: {e}")
-    return None
+
+    t1 = parse_single(file_path)
+    
+    # Check for slave file
+    slave_file = file_path.replace("dgf_target_reached.txt", "dgf_target_reached_slave.txt")
+    if os.path.exists(slave_file):
+        t2 = parse_single(slave_file)
+        if t1 is not None and t2 is not None:
+            return min(t1, t2)
+        elif t2 is not None:
+            return t2
+    return t1
 
 def parse_blocks_hit_cumulative(file_path, limit_time=None):
-    if not os.path.exists(file_path):
-        return [], []
+    block_min_times = {}
     
-    events = []
-    try:
-        with open(file_path, 'r') as f:
-            header = f.readline()
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                parts = line.split(',')
-                if len(parts) != 3:
-                    continue
-                btype, bid, elapsed_ms = int(parts[0]), int(parts[1]), int(parts[2])
-                sec = elapsed_ms / 1000.0
-                if limit_time is not None and sec > limit_time:
-                    continue
-                events.append((sec, (btype, bid)))
-    except Exception as e:
-        print(f"Error parsing {file_path}: {e}")
-        return [], []
+    def process_file(path):
+        if not os.path.exists(path):
+            return
+        try:
+            with open(path, 'r') as f:
+                f.readline()  # header
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    parts = line.split(',')
+                    if len(parts) != 3:
+                        continue
+                    btype, bid, elapsed_ms = int(parts[0]), int(parts[1]), int(parts[2])
+                    sec = elapsed_ms / 1000.0
+                    if limit_time is not None and sec > limit_time:
+                        continue
+                    block = (btype, bid)
+                    if block not in block_min_times or sec < block_min_times[block]:
+                        block_min_times[block] = sec
+        except Exception as e:
+            print(f"Error parsing {path}: {e}")
+            
+    process_file(file_path)
     
+    # Check for slave file
+    slave_file = file_path.replace("dgf_blocks_hit.txt", "dgf_blocks_hit_slave.txt")
+    if os.path.exists(slave_file):
+        process_file(slave_file)
+        
+    if not block_min_times:
+        return [], []
+        
+    events = [(sec, block) for block, sec in block_min_times.items()]
     events.sort(key=lambda x: x[0])
     
     times = [0.0]
@@ -67,29 +93,39 @@ def parse_blocks_hit_cumulative(file_path, limit_time=None):
 def parse_dgf_log_raw(filepath, limit_time=None):
     control_hits = {}
     caller_hits = {}
-    if not os.path.exists(filepath):
-        return control_hits, caller_hits
-    try:
-        with open(filepath, 'r') as f:
-            f.readline()
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                parts = line.split(',')
-                if len(parts) != 3:
-                    continue
-                btype, bid, elapsed_ms = int(parts[0]), int(parts[1]), int(parts[2])
-                if limit_time is not None and (elapsed_ms / 1000.0) > limit_time:
-                    continue
-                if btype == 0:
-                    if bid not in control_hits:
-                        control_hits[bid] = elapsed_ms
-                elif btype == 1:
-                    if bid not in caller_hits:
-                        caller_hits[bid] = elapsed_ms
-    except Exception as e:
-        print(f"Error parsing raw {filepath}: {e}")
+    
+    def process_file(path):
+        if not os.path.exists(path):
+            return
+        try:
+            with open(path, 'r') as f:
+                f.readline()
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    parts = line.split(',')
+                    if len(parts) != 3:
+                        continue
+                    btype, bid, elapsed_ms = int(parts[0]), int(parts[1]), int(parts[2])
+                    if limit_time is not None and (elapsed_ms / 1000.0) > limit_time:
+                        continue
+                    if btype == 0:
+                        if bid not in control_hits or elapsed_ms < control_hits[bid]:
+                            control_hits[bid] = elapsed_ms
+                    elif btype == 1:
+                        if bid not in caller_hits or elapsed_ms < caller_hits[bid]:
+                            caller_hits[bid] = elapsed_ms
+        except Exception as e:
+            print(f"Error parsing raw {path}: {e}")
+            
+    process_file(filepath)
+    
+    # Check for slave file
+    slave_file = filepath.replace("dgf_blocks_hit.txt", "dgf_blocks_hit_slave.txt")
+    if os.path.exists(slave_file):
+        process_file(slave_file)
+        
     return control_hits, caller_hits
 
 def find_target_id_and_type(block_mapping_path):

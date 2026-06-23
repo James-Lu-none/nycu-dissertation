@@ -308,51 +308,70 @@ def main():
             local_crashes_dir = os.path.join(local_trial_dir, f"out/{fuzzer_name}/crashes")
             exposure_file_path = os.path.join(local_trial_dir, "dgf_target_exposure.txt")
             
-            if not os.path.exists(local_crashes_dir):
-                print(f"Trial {item['label']}: Crashes directory not found at {local_crashes_dir}. Writing TTE: inf.")
+            # Locate all sub-crashes directories
+            crashes_dirs = []
+            master_crashes_dir = os.path.join(local_trial_dir, f"out/{fuzzer_name}/crashes")
+            if os.path.exists(master_crashes_dir):
+                crashes_dirs.append(("main", master_crashes_dir))
+                
+            if fuzzer_name == "main":
+                slave_crashes_dir = os.path.join(local_trial_dir, "out/slave/crashes")
+                if os.path.exists(slave_crashes_dir):
+                    crashes_dirs.append(("slave", slave_crashes_dir))
+                    
+            best_tte_ms = None
+            best_matching_crash = None
+            
+            # If no crashes directories exist at all
+            if not crashes_dirs:
+                print(f"Trial {item['label']}: Crashes directory not found. Writing TTE: inf.")
                 with open(exposure_file_path, "w") as ef:
                     ef.write("Target not reached\n")
                 continue
                 
-            crash_files = [f for f in os.listdir(local_crashes_dir) if f.startswith("id:")]
-            if not crash_files:
-                print(f"Trial {item['label']}: No crash files found. Writing TTE: inf.")
-                with open(exposure_file_path, "w") as ef:
-                    ef.write("Target not reached\n")
-                continue
+            # Triage each crashes directory
+            for name, local_crashes_dir in crashes_dirs:
+                crash_files = [f for f in os.listdir(local_crashes_dir) if f.startswith("id:")]
+                if not crash_files:
+                    continue
+                    
+                def get_crash_time(filename):
+                    time_match = re.search(r'time:(\d+)', filename)
+                    return int(time_match.group(1)) if time_match else float('inf')
+                    
+                crash_files.sort(key=get_crash_time)
                 
-            def get_crash_time(filename):
-                time_match = re.search(r'time:(\d+)', filename)
-                return int(time_match.group(1)) if time_match else float('inf')
+                print(f"Trial {item['label']} ({name}): Triaging {len(crash_files)} crash files in a single container run...")
                 
-            crash_files.sort(key=get_crash_time)
-            
-            print(f"Trial {item['label']}: Triaging {len(crash_files)} crash files in a single container run...")
-            
-            if binary.endswith("-base"):
-                asan_binary = binary[:-5] + "-asan"
-            else:
-                asan_binary = f"{binary}-asan"
+                if binary.endswith("-base"):
+                    asan_binary = binary[:-5] + "-asan"
+                else:
+                    asan_binary = f"{binary}-asan"
+                    
+                dest_logs_dir = os.path.join(artifact_dir, item["session_dir"], "TTE_check", f"{method}_{item['trial']}_{name}_full_logs")
                 
-            dest_logs_dir = os.path.join(artifact_dir, item["session_dir"], "TTE_check", f"{method}_{item['trial']}_full_logs")
-            
-            tte_ms, matching_crash = triage_crashes_in_container(
-                image_name=image_name,
-                binary=asan_binary,
-                flags=flags,
-                local_crashes_dir=local_crashes_dir,
-                target_trace=target_trace,
-                cve_name=args.bench,
-                dest_logs_dir=dest_logs_dir
-            )
-            
-            if tte_ms is not None:
-                tte_sec = tte_ms / 1000.0
-                print(f"  [+] Trial {item['label']} True TTE: {tte_sec:.3f} seconds ({tte_ms} ms) | Crash: {matching_crash}")
+                tte_ms, matching_crash = triage_crashes_in_container(
+                    image_name=image_name,
+                    binary=asan_binary,
+                    flags=flags,
+                    local_crashes_dir=local_crashes_dir,
+                    target_trace=target_trace,
+                    cve_name=args.bench,
+                    dest_logs_dir=dest_logs_dir
+                )
+                
+                if tte_ms is not None:
+                    if best_tte_ms is None or tte_ms < best_tte_ms:
+                        best_tte_ms = tte_ms
+                        best_matching_crash = f"{name}/{matching_crash}"
+                        
+            if best_tte_ms is not None:
+                tte_sec = best_tte_ms / 1000.0
+                print(f"  [+] Trial {item['label']} True TTE: {tte_sec:.3f} seconds ({best_tte_ms} ms) | Crash: {best_matching_crash}")
                 with open(exposure_file_path, "w") as ef:
                     ef.write("Target reached!\n")
-                    ef.write(f"Elapsed:    {tte_sec:.3f} seconds ({tte_ms} ms)\n")
-                    ef.write(f"Crash File: {matching_crash}\n")
+                    ef.write(f"Elapsed:    {tte_sec:.3f} seconds ({best_tte_ms} ms)\n")
+                    ef.write(f"Crash File: {best_matching_crash}\n")
             else:
                 print(f"  [-] Trial {item['label']} target was not reached by any crash.")
                 with open(exposure_file_path, "w") as ef:
