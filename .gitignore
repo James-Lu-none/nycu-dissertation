@@ -2,3 +2,4 @@
 **/.current_session
 cves.env
 bench/docker-compose.master.yml
+*.pyc
