@@ -539,6 +539,54 @@ def select_trial_interactively(root_dir, cve, yes):
             print(f"Using default: {trials[0]}")
             return trials[0]
 
+def select_cve_and_trial_interactively(root_dir, cve_list):
+    options = []
+    option_counter = 1
+    
+    print("\nAvailable trials:")
+    for cve in cve_list:
+        print(f"\033[1;35m{cve}\033[0m")
+        artifact_cve_dir = os.path.join(root_dir, "artifact", cve)
+        trials = []
+        if os.path.isdir(artifact_cve_dir):
+            for item in os.listdir(artifact_cve_dir):
+                item_path = os.path.join(artifact_cve_dir, item)
+                if os.path.isdir(item_path) and item not in ["plot", "TTE_check"]:
+                    trials.append(item)
+        trials.sort(reverse=True)
+        
+        if not trials:
+            active_trial = get_active_trial_name(root_dir, cve)
+            trials = [active_trial]
+            
+        for t in trials:
+            print(f"  {option_counter}. {t}")
+            options.append((cve, t))
+            option_counter += 1
+        print(f"  {option_counter}. all")
+        options.append((cve, "all"))
+        option_counter += 1
+        
+    if not options:
+        print("No trials found to select.")
+        return None, None
+        
+    try:
+        selection = input(f"\nSelect a trial (1-{option_counter-1}): ").strip()
+        if not selection:
+            print(f"Using default option 1: {options[0][0]} / {options[0][1]}")
+            return options[0][0], options[0][1]
+        else:
+            sel_idx = int(selection) - 1
+            if 0 <= sel_idx < len(options):
+                return options[sel_idx][0], options[sel_idx][1]
+            else:
+                print("Error: Invalid selection.")
+                return None, None
+    except (ValueError, IndexError, KeyboardInterrupt):
+        print("\nAborted.")
+        return None, None
+
 def run_stat_plot(root_dir, cve_list, trial_name_arg, yes):
     venv_activate = os.path.join(root_dir, "../.venv/bin/activate")
     python_bin = sys.executable
@@ -559,8 +607,16 @@ def run_tte_check(root_dir, cve_list, trial_name_arg, yes):
     if os.path.isfile(venv_activate):
         python_bin = os.path.abspath(os.path.join(root_dir, "../.venv/bin/python3"))
         
-    for cve in cve_list:
-        trial_name = trial_name_arg if trial_name_arg else select_trial_interactively(root_dir, cve, yes)
+    if trial_name_arg or yes:
+        for cve in cve_list:
+            trial_name = trial_name_arg if trial_name_arg else select_trial_interactively(root_dir, cve, yes)
+            print(f"Running TTE_check.py for {cve} with trial: \033[1;35m{trial_name}\033[0m")
+            cmd = [python_bin, "scripts/TTE_check.py", "--bench", cve, "--trial-name", trial_name]
+            subprocess.run(cmd)
+    else:
+        cve, trial_name = select_cve_and_trial_interactively(root_dir, cve_list)
+        if not cve or not trial_name:
+            sys.exit(0)
         print(f"Running TTE_check.py for {cve} with trial: \033[1;35m{trial_name}\033[0m")
         cmd = [python_bin, "scripts/TTE_check.py", "--bench", cve, "--trial-name", trial_name]
         subprocess.run(cmd)
