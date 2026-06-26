@@ -96,7 +96,7 @@ def triage_crashes_in_container(image_name, binary, flags, local_crashes_dir, ta
     result_path = os.path.join(local_crashes_dir, ".triage_result")
     if os.path.exists(result_path):
         os.remove(result_path)
-        
+
     cmd = [
         "docker", "run", "--rm",
         "--cap-add=SYS_PTRACE",
@@ -125,6 +125,13 @@ def triage_crashes_in_container(image_name, binary, flags, local_crashes_dir, ta
         print(f"  [!] Timeout executing triage script inside container")
     except Exception as e:
         print(f"  [!] Error running docker run: {e}")
+    finally:
+        try:
+            host_uid = os.getuid() if hasattr(os, 'getuid') else 0
+            host_gid = os.getgid() if hasattr(os, 'getgid') else 0
+            subprocess.run(["sudo", "chown", "-R", f"{host_uid}:{host_gid}", local_crashes_dir], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except Exception:
+            pass
         
     tte_ms = None
     matching_crash = None
