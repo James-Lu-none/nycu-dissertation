@@ -775,7 +775,7 @@ def main():
         print("No active CVEs found to manage.")
         sys.exit(0)
         
-    if num_trials is None:
+    if num_trials is None and command in ["up", "down", "copy"]:
         num_trials = detect_num_trials(root_dir, cve_list)
         if num_trials is None:
             print("Error: Could not detect number of trials. Use --trials N to specify.")
