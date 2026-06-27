@@ -84,11 +84,11 @@ def main():
                     
             # Step C: Copy results
             print("\n\033[1;33m[Step 3/4] Copying trial results...\033[0m")
-            subprocess.run([python_bin, manage_py, "copy", cve])
+            subprocess.run([python_bin, manage_py, "copy", cve, str(trials)])
             
-            # Step D: Shut down containers
-            print("\n\033[1;33m[Step 4/4] Stopping containers and removing volumes...\033[0m")
-            subprocess.run([python_bin, manage_py, "down", cve, "-y"])
+            # Step D: Shut down containers (clean all containers & volumes)
+            print("\n\033[1;33m[Step 4/4] Cleaning up containers and volumes...\033[0m")
+            subprocess.run([python_bin, manage_py, "clean"])
             
             # Extra: Run TTE check
             print("\n\033[1;35m[Post-processing] Running TTE check...\033[0m")
