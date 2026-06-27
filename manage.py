@@ -635,7 +635,37 @@ def run_tte_plot(root_dir, cve_list, trial_name_arg):
         cmd = [python_bin, "scripts/TTE_plot.py", "--bench", cve, "--trial-name", trial_name]
         subprocess.run(cmd)
         
-    print("\n\033[1;32mDone.\033[0m")
+def copy_all_txt_files(container_name, target_dir, is_slave=False):
+    txt_files = set()
+    
+    res_exec = subprocess.run(["docker", "exec", container_name, "bash", "-c", "find /workspace -maxdepth 1 -name '*.txt' 2>/dev/null"], capture_output=True, text=True)
+    if res_exec.returncode == 0 and res_exec.stdout.strip():
+        for line in res_exec.stdout.splitlines():
+            line = line.strip()
+            if line.endswith(".txt"):
+                txt_files.add(os.path.basename(line))
+                
+    res_diff = subprocess.run(["docker", "diff", container_name], capture_output=True, text=True)
+    if res_diff.returncode == 0 and res_diff.stdout.strip():
+        for line in res_diff.stdout.splitlines():
+            parts = line.strip().split()
+            if len(parts) >= 2:
+                path = parts[1]
+                if path.endswith(".txt"):
+                    txt_files.add(os.path.basename(path))
+
+    for f_name in txt_files:
+        if is_slave:
+            name_part, ext = os.path.splitext(f_name)
+            if not name_part.endswith("_slave"):
+                dest_name = f"{name_part}_slave{ext}"
+            else:
+                dest_name = f_name
+            dest_path = os.path.join(target_dir, dest_name)
+        else:
+            dest_path = os.path.join(target_dir, f_name)
+            
+        subprocess.run(["docker", "cp", f"{container_name}:/workspace/{f_name}", dest_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 def run_ttr(root_dir, cve_list, num_trials, trial_name_arg):
     methods = ["base", "dd", "cd", "dual-dd", "dual-cd"]
@@ -710,13 +740,11 @@ def run_ttr(root_dir, cve_list, num_trials, trial_name_arg):
                 os.makedirs(target_dir, exist_ok=True)
                 print(f"Copying TTR logs from {c_name:<55}... ", end="", flush=True)
                 
-                for f_name in ["dgf_blocks_hit.txt", "dgf_target_reached.txt", "dgf_block_mapping.txt", "dgf_compile_info.txt"]:
-                    subprocess.run(["docker", "cp", f"{c_name}:/workspace/{f_name}", target_dir], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                copy_all_txt_files(c_name, target_dir, is_slave=False)
                 
                 if suffix in ["afl-base", "afl-cd", "afl-dd"]:
                     slave_c_name = f"{cve}-{suffix}-slave-{i}"
-                    subprocess.run(["docker", "cp", f"{slave_c_name}:/workspace/dgf_blocks_hit.txt", os.path.join(target_dir, "dgf_blocks_hit_slave.txt")], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                    subprocess.run(["docker", "cp", f"{slave_c_name}:/workspace/dgf_target_reached.txt", os.path.join(target_dir, "dgf_target_reached_slave.txt")], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    copy_all_txt_files(slave_c_name, target_dir, is_slave=True)
                 
                 res_run = subprocess.run(["docker", "inspect", "-f", "{{.State.Running}}", c_name], capture_output=True, text=True)
                 running = res_run.stdout.strip() == "true"
