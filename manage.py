@@ -92,11 +92,11 @@ def get_active_trial_name(root_dir, cve):
     return "trial_default"
 
 def print_usage():
-    print("Usage: python3 manage.py {up|down|build|status|log|clean|copy|stat_plot|tte_check|tte_plot|ttr} [cve_name] [trials] [trial_name] [--all] [-y]")
+    print("Usage: python3 manage.py {up|down|build|status|log|clean|copy|stat_plot|tte_check|tte_plot|ttr} [cve_name|dafl|cafl] [trials] [trial_name] [--all] [-y]")
     print("\nCommands:")
     print("  up        : Start docker containers for CVE trials")
     print("  down      : Stop docker containers and remove named volumes (-v)")
-    print("  build     : Build docker images for CVE trials")
+    print("  build     : Build docker images for CVE trials, or build fuzzer base images (dafl|cafl)")
     print("  status    : Check if fuzzer process is active inside containers")
     print("  log       : Print /workspace/cpu_binding.log from inside containers")
     print("  clean     : Force stop and remove containers, volumes, and images")
@@ -105,6 +105,44 @@ def print_usage():
     print("  tte_check : Run TTE_check.py on active CVEs")
     print("  tte_plot  : Run TTE_plot.py on active CVEs")
     print("  ttr       : Run TTR.py on active CVEs (copies TTR logs/stats and plots)")
+
+def build_fuzzer_image(root_dir, target, extra_args=None):
+    if extra_args is None:
+        extra_args = []
+    afl_dir = os.path.join(root_dir, "AFLplusplus")
+    if not os.path.isdir(afl_dir):
+        print(f"Error: AFLplusplus directory not found at {afl_dir}")
+        sys.exit(1)
+        
+    print(f"\n\033[1;34m[Build Fuzzer]\033[0m Checking out git branch \033[1;35m{target}\033[0m in AFLplusplus...")
+    res = subprocess.run(["git", "checkout", target], cwd=afl_dir)
+    if res.returncode != 0:
+        print(f"Error: Failed to checkout branch '{target}' in {afl_dir}")
+        sys.exit(1)
+        
+    image_tag = f"location0717/{target}:latest"
+    print(f"\n\033[1;34m[Build Docker]\033[0m Building docker image \033[1;35m{image_tag}\033[0m...")
+    
+    cmd = ["docker", "build"]
+    if target == "cafl":
+        cmd += ["--build-arg", "CPPFLAGS=-Dcd"]
+    if extra_args:
+        cmd += extra_args
+    cmd += ["-t", image_tag, "./AFLplusplus"]
+    
+    print(f"Executing: {' '.join(cmd)}")
+    build_res = subprocess.run(cmd, cwd=root_dir)
+    if build_res.returncode != 0:
+        print(f"Error: Failed to build docker image {image_tag}")
+        sys.exit(1)
+        
+    print(f"\n\033[1;34m[Docker Push]\033[0m Pushing image \033[1;35m{image_tag}\033[0m to docker hub...")
+    push_res = subprocess.run(["docker", "push", image_tag])
+    if push_res.returncode != 0:
+        print(f"Error: Failed to push docker image {image_tag}")
+        sys.exit(1)
+        
+    print(f"\n\033[1;32mSuccessfully built and pushed {image_tag}\033[0m")
 
 def parse_arguments(root_dir):
     args = sys.argv[1:]
@@ -136,6 +174,8 @@ def parse_arguments(root_dir):
             num_trials = int(arg)
         elif is_cve(root_dir, arg):
             target_cve = arg
+        elif arg_lower in ["dafl", "cafl"]:
+            target_cve = arg_lower
         else:
             trial_name = arg
             
@@ -800,6 +840,10 @@ def main():
         print("Error: Command (up, down, build, status, log, clean, copy, stat_plot, tte_check, tte_plot, ttr) is required.")
         print_usage()
         sys.exit(1)
+
+    if command == "build" and target_cve in ["dafl", "cafl"]:
+        build_fuzzer_image(root_dir, target_cve, extra_args)
+        sys.exit(0)
         
     cve_list = []
     if command == "down":

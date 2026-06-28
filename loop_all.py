@@ -61,12 +61,16 @@ def main():
             cve_now_str = datetime.datetime.now().strftime("%H:%M:%S")
             print(f"\n\033[1;35m--- [Iteration {iteration}/{iterations}] Running CVE: {cve} (Time: {cve_now_str}) ---\033[0m")
             
-            # Step A: Start containers
-            print("\n\033[1;33m[Step 1/4] Starting containers...\033[0m")
+            # Step A: Compile docker images
+            print("\n\033[1;33m[Step 1/5] Compiling docker images...\033[0m")
+            subprocess.run([python_bin, manage_py, "build", cve, str(trials)])
+
+            # Step B: Start containers
+            print("\n\033[1;33m[Step 2/5] Starting containers...\033[0m")
             subprocess.run([python_bin, manage_py, "up", cve, str(trials), "-y"])
             
-            # Step B: Wait for the duration
-            print(f"\n\033[1;33m[Step 2/4] Fuzzing for {duration} seconds...\033[0m")
+            # Step C: Wait for the duration
+            print(f"\n\033[1;33m[Step 3/5] Fuzzing for {duration} seconds...\033[0m")
             sleep_interval = 300
             if duration < 60:
                 sleep_interval = 10
@@ -82,12 +86,12 @@ def main():
                 if elapsed < duration:
                     print(f"  -> Elapsed: {elapsed}/{duration} seconds...")
                     
-            # Step C: Copy results
-            print("\n\033[1;33m[Step 3/4] Copying trial results...\033[0m")
+            # Step D: Copy results
+            print("\n\033[1;33m[Step 4/5] Copying trial results...\033[0m")
             subprocess.run([python_bin, manage_py, "copy", cve, str(trials)])
             
-            # Step D: Shut down containers (clean all containers & volumes)
-            print("\n\033[1;33m[Step 4/4] Cleaning up containers and volumes...\033[0m")
+            # Step E: Shut down containers (clean all containers & volumes)
+            print("\n\033[1;33m[Step 5/5] Cleaning up containers and volumes...\033[0m")
             subprocess.run([python_bin, manage_py, "clean"])
             
             # Extra: Run TTE check
