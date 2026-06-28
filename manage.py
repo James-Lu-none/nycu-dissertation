@@ -136,13 +136,13 @@ def build_fuzzer_image(root_dir, target, extra_args=None):
         print(f"Error: Failed to build docker image {image_tag}")
         sys.exit(1)
         
-    print(f"\n\033[1;34m[Docker Push]\033[0m Pushing image \033[1;35m{image_tag}\033[0m to docker hub...")
-    push_res = subprocess.run(["docker", "push", image_tag])
-    if push_res.returncode != 0:
-        print(f"Error: Failed to push docker image {image_tag}")
-        sys.exit(1)
+    # print(f"\n\033[1;34m[Docker Push]\033[0m Pushing image \033[1;35m{image_tag}\033[0m to docker hub...")
+    # push_res = subprocess.run(["docker", "push", image_tag])
+    # if push_res.returncode != 0:
+    #     print(f"Error: Failed to push docker image {image_tag}")
+    #     sys.exit(1)
         
-    print(f"\n\033[1;32mSuccessfully built and pushed {image_tag}\033[0m")
+    print(f"\n\033[1;32mSuccessfully built {image_tag}\033[0m")
 
 def parse_arguments(root_dir):
     args = sys.argv[1:]
