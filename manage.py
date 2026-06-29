@@ -647,11 +647,11 @@ def run_tte_plot(root_dir, cve_list, trial_name_arg):
 def copy_all_txt_files(container_name, target_dir, is_slave=False):
     txt_files = set()
     
-    res_exec = subprocess.run(["docker", "exec", container_name, "bash", "-c", "find /workspace -maxdepth 1 -name '*txt*' 2>/dev/null"], capture_output=True, text=True)
+    res_exec = subprocess.run(["docker", "exec", container_name, "bash", "-c", "find /workspace -maxdepth 1 -name '*.txt' 2>/dev/null"], capture_output=True, text=True)
     if res_exec.returncode == 0 and res_exec.stdout.strip():
         for line in res_exec.stdout.splitlines():
             line = line.strip()
-            if ".txt" in line:
+            if line.endswith(".txt"):
                 txt_files.add(os.path.basename(line))
                 
     res_diff = subprocess.run(["docker", "diff", container_name], capture_output=True, text=True)
@@ -660,7 +660,7 @@ def copy_all_txt_files(container_name, target_dir, is_slave=False):
             parts = line.strip().split()
             if len(parts) >= 2:
                 path = parts[1]
-                if ".txt" in path:
+                if path.endswith(".txt"):
                     txt_files.add(os.path.basename(path))
 
     for f_name in txt_files:
