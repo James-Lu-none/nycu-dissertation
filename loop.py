@@ -17,10 +17,14 @@ def main():
     parser = argparse.ArgumentParser(description="Continuous Trial Runner Loop")
     parser.add_argument("duration", type=int, help="Duration of fuzzing per trial in seconds")
     parser.add_argument("cve", help="CVE identifier")
+    parser.add_argument("iterations", type=int, nargs="?", default=1, help="Number of iterations to run the loop (default: 1)")
+    parser.add_argument("--trials", type=int, default=15, help="Number of trials per CVE (default: 15)")
     args = parser.parse_args()
     
     duration = args.duration
     cve = args.cve
+    iterations = args.iterations
+    trials = args.trials
     
     cve_bench_dir = os.path.join(root_dir, "bench", cve)
     if not os.path.isdir(cve_bench_dir):
@@ -29,23 +33,28 @@ def main():
         
     print(f"\033[1;32m[Loop Runner] Initialized for CVE: {cve}\033[0m")
     print(f"\033[1;32m[Loop Runner] Run duration per trial: {duration} seconds\033[0m")
+    print(f"\033[1;32m[Loop Runner] Total loop iterations: {iterations}\033[0m")
+    print(f"\033[1;32m[Loop Runner] Trials per CVE: {trials}\033[0m")
     
     python_bin = sys.executable
     manage_py = os.path.join(root_dir, "manage.py")
     
-    iteration = 1
-    while True:
-        now_str = datetime.datetime.now().strftime("%a %b %d %H:%M:%S %Z %Y")
+    for iteration in range(1, iterations + 1):
+        cve_now_str = datetime.datetime.now().strftime("%H:%M:%S")
         print(f"\n\033[1;34m==================================================\033[0m")
-        print(f"\033[1;34m[Iteration {iteration}] Start Time: {now_str}\033[0m")
+        print(f"\033[1;34m[Iteration {iteration}/{iterations}] Running CVE: {cve} (Time: {cve_now_str})\033[0m")
         print(f"\033[1;34m==================================================\033[0m")
         
-        # Step A: Start containers
-        print("\n\033[1;33m[Step 1/4] Starting containers...\033[0m")
-        subprocess.run([python_bin, manage_py, "up", cve, "15", "-y"])
+        # Step A: Compile docker images
+        print("\n\033[1;33m[Step 1/5] Compiling docker images...\033[0m")
+        subprocess.run([python_bin, manage_py, "build", cve, str(trials)])
+
+        # Step B: Start containers
+        print("\n\033[1;33m[Step 2/5] Starting containers...\033[0m")
+        subprocess.run([python_bin, manage_py, "up", cve, str(trials), "-y"])
         
-        # Step B: Wait for the duration
-        print(f"\n\033[1;33m[Step 2/4] Fuzzing for {duration} seconds...\033[0m")
+        # Step C: Wait for the duration
+        print(f"\n\033[1;33m[Step 3/5] Fuzzing for {duration} seconds...\033[0m")
         sleep_interval = 300
         if duration < 60:
             sleep_interval = 10
@@ -61,21 +70,29 @@ def main():
             if elapsed < duration:
                 print(f"  -> Elapsed: {elapsed}/{duration} seconds...")
                 
-        # Step C: Copy results
-        print("\n\033[1;33m[Step 3/4] Copying trial results...\033[0m")
-        subprocess.run([python_bin, manage_py, "copy", cve])
+        # Step D: Copy results
+        print("\n\033[1;33m[Step 4/5] Copying trial results...\033[0m")
+        subprocess.run([python_bin, manage_py, "copy", cve, str(trials)])
         
-        # Step D: Shut down containers
-        print("\n\033[1;33m[Step 4/4] Stopping containers and removing volumes...\033[0m")
-        subprocess.run([python_bin, manage_py, "down", cve, "-y"])
+        # Step E: Shut down containers (clean all containers & volumes)
+        print("\n\033[1;33m[Step 5/5] Cleaning up containers and volumes...\033[0m")
+        subprocess.run([python_bin, manage_py, "clean"])
         
         # Extra: Run TTE check
         print("\n\033[1;35m[Post-processing] Running TTE check...\033[0m")
         subprocess.run([python_bin, manage_py, "tte_check", cve, "-y"])
         
-        print(f"\n\033[1;32m[Iteration {iteration}] Completed. Resting 5 seconds before next iteration...\033[0m")
+        print(f"\n\033[1;32m[CVE {cve}] Iteration {iteration}/{iterations} completed. Resting 5 seconds...\033[0m")
         time.sleep(5)
-        iteration += 1
+        
+    # Post-processing after M iterations for this CVE
+    print(f"\n\033[1;35m[Post-processing] Running stat_plot for {cve}...\033[0m")
+    subprocess.run([python_bin, manage_py, "stat_plot", cve, "-y"])
+    
+    print(f"\n\033[1;35m[Post-processing] Running tte_plot for {cve}...\033[0m")
+    subprocess.run([python_bin, manage_py, "tte_plot", cve])
+    
+    print(f"\n\033[1;32m[CVE {cve}] All {iterations} iterations completed.\033[0m")
 
 if __name__ == "__main__":
     main()
