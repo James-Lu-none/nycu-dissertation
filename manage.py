@@ -227,9 +227,15 @@ def run_clean():
         print("No containers to stop/remove.")
     print("Pruning all unused volumes...")
     subprocess.run(["docker", "volume", "prune", "-a", "-f"])
-    
+
+    print("Pruning all unused networks...")
+    subprocess.run(["docker", "network", "prune", "-f"])
+
     print("\n\033[1;34m[Docker Volumes]\033[0m")
     subprocess.run(["docker", "volume", "ls"])
+    
+    print("\n\033[1;34m[Docker Networks]\033[0m")
+    subprocess.run(["docker", "network", "ls"])
     
     print("\n\033[1;34m[Docker Containers]\033[0m")
     subprocess.run(["docker", "ps", "-a"])
