@@ -309,6 +309,41 @@ def run_docker_compose_command(root_dir, command, cve_list, num_trials, run_all,
         
     print("\n\033[1;32mDone.\033[0m")
 
+def copy_all_txt_files(container_name, target_dir, is_slave=False):
+    txt_files = set()
+    
+    res_exec = subprocess.run(["docker", "exec", container_name, "bash", "-c", "find /workspace -maxdepth 1 -name '*.txt' 2>/dev/null"], capture_output=True, text=True)
+    if res_exec.returncode == 0 and res_exec.stdout.strip():
+        for line in res_exec.stdout.splitlines():
+            line = line.strip()
+            if line.endswith(".txt"):
+                txt_files.add(os.path.basename(line))
+                
+    res_diff = subprocess.run(["docker", "diff", container_name], capture_output=True, text=True)
+    if res_diff.returncode == 0 and res_diff.stdout.strip():
+        for line in res_diff.stdout.splitlines():
+            parts = line.strip().split()
+            if len(parts) >= 2:
+                path = parts[1]
+                if path.endswith(".txt"):
+                    txt_files.add(os.path.basename(path))
+
+    for f_name in txt_files:
+        if is_slave:
+            if "_slave" not in f_name:
+                idx = f_name.rfind(".txt")
+                if idx != -1:
+                    dest_name = f_name[:idx] + "_slave" + f_name[idx:]
+                else:
+                    dest_name = f"{f_name}_slave"
+            else:
+                dest_name = f_name
+            dest_path = os.path.join(target_dir, dest_name)
+        else:
+            dest_path = os.path.join(target_dir, f_name)
+            
+        subprocess.run(["docker", "cp", f"{container_name}:/workspace/{f_name}", dest_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
 def run_copy(root_dir, cve_list, num_trials, trial_name_arg):
     methods = ["base", "dd", "cd", "dual-dd", "dual-cd"]
     suffixes = ["afl-base", "afl-dd", "afl-cd", "afl-dual-dd", "afl-dual-cd"]
@@ -376,6 +411,13 @@ def run_copy(root_dir, cve_list, num_trials, trial_name_arg):
                 target_dir = os.path.join(artifact_trial_dir, method, f"trial{i}")
                 os.makedirs(target_dir, exist_ok=True)
                 print(f"Copying results from {c_name:<55}... ", end="", flush=True)
+                
+                copy_all_txt_files(c_name, target_dir, is_slave=False)
+                if suffix in ["afl-base", "afl-cd", "afl-dd"]:
+                    slave_c_name = f"{cve}-{suffix}-slave-{i}"
+                    res_slave = subprocess.run(["docker", "ps", "-a", "-q", "-f", f"name=^/{slave_c_name}$"], capture_output=True, text=True)
+                    if res_slave.stdout.strip():
+                        copy_all_txt_files(slave_c_name, target_dir, is_slave=True)
                 
                 res_run = subprocess.run(["docker", "inspect", "-f", "{{.State.Running}}", c_name], capture_output=True, text=True)
                 running = res_run.stdout.strip() == "true"
@@ -649,41 +691,6 @@ def run_tte_plot(root_dir, cve_list, trial_name_arg):
         print(f"Running TTE_plot.py for {cve} with trial: \033[1;35m{trial_name}\033[0m")
         cmd = [python_bin, "scripts/TTE_plot.py", "--bench", cve, "--trial-name", trial_name]
         subprocess.run(cmd)
-        
-def copy_all_txt_files(container_name, target_dir, is_slave=False):
-    txt_files = set()
-    
-    res_exec = subprocess.run(["docker", "exec", container_name, "bash", "-c", "find /workspace -maxdepth 1 -name '*.txt' 2>/dev/null"], capture_output=True, text=True)
-    if res_exec.returncode == 0 and res_exec.stdout.strip():
-        for line in res_exec.stdout.splitlines():
-            line = line.strip()
-            if line.endswith(".txt"):
-                txt_files.add(os.path.basename(line))
-                
-    res_diff = subprocess.run(["docker", "diff", container_name], capture_output=True, text=True)
-    if res_diff.returncode == 0 and res_diff.stdout.strip():
-        for line in res_diff.stdout.splitlines():
-            parts = line.strip().split()
-            if len(parts) >= 2:
-                path = parts[1]
-                if path.endswith(".txt"):
-                    txt_files.add(os.path.basename(path))
-
-    for f_name in txt_files:
-        if is_slave:
-            if "_slave" not in f_name:
-                idx = f_name.find(".txt")
-                if idx != -1:
-                    dest_name = f_name[:idx] + "_slave" + f_name[idx:]
-                else:
-                    dest_name = f"{f_name}_slave"
-            else:
-                dest_name = f_name
-            dest_path = os.path.join(target_dir, dest_name)
-        else:
-            dest_path = os.path.join(target_dir, f_name)
-            
-        subprocess.run(["docker", "cp", f"{container_name}:/workspace/{f_name}", dest_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 def run_ttr(root_dir, cve_list, num_trials, trial_name_arg):
     methods = ["base", "dd", "cd", "dual-dd", "dual-cd"]
