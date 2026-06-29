@@ -95,6 +95,9 @@ def main():
     
     print(f"\n\033[1;35m[Post-processing] Running tte_plot for {cve}...\033[0m")
     subprocess.run([python_bin, manage_py, "tte_plot", cve])
+
+    print(f"\n\033[1;35m[Post-processing] Running arm_plot for {cve}...\033[0m")
+    subprocess.run([python_bin, manage_py, "arm_plot", cve])
     
     print(f"\n\033[1;32m[CVE {cve}] All {iterations} iterations completed.\033[0m")
 

@@ -92,10 +92,11 @@ def get_active_trial_name(root_dir, cve):
     return "trial_default"
 
 def print_usage():
-    print("Usage: python3 manage.py {up|down|build|status|log|clean|copy|stat_plot|tte_check|tte_plot|ttr} [cve_name|dafl|cafl] [trials] [trial_name] [--all] [-y]")
+    print("Usage: python3 manage.py {up|down|stop|build|status|log|clean|copy|stat_plot|tte_check|tte_plot|ttr|arm_plot} [cve_name|dafl|cafl] [trials] [trial_name] [--all] [-y]")
     print("\nCommands:")
     print("  up        : Start docker containers for CVE trials")
     print("  down      : Stop docker containers and remove named volumes (-v)")
+    print("  stop      : Gracefully stop docker containers with SIGINT")
     print("  build     : Build docker images for CVE trials, or build fuzzer base images (dafl|cafl)")
     print("  status    : Check if fuzzer process is active inside containers")
     print("  log       : Print /workspace/cpu_binding.log from inside containers")
@@ -105,6 +106,7 @@ def print_usage():
     print("  tte_check : Run TTE_check.py on active CVEs")
     print("  tte_plot  : Run TTE_plot.py on active CVEs")
     print("  ttr       : Run TTR.py on active CVEs (copies TTR logs/stats and plots)")
+    print("  arm_plot  : Run ARM_plot.py on active CVEs (visualizes ARM rules)")
 
 def build_fuzzer_image(root_dir, target, extra_args=None):
     if extra_args is None:
@@ -155,7 +157,7 @@ def parse_arguments(root_dir):
     yes = False
     extra_args = []
     
-    valid_commands = ["up", "down", "stop", "build", "status", "log", "clean", "copy", "stat_plot", "tte_check", "tte_plot", "ttr"]
+    valid_commands = ["up", "down", "stop", "build", "status", "log", "clean", "copy", "stat_plot", "tte_check", "tte_plot", "ttr", "arm_plot"]
     
     for arg in args:
         arg_lower = arg.lower()
@@ -303,6 +305,12 @@ def run_docker_compose_command(root_dir, command, cve_list, num_trials, run_all,
             else:
                 cmd_args += extra_args
         elif command == "stop":
+            res = subprocess.run(["docker", "ps", "--filter", f"name=^{cve}-afl-", "--format", "{{.Names}}"], capture_output=True, text=True)
+            containers = [c.strip() for c in res.stdout.strip().splitlines() if c.strip()]
+            for c in containers:
+                subprocess.run(["docker", "exec", c, "pkill", "-INT", "-f", "afl-fuzz.*"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            if containers:
+                time.sleep(1.5)
             cmd_args += ["stop"] + extra_args
         elif command == "build":
             cmd_args += ["build"] + extra_args
@@ -694,6 +702,21 @@ def run_tte_plot(root_dir, cve_list, trial_name_arg):
         cmd = [python_bin, "scripts/TTE_plot.py", "--bench", cve, "--trial-name", trial_name]
         subprocess.run(cmd)
 
+def run_arm_plot(root_dir, cve_list, trial_name_arg):
+    venv_activate = os.path.join(root_dir, "../.venv/bin/activate")
+    python_bin = sys.executable
+    if os.path.isfile(venv_activate):
+        python_bin = os.path.abspath(os.path.join(root_dir, "../.venv/bin/python3"))
+        
+    for cve in cve_list:
+        artifact_cve_dir = os.path.join(root_dir, "artifact", cve)
+        if not os.path.isdir(artifact_cve_dir):
+            print(f"Warning: Artifact directory not found for {cve}. Skipping.")
+            continue
+        print(f"\n\033[1;34m[ARM Plot]\033[0m Running ARM_plot.py for \033[1;35m{cve}\033[0m...")
+        cmd = [python_bin, "scripts/ARM_plot.py", artifact_cve_dir, "--name", cve]
+        subprocess.run(cmd)
+
 def run_ttr(root_dir, cve_list, num_trials, trial_name_arg):
     methods = ["base", "dd", "cd", "dual-dd", "dual-cd"]
     suffixes = ["afl-base", "afl-dd", "afl-cd", "afl-dual-dd", "afl-dual-cd"]
@@ -913,6 +936,8 @@ def main():
         run_tte_plot(root_dir, cve_list, trial_name_arg)
     elif command == "ttr":
         run_ttr(root_dir, cve_list, num_trials, trial_name_arg)
+    elif command == "arm_plot":
+        run_arm_plot(root_dir, cve_list, trial_name_arg)
 
 if __name__ == "__main__":
     main()
