@@ -155,7 +155,7 @@ def parse_arguments(root_dir):
     yes = False
     extra_args = []
     
-    valid_commands = ["up", "down", "build", "status", "log", "clean", "copy", "stat_plot", "tte_check", "tte_plot", "ttr"]
+    valid_commands = ["up", "down", "stop", "build", "status", "log", "clean", "copy", "stat_plot", "tte_check", "tte_plot", "ttr"]
     
     for arg in args:
         arg_lower = arg.lower()
@@ -302,6 +302,8 @@ def run_docker_compose_command(root_dir, command, cve_list, num_trials, run_all,
                 cmd_args.append("-v")
             else:
                 cmd_args += extra_args
+        elif command == "stop":
+            cmd_args += ["stop"] + extra_args
         elif command == "build":
             cmd_args += ["build"] + extra_args
             

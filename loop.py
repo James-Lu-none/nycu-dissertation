@@ -70,12 +70,16 @@ def main():
             if elapsed < duration:
                 print(f"  -> Elapsed: {elapsed}/{duration} seconds...")
                 
-        # Step D: Copy results
-        print("\n\033[1;33m[Step 4/5] Copying trial results...\033[0m")
+        # Step D: Gracefully stop containers
+        print("\n\033[1;33m[Step 4/6] Stopping containers gracefully to flush final state...\033[0m")
+        subprocess.run([python_bin, manage_py, "stop", cve, str(trials)])
+        
+        # Step E: Copy results
+        print("\n\033[1;33m[Step 5/6] Copying trial results...\033[0m")
         subprocess.run([python_bin, manage_py, "copy", cve, str(trials)])
         
-        # Step E: Shut down containers (clean all containers & volumes)
-        print("\n\033[1;33m[Step 5/5] Cleaning up containers and volumes...\033[0m")
+        # Step F: Shut down containers (clean all containers & volumes)
+        print("\n\033[1;33m[Step 6/6] Cleaning up containers and volumes...\033[0m")
         subprocess.run([python_bin, manage_py, "clean"])
         
         # Extra: Run TTE check
