@@ -309,7 +309,7 @@ def run_docker_compose_command(root_dir, command, cve_list, num_trials, run_all,
             print("Stopping all afl-fuzz* processes on host gracefully...")
             subprocess.run(["sudo", "pkill", "-INT", "-f", "afl-fuzz"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             # Give AFL++ time to run stop_fuzzing() and flush arm_rules.txt
-            time.sleep(2.0)
+            time.sleep(15.0)
             cmd_args += ["stop"] + extra_args
         elif command == "build":
             cmd_args += ["build"] + extra_args
