@@ -305,11 +305,18 @@ def run_docker_compose_command(root_dir, command, cve_list, num_trials, run_all,
             else:
                 cmd_args += extra_args
         elif command == "stop":
-            # Since pid: host is used and fuzzer processes are run as root, we use sudo to send SIGINT.
-            print("Stopping all afl-fuzz* processes on host gracefully...")
-            subprocess.run(["sudo", "pkill", "-INT", "-f", "afl-fuzz"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            # Give AFL++ time to run stop_fuzzing() and flush arm_rules.txt
-            time.sleep(15.0)
+            # Since fuzzer processes are run as root inside the container, we can send SIGINT using 
+            # docker exec without requiring sudo on the host (which can fail in non-interactive python scripts).
+            res = subprocess.run(["docker", "ps", "--filter", f"name=^{cve}-afl-", "--format", "{{.Names}}"], capture_output=True, text=True)
+            containers = [c.strip() for c in res.stdout.strip().splitlines() if c.strip()]
+            print("Number of containers to stop is: ", len(containers))
+            for c in containers:
+                print(f"Stopping fuzzer process inside container {c}...", end="")
+                subprocess.run(["docker", "exec", c, "pkill", "-INT", "-f", "afl-fuzz"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                print("Done.")
+            if containers:
+                print(f"Stopping fuzzer processes inside containers gracefully for \033[1;35m{cve}\033[0m...")
+                time.sleep(3.0)
             cmd_args += ["stop"] + extra_args
         elif command == "build":
             cmd_args += ["build"] + extra_args
@@ -919,7 +926,7 @@ def main():
             sys.exit(1)
 
     # Execute commands
-    if command in ["up", "down", "build"]:
+    if command in ["up", "down", "build", "stop"]:
         run_docker_compose_command(root_dir, command, cve_list, num_trials, run_all, yes, extra_args, trial_name_arg)
     elif command == "copy":
         run_copy(root_dir, cve_list, num_trials, trial_name_arg)
