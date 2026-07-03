@@ -1,27 +1,46 @@
-focus,已建立," CVE"," 原論文結果",目前結果," 目前編譯狀況"
-,v,binutils-2.26_cxxfilt_CVE-2016-4491," 6/40 TTE",," 可編譯、可找到target (將trace中第二行作為後target後才找到)"
-,v,binutils-2.26_cxxfilt_CVE-2016-6131," 0/40 TTE",," 可編譯、可找到target、執行fuzzing中"
-v,v,binutils-2.28_objdump_CVE-2017-8396," 0/40 TTE",," 找不到target: libbfd.c:615"
-v,v,binutils-2.29_nm_CVE-2017-14940," 6/40 TTE",," 可編譯、可找到target、已跑24小時"," 但只能到達兩個 control dependents"
-,v,binutils-2.29_readelf_CVE-2017-16828," 比較慢",," 可編譯、有找到target、但 control dependency 是斷掉的，dgf_target_reached 執行好久之後還是空的，且原論文使用ASAN之後才有好的結果"
-,v,binutils-2.31.1_objdump_CVE-2018-17360," 6/40 TTE",," 有找到target但 control dependents 是空的"
-,,,,,,
-,v,libjpeg-1.5.90_cjpeg_CVE-2018-14498," ",,編譯中
-,v,libjpeg-2.0.4_cjpeg_CVE-2020-13790," 10/40 TTE",," 可編譯、但只找到2個 control dependents"
-,,,,,,
-,v,libming-4.7_swftophp_CVE-2017-11728,,1/15 TTE,可編譯、且靜態分析 (data/control dependency) 皆正常
-,v,libming-4.7_swftophp_CVE-2017-9988,,<4000s,可編譯、且靜態分析 (data/control dependency) 皆正常
-,v,libming-4.8_swftophp_CVE-2018-11225,,0/15 TTE,可編譯、且靜態分析 (data/control dependency) 皆正常
-,v,libming-4.8_swftophp_CVE-2018-11226,,,可編譯、且靜態分析 (data/control dependency) 皆正常
-v,v,libming-4.8_swftophp_CVE-2018-20427," 比較慢",<4000s," 可編譯、可找到target、已跑24小時"
-,v,libming-4.8_swftophp_CVE-2018-7868," 13/40 TTE",0/15 TTE," 可編譯、可找到target、執行fuzzing中"
-,v,libming-4.8_swftophp_CVE-2018-8807," 1/40 TTE",0/15 TTE," 可編譯、可找到target、執行fuzzing中"
-,v,libming-4.8_swftophp_CVE-2018-8962," 4/40 TTE",0/15 TTE," 可編譯、可找到target、執行fuzzing中"
-,v,libming-4.8_swftophp_CVE-2019-12982,,,可編譯、且靜態分析 (data/control dependency) 皆正常
-,v,libming-4.8_swftophp_CVE-2020-6628,,,可編譯、且靜態分析 (data/control dependency) 皆正常
-v,v,libming-4.8.1_swftophp_CVE-2019-9114," 比較慢",10/30 TTE," 可編譯、可找到target、已跑24小時 "
-,,,,,,
-,v,libxml2-2.9.4_xmllint_CVE-2017-9047," ",,編譯中
-,v,libxml2-2.9.4_xmllint_CVE-2017-9048," ",,編譯中
-,,,,,,
-,v,lrzip-9de7ccb_lrzip_CVE-2017-8846," 0/40 TTE",," 可編譯、可找到target"
+focus,已建立," CVE"," 原論文結果(with ASAN)"," 原論文結果(without ASAN)",目前結果(DAFL),目前結果(DAFL+CAFL)," 目前編譯狀況"
+,v,binutils-2.26_cxxfilt_CVE-2016-4487," 273"," 71",89.32 s,114.64 s,
+,v,binutils-2.26_cxxfilt_CVE-2016-4489," 885"," 207",,,
+,v,binutils-2.26_cxxfilt_CVE-2016-4490," 72"," 30",,,
+,v,binutils-2.26_cxxfilt_CVE-2016-4491," 6/40 TTE"," 15/40 TTE",,," 可編譯、可找到target (將trace中第二行作為後target後才找到)"
+,v,binutils-2.26_cxxfilt_CVE-2016-4492," 752"," 181",,,
+,v,binutils-2.26_cxxfilt_CVE-2016-6131," 0/40 TTE"," 1/40 TTE",,," 可編譯、可找到target、執行fuzzing中"
+,,binutils-2.27_strip_CVE-2017-7303," 214"," 112",,,
+,,binutils-2.28_objcopy_CVE-2017-8393," 630"," 6/40 TTE",,,
+,,binutils-2.28_objcopy_CVE-2017-8394," 484"," 240",,,
+,,binutils-2.28_objcopy_CVE-2017-8395," 262"," 254",,,
+,,binutils-2.28_objdump_CVE-2017-8392," 294"," 41,806",,,
+v,v,binutils-2.28_objdump_CVE-2017-8396," 0/40 TTE"," 7/40 TTE",,," 找不到target: libbfd.c:615"
+,,binutils-2.28_objdump_CVE-2017-8397," 18,960"," 13/40 TTE",,,
+,,binutils-2.28_objdump_CVE-2017-8398," 2,068"," 0/40 TTE",,,
+v,v,binutils-2.29_nm_CVE-2017-14940," 6/40 TTE"," 5/40 TTE",,," 可編譯、可找到target、已跑24小時"," 但只能到達兩個 control dependents"
+,v,binutils-2.29_readelf_CVE-2017-16828," 254"," 64,516",,," 可編譯、有找到target、但 control dependency 是斷掉的，dgf_target_reached 執行好久之後還是空的，且原論文使用ASAN之後才有好的結果"
+,v,binutils-2.31.1_objdump_CVE-2018-17360," 6/40 TTE"," 6/40 TTE",,," 有找到target但 control dependents 是空的"
+,,,,,,,,
+,v,libjpeg-1.5.90_cjpeg_CVE-2018-14498," 16,943"," 0/40 TTE",,,編譯中
+,v,libjpeg-2.0.4_cjpeg_CVE-2020-13790," 10/40 TTE"," 0/40 TTE",,," 可編譯、但只找到2個 control dependents"
+,,,,,,,,
+,,libming-4.7_swftophp_CVE-2016-9827," 61"," 308",,,
+,,libming-4.7_swftophp_CVE-2016-9829," 151"," 485",,,
+,,libming-4.7_swftophp_CVE-2016-9831," 143"," 117",,,
+,v,libming-4.7_swftophp_CVE-2017-11728," 274"," 13/40 TTE",1/15 TTE,,可編譯、且靜態分析 (data/control dependency) 皆正常
+,,libming-4.7_swftophp_CVE-2017-11729," 133"," 370",,,
+,v,libming-4.7_swftophp_CVE-2017-9988," 1,748"," 768",<4000s,,可編譯、且靜態分析 (data/control dependency) 皆正常
+,,libming-4.7.1_swftophp_CVE-2017-7578," 139"," 118",,,
+,,libming-4.8_swftophp_CVE-2018-11095," 606"," 565",,,
+,v,libming-4.8_swftophp_CVE-2018-11225," 17,780"," 38,277",0/15 TTE,,可編譯、且靜態分析 (data/control dependency) 皆正常
+,v,libming-4.8_swftophp_CVE-2018-11226," 16,453"," 19/40 TTE",,,可編譯、且靜態分析 (data/control dependency) 皆正常
+v,v,libming-4.8_swftophp_CVE-2018-20427," 12,901"," 7,109",<4000s,," 可編譯、可找到target、已跑24小時"
+,v,libming-4.8_swftophp_CVE-2018-7868," 13/40 TTE"," 20/40 TTE",0/15 TTE,," 可編譯、可找到target、執行fuzzing中"
+,v,libming-4.8_swftophp_CVE-2018-8807," 1/40 TTE"," 1/40 TTE",0/15 TTE,," 可編譯、可找到target、執行fuzzing中"
+,v,libming-4.8_swftophp_CVE-2018-8962," 4/40 TTE"," 3/40 TTE",0/15 TTE,," 可編譯、可找到target、執行fuzzing中"
+,v,libming-4.8_swftophp_CVE-2019-12982," 5,435"," 8/40 TTE",,,可編譯、且靜態分析 (data/control dependency) 皆正常
+,v,libming-4.8_swftophp_CVE-2020-6628," 14,654"," 46,601",,,可編譯、且靜態分析 (data/control dependency) 皆正常
+v,v,libming-4.8.1_swftophp_CVE-2019-9114," 37,142"," 31,576",10/30 TTE,," 可編譯、可找到target、已跑24小時 "
+,,,,,,,,
+,v,libxml2-2.9.4_xmllint_CVE-2017-5969," 1,159"," 1,015",,,
+,v,libxml2-2.9.4_xmllint_CVE-2017-9047," 33,607"," 27,977",,,編譯中
+,v,libxml2-2.9.4_xmllint_CVE-2017-9048," 7,722"," 0/40 TTE",,,編譯中
+,,,,,,,,
+,v,lrzip-9de7ccb_lrzip_CVE-2017-8846," 0/40 TTE"," 8/40 TTE",,," 可編譯、可找到target"
+,,lrzip-ed51e14_lrzip_CVE-2018-11496," 17"," 7",,,
