@@ -1,0 +1,16 @@
+SAX2.c:xmlSAX2ElementDecl
+parser.c:xmlParseElementChildrenContentDeclPriv
+parser.c:xmlParseElementContentDecl
+parser.c:xmlParseElementDecl
+parser.c:xmlParseElementMixedContentDecl
+valid.c:xmlAddElementDecl
+valid.c:xmlCopyDocElementContent
+valid.c:xmlCopyElement
+valid.c:xmlCopyElementContent
+valid.c:xmlDumpElementContent
+valid.c:xmlDumpElementDecl
+valid.c:xmlNewDocElementContent
+xmllint.c:main
+xmllint.c:myMallocFunc
+xmlmemory.c:xmlMemMalloc
+xmlschemas.c:elementDeclSplit
