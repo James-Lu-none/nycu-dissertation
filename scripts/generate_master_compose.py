@@ -98,14 +98,14 @@ def generate_compose(num_trials):
         # DD
         services_lines.append(f"""  afl-dd-{i}:
     container_name: "${{CVE}}-afl-dd-{i}"
-    image: "${{IMAGE_NAME}}"
+{build_str}    image: "${{IMAGE_NAME}}"
     command: bash -c "bash script.sh && sleep infinity"
     working_dir: /workspace
     pid: "host"
     environment:
-      - TARGET_BIN=${{TARGET_BIN_DD}}
+      - TARGET_BIN=${{TARGET_BIN_SOLO_DD}}
       - TARGET_ARGS=${{TARGET_ARGS}}
-      - FUZZER_BIN=afl-fuzz-dd
+      - FUZZER_BIN=afl-fuzz-solo-dd
       - FUZZER_ROLE=M
       - FUZZER_NAME=main
       - SESSION_ID=${{SESSION_ID}}
@@ -121,9 +121,9 @@ def generate_compose(num_trials):
     working_dir: /workspace
     pid: "host"
     environment:
-      - TARGET_BIN=${{TARGET_BIN_DD}}
+      - TARGET_BIN=${{TARGET_BIN_SOLO_DD}}
       - TARGET_ARGS=${{TARGET_ARGS}}
-      - FUZZER_BIN=afl-fuzz-dd
+      - FUZZER_BIN=afl-fuzz-solo-dd
       - FUZZER_ROLE=S
       - FUZZER_NAME=slave
       - SESSION_ID=${{SESSION_ID}}
@@ -144,9 +144,9 @@ def generate_compose(num_trials):
     working_dir: /workspace
     pid: "host"
     environment:
-      - TARGET_BIN=${{TARGET_BIN_DD}}
+      - TARGET_BIN=${{TARGET_BIN_DUAL_DD}}
       - TARGET_ARGS=${{TARGET_ARGS}}
-      - FUZZER_BIN=afl-fuzz-dd
+      - FUZZER_BIN=afl-fuzz-dual-dd
       - FUZZER_ROLE=M
       - FUZZER_NAME=dd
       - SESSION_ID=${{SESSION_ID}}
@@ -163,9 +163,9 @@ def generate_compose(num_trials):
     working_dir: /workspace
     pid: "host"
     environment:
-      - TARGET_BIN=${{TARGET_BIN_CD}}
+      - TARGET_BIN=${{TARGET_BIN_DUAL_CD}}
       - TARGET_ARGS=${{TARGET_ARGS}}
-      - FUZZER_BIN=afl-fuzz-cd
+      - FUZZER_BIN=afl-fuzz-dual-cd
       - FUZZER_ROLE=S
       - FUZZER_NAME=cd
       - SESSION_ID=${{SESSION_ID}}

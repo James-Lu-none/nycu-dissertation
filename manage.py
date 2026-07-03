@@ -720,8 +720,12 @@ def run_arm_plot(root_dir, cve_list, trial_name_arg):
             print(f"Warning: Artifact directory not found for {cve}. Skipping.")
             continue
         print(f"\n\033[1;34m[ARM Plot]\033[0m Running ARM_plot.py for \033[1;35m{cve}\033[0m...")
-        cmd = [python_bin, "scripts/ARM_plot.py", artifact_cve_dir, "--name", cve]
-        subprocess.run(cmd)
+        cmd_plot = [python_bin, "scripts/ARM_plot.py", artifact_cve_dir, "--name", cve]
+        subprocess.run(cmd_plot)
+        
+        print(f"\033[1;34m[ARM Stats]\033[0m Running ARM_stats.py (Independence Validation) for \033[1;35m{cve}\033[0m...")
+        cmd_stats = [python_bin, "scripts/ARM_stats.py", artifact_cve_dir, "--name", cve]
+        subprocess.run(cmd_stats)
 
 def run_ttr(root_dir, cve_list, num_trials, trial_name_arg):
     methods = ["base", "dd", "cd", "dual-dd", "dual-cd"]
