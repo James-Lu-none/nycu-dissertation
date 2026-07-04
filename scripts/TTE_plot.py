@@ -17,7 +17,7 @@ def get_method_label(method):
     else:
         return method
 
-def generate_tte_summary_plot(method_ttes, output_path, cve):
+def generate_tte_summary_plot(method_ttes, output_path, cve, dual_sources=None):
     """
     Generates Time to Bug Exposure (TTE) box plot.
     """
@@ -68,10 +68,14 @@ def generate_tte_summary_plot(method_ttes, output_path, cve):
         if valid_ttes:
             geo_mean = np.exp(np.mean(np.log(valid_ttes)))
             mean_val = np.mean(valid_ttes)
+            variance_val = np.var(valid_ttes, ddof=1) if len(valid_ttes) > 1 else 0.0
+            max_val = np.max(valid_ttes)
             success_rate = len(valid_ttes) / total_trials * 100.0
             text_lines.append(f"{method} ({len(valid_ttes)}/{total_trials} - {success_rate:.0f}%):")
             text_lines.append(f"  Geo Mean: {geo_mean:.2f}s")
             text_lines.append(f"  Mean: {mean_val:.2f}s")
+            text_lines.append(f"  Variance: {variance_val:.2f}s^2")
+            text_lines.append(f"  Max: {max_val:.2f}s")
         else:
             text_lines.append(f"{method} (0/{total_trials}):")
             text_lines.append(f"  No exposure")
@@ -138,10 +142,36 @@ def generate_tte_summary_plot(method_ttes, output_path, cve):
         bp['fliers'][i].set_markersize(6)
 
         ttes = method_ttes[method]
-        valid_ttes = [t for t in ttes if t is not None]
+        valid_indices = [idx for idx, t in enumerate(ttes) if t is not None]
+        valid_ttes = [ttes[idx] for idx in valid_indices]
         if valid_ttes:
             x_jitter = np.random.normal(i + 1, 0.04, size=len(valid_ttes))
-            plt.scatter(x_jitter, valid_ttes, color=color, edgecolor='black', alpha=0.8, s=45, zorder=3)
+            if get_method_label(method) == "dual" and dual_sources:
+                cd_x, cd_y = [], []
+                dd_x, dd_y = [], []
+                other_x, other_y = [], []
+                for idx, val, xj in zip(valid_indices, valid_ttes, x_jitter):
+                    if idx < len(dual_sources):
+                        src = dual_sources[idx]
+                    else:
+                        src = None
+                    if src == "cd":
+                        cd_x.append(xj)
+                        cd_y.append(val)
+                    elif src == "dd":
+                        dd_x.append(xj)
+                        dd_y.append(val)
+                    else:
+                        other_x.append(xj)
+                        other_y.append(val)
+                if cd_x:
+                    plt.scatter(cd_x, cd_y, color='#ff7f0e', edgecolor='#2ca02c', alpha=0.9, s=55, linewidth=1.8, marker='o', zorder=3)
+                if dd_x:
+                    plt.scatter(dd_x, dd_y, color='#ff7f0e', edgecolor='#1f77b4', alpha=0.9, s=55, linewidth=1.8, marker='s', zorder=3)
+                if other_x:
+                    plt.scatter(other_x, other_y, color=color, edgecolor='black', alpha=0.8, s=45, zorder=3)
+            else:
+                plt.scatter(x_jitter, valid_ttes, color=color, edgecolor='black', alpha=0.8, s=45, zorder=3)
             
             geo_mean = np.exp(np.mean(np.log(valid_ttes)))
             plt.hlines(y=geo_mean, xmin=i + 1 - 0.25, xmax=i + 1 + 0.25, colors='red', linestyles='--', linewidth=1.8, zorder=4)
@@ -166,6 +196,22 @@ def generate_tte_summary_plot(method_ttes, output_path, cve):
     geo_mean_line = mlines.Line2D([], [], color='red', linestyle='--', linewidth=1.5, label='Geo Mean')
     median_line = mlines.Line2D([], [], color='black', linestyle='-', linewidth=1.5, label='Median')
     legend_patches.extend([geo_mean_line, median_line])
+
+    has_dual_cd = False
+    has_dual_dd = False
+    if "dual" in method_ttes and dual_sources:
+        for val, src in zip(method_ttes["dual"], dual_sources):
+            if val is not None:
+                if src == "cd":
+                    has_dual_cd = True
+                elif src == "dd":
+                    has_dual_dd = True
+    if has_dual_cd:
+        cd_legend = mlines.Line2D([], [], color='none', marker='o', markerfacecolor='#ff7f0e', markeredgecolor='#2ca02c', markeredgewidth=1.8, linestyle='None', markersize=8, label='Dual (CD faster)')
+        legend_patches.append(cd_legend)
+    if has_dual_dd:
+        dd_legend = mlines.Line2D([], [], color='none', marker='s', markerfacecolor='#ff7f0e', markeredgecolor='#1f77b4', markeredgewidth=1.8, linestyle='None', markersize=8, label='Dual (DD faster)')
+        legend_patches.append(dd_legend)
     
     plt.legend(handles=legend_patches, loc='best', fontsize=10)
 
@@ -173,7 +219,7 @@ def generate_tte_summary_plot(method_ttes, output_path, cve):
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
     plt.close()
 
-def generate_tte_table_image(method_ttes, output_path, cve):
+def generate_tte_table_image(method_ttes, output_path, cve, dual_sources=None):
     try:
         import matplotlib.pyplot as plt
         import numpy as np
@@ -186,7 +232,7 @@ def generate_tte_table_image(method_ttes, output_path, cve):
     except ImportError:
         mannwhitneyu = None
 
-    columns = ["Configuration", "Success Rate", "Geo Mean TTE", "Mean TTE", "Speedup", "p-value"]
+    columns = ["Configuration", "Success Rate", "Geo Mean TTE", "Mean TTE", "Variance", "Max TTE", "Speedup", "p-value"]
     
     def get_sort_key(m):
         m_low = m.lower()
@@ -222,8 +268,12 @@ def generate_tte_table_image(method_ttes, output_path, cve):
         if valid_ttes:
             geo_mean_val = np.exp(np.mean(np.log(valid_ttes)))
             mean_val = np.mean(valid_ttes)
+            var_val = np.var(valid_ttes, ddof=1) if len(valid_ttes) > 1 else 0.0
+            max_val = np.max(valid_ttes)
             geo_mean_str = f"{geo_mean_val:.2f} s"
             mean_str = f"{mean_val:.2f} s"
+            var_str = f"{var_val:.2f} s^2"
+            max_str = f"{max_val:.2f} s"
             
             if base_geo_mean and geo_mean_val > 0:
                 speedup_val = base_geo_mean / geo_mean_val
@@ -233,6 +283,8 @@ def generate_tte_table_image(method_ttes, output_path, cve):
         else:
             geo_mean_str = "N.A."
             mean_str = "N.A."
+            var_str = "N.A."
+            max_str = "N.A."
             speedup_str = "N.A."
             
         p_val_str = "-"
@@ -253,9 +305,14 @@ def generate_tte_table_image(method_ttes, output_path, cve):
                 p_val_str = "N.A."
 
         label = get_method_label(method)
-        cell_text.append([label, success_str, geo_mean_str, mean_str, speedup_str, p_val_str])
+        if label == "dual" and dual_sources:
+            cd_wins = sum(1 for val, src in zip(method_ttes[method], dual_sources) if val is not None and src == "cd")
+            dd_wins = sum(1 for val, src in zip(method_ttes[method], dual_sources) if val is not None and src == "dd")
+            if cd_wins > 0 or dd_wins > 0:
+                label += f"\n(CD:{cd_wins}, DD:{dd_wins})"
+        cell_text.append([label, success_str, geo_mean_str, mean_str, var_str, max_str, speedup_str, p_val_str])
         
-    fig, ax = plt.subplots(figsize=(7.5, len(sorted_methods) * 0.4 + 0.5))
+    fig, ax = plt.subplots(figsize=(9.2, len(sorted_methods) * 0.4 + 0.5))
     ax.axis('off')
     
     table = ax.table(
@@ -412,18 +469,21 @@ def main():
 
     # Combine dual-dd and dual-cd into a single method "dual"
     dual_keys = [k for k in method_ttes.keys() if "dual" in k.lower()]
+    dual_sources = []
     if dual_keys:
         max_trials = max(len(method_ttes[k]) for k in dual_keys)
         dual_ttes = []
         for i in range(max_trials):
-            trial_vals = []
+            best_val = None
+            best_source = None
             for k in dual_keys:
                 if i < len(method_ttes[k]) and method_ttes[k][i] is not None:
-                    trial_vals.append(method_ttes[k][i])
-            if trial_vals:
-                dual_ttes.append(min(trial_vals))
-            else:
-                dual_ttes.append(None)
+                    val = method_ttes[k][i]
+                    if best_val is None or val < best_val:
+                        best_val = val
+                        best_source = "cd" if "cd" in k.lower() else ("dd" if "dd" in k.lower() else k)
+            dual_ttes.append(best_val)
+            dual_sources.append(best_source)
         for k in dual_keys:
             del method_ttes[k]
         method_ttes["dual"] = dual_ttes
@@ -441,8 +501,8 @@ def main():
             tte_summary_path = os.path.join(plot_dir, f"{trial_name}_TTE_comparison_summary.png")
             tte_table_path = os.path.join(plot_dir, f"{trial_name}_TTE_summary_table.png")
             
-        generate_tte_summary_plot(method_ttes, tte_summary_path, args.bench)
-        generate_tte_table_image(method_ttes, tte_table_path, args.bench)
+        generate_tte_summary_plot(method_ttes, tte_summary_path, args.bench, dual_sources=dual_sources)
+        generate_tte_table_image(method_ttes, tte_table_path, args.bench, dual_sources=dual_sources)
         
         # 2. Generate dd vs dual only comparison plots
         dd_dual_ttes = {k: v for k, v in method_ttes.items() if k in ["dd", "dual"]}
@@ -455,8 +515,8 @@ def main():
                 tte_summary_path_dd_dual = os.path.join(plot_dir, f"{trial_name}_TTE_comparison_summary_dd_dual.png")
                 tte_table_path_dd_dual = os.path.join(plot_dir, f"{trial_name}_TTE_summary_table_dd_dual.png")
                 
-            generate_tte_summary_plot(dd_dual_ttes, tte_summary_path_dd_dual, args.bench)
-            generate_tte_table_image(dd_dual_ttes, tte_table_path_dd_dual, args.bench)
+            generate_tte_summary_plot(dd_dual_ttes, tte_summary_path_dd_dual, args.bench, dual_sources=dual_sources)
+            generate_tte_table_image(dd_dual_ttes, tte_table_path_dd_dual, args.bench, dual_sources=dual_sources)
 
 if __name__ == '__main__':
     main()
