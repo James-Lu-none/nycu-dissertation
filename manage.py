@@ -92,7 +92,7 @@ def get_active_trial_name(root_dir, cve):
     return "trial_default"
 
 def print_usage():
-    print("Usage: python3 manage.py {up|down|stop|build|status|log|clean|copy|stat_plot|tte_check|tte_plot|ttr|arm_plot} [cve_name|dafl|cafl] [trials] [trial_name] [--all] [-y]")
+    print("Usage: python3 manage.py {up|down|stop|build|status|log|clean|copy|stat_plot|tte_check|tte_plot|ttr|arm_plot|summary} [cve_name|dafl|cafl] [trials] [trial_name] [--all] [-y]")
     print("\nCommands:")
     print("  up        : Start docker containers for CVE trials")
     print("  down      : Stop docker containers and remove named volumes (-v)")
@@ -107,6 +107,7 @@ def print_usage():
     print("  tte_plot  : Run TTE_plot.py on active CVEs")
     print("  ttr       : Run TTR.py on active CVEs (copies TTR logs/stats and plots)")
     print("  arm_plot  : Run ARM_plot.py on active CVEs (visualizes ARM rules)")
+    print("  summary   : Aggregate TTE dd_dual summary tables and DGF compile info across benchmarks")
 
 def build_fuzzer_image(root_dir, target, extra_args=None):
     if extra_args is None:
@@ -157,7 +158,7 @@ def parse_arguments(root_dir):
     yes = False
     extra_args = []
     
-    valid_commands = ["up", "down", "stop", "build", "status", "log", "clean", "copy", "stat_plot", "tte_check", "tte_plot", "ttr", "arm_plot"]
+    valid_commands = ["up", "down", "stop", "build", "status", "log", "clean", "copy", "stat_plot", "tte_check", "tte_plot", "ttr", "arm_plot", "summary"]
     
     for arg in args:
         arg_lower = arg.lower()
@@ -878,6 +879,199 @@ def detect_num_trials(root_dir, cve_list):
         return max_trial
     return None
 
+def parse_dgf_compile_info(file_path):
+    import re
+    info = {
+        "control": "N.A.",
+        "caller": "N.A.",
+        "edge_cov": "N.A.",
+        "prune": "N.A."
+    }
+    if not file_path or not os.path.exists(file_path):
+        return info
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+            m_control = re.search(r'Number of Control BBs.*?:\s*(\d+)', content, re.IGNORECASE)
+            if m_control:
+                info["control"] = m_control.group(1)
+            m_caller = re.search(r'Number of Caller BBs.*?:\s*(\d+)', content, re.IGNORECASE)
+            if m_caller:
+                info["caller"] = m_caller.group(1)
+            m_edge = re.search(r'Total Basic Blocks Edge-Instrumented:\s*(\d+)', content, re.IGNORECASE)
+            if m_edge:
+                info["edge_cov"] = m_edge.group(1)
+            m_prune = re.search(r'Total Basic Blocks Pruned/Removed by DGF:\s*(\d+)', content, re.IGNORECASE)
+            if m_prune:
+                info["prune"] = m_prune.group(1)
+    except Exception as e:
+        print(f"Error parsing compile info file {file_path}: {e}")
+    return info
+
+def run_summary(root_dir):
+    import csv
+    import os
+    import subprocess
+    
+    artifact_root = os.path.join(root_dir, "artifact")
+    if not os.path.isdir(artifact_root):
+        print(f"Error: Artifact directory {artifact_root} not found.")
+        return
+        
+    benchmarks = []
+    for item in sorted(os.listdir(artifact_root)):
+        item_path = os.path.join(artifact_root, item)
+        if os.path.isdir(item_path):
+            csv_path = os.path.join(item_path, "plot", "TTE_summary_table_dd_dual.csv")
+            if os.path.isfile(csv_path):
+                benchmarks.append((item, csv_path))
+                
+    if not benchmarks:
+        print("No TTE_summary_table_dd_dual.csv files found.")
+        return
+        
+    summary_data = []
+    for cve, csv_path in benchmarks:
+        try:
+            # Locate dgf_compile_info-cd.txt recursively under artifact/cve
+            cve_dir = os.path.dirname(os.path.dirname(csv_path))
+            compile_info_path = None
+            for r, dirs, files in os.walk(cve_dir):
+                for f in files:
+                    if f in ["dgf_compile_info-cd.txt", "dgf_compile_info-dual-cd.txt", "dgf_compile_info.txt"]:
+                        compile_info_path = os.path.join(r, f)
+                        break
+                if compile_info_path:
+                    break
+                    
+            if not compile_info_path:
+                # Fallback to copy from running/existing docker container if possible
+                for container_suffix in ["afl-cd-1", "afl-dual-cd-1"]:
+                    c_name = f"{cve}-{container_suffix}"
+                    res = subprocess.run(["docker", "ps", "-a", "-q", "-f", f"name=^/{c_name}$"], capture_output=True, text=True)
+                    if res.stdout.strip():
+                        # Try to copy it to a temporary path under cve_dir
+                        temp_path = os.path.join(cve_dir, "dgf_compile_info-cd.txt")
+                        cp_res = subprocess.run(["docker", "cp", f"{c_name}:/workspace/dgf_compile_info-cd.txt", temp_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                        if cp_res.returncode == 0 or os.path.exists(temp_path):
+                            compile_info_path = temp_path
+                            break
+                            
+            compile_info = parse_dgf_compile_info(compile_info_path)
+            
+            dd_row = {}
+            dual_row = {}
+            with open(csv_path, mode='r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    config = row.get("Configuration", "").lower()
+                    if "dd" in config and "dual" not in config:
+                        dd_row = row
+                    elif "dual" in config:
+                        dual_row = row
+            
+            dd_geo = dd_row.get("Geo Mean TTE", "N.A.")
+            dd_success = dd_row.get("Success Rate", "N.A.")
+            dual_geo = dual_row.get("Geo Mean TTE", "N.A.")
+            dual_success = dual_row.get("Success Rate", "N.A.")
+            speedup = dual_row.get("Speedup", "N.A.")
+            p_val = dual_row.get("p-value", "N.A.")
+            
+            dd_max = dd_row.get("Max TTE", "N.A.")
+            dual_max = dual_row.get("Max TTE", "N.A.")
+            
+            summary_data.append({
+                "CVE": cve,
+                "# control": compile_info["control"],
+                "# caller": compile_info["caller"],
+                "# edge cov": compile_info["edge_cov"],
+                "# prune": compile_info["prune"],
+                "dd Geo mean TTE": dd_geo,
+                "dd succes rate": dd_success,
+                "dual Geo mean TTE": dual_geo,
+                "dual succes rate": dual_success,
+                "speedup": speedup,
+                "p-value": p_val,
+                "dd Max TTE": dd_max,
+                "dual Max TTE": dual_max
+            })
+        except Exception as e:
+            print(f"Error parsing {csv_path}: {e}")
+            
+    if not summary_data:
+        print("No summary data could be parsed.")
+        return
+        
+    # Write to a CSV file in artifact root
+    output_csv = os.path.join(artifact_root, "TTE_overall_summary.csv")
+    headers = [
+        "CVE", "# control", "# caller", "# edge cov", "# prune",
+        "dd Geo mean TTE", "dd succes rate", "dual Geo mean TTE", "dual succes rate",
+        "speedup", "p-value", "dd Max TTE", "dual Max TTE"
+    ]
+    try:
+        with open(output_csv, mode='w', newline='', encoding='utf-8') as f:
+            writer = csv.DictWriter(f, fieldnames=headers)
+            writer.writeheader()
+            writer.writerows(summary_data)
+        print(f"\033[1;32mOverall TTE summary table saved as CSV to: {output_csv}\033[0m")
+    except Exception as e:
+        print(f"Error writing CSV to {output_csv}: {e}")
+        
+    # Generate overall summary image
+    output_png = os.path.join(artifact_root, "TTE_overall_summary.png")
+    try:
+        import matplotlib.pyplot as plt
+        cell_text = [[
+            row["CVE"],
+            row["# control"],
+            row["# caller"],
+            row["# edge cov"],
+            row["# prune"],
+            row["dd Geo mean TTE"],
+            row["dd succes rate"],
+            row["dual Geo mean TTE"],
+            row["dual succes rate"],
+            row["speedup"],
+            row["p-value"],
+            row["dd Max TTE"],
+            row["dual Max TTE"]
+        ] for row in summary_data]
+        
+        fig, ax = plt.subplots(figsize=(16.0, len(summary_data) * 0.4 + 0.8))
+        ax.axis('off')
+        
+        table = ax.table(
+            cellText=cell_text,
+            colLabels=headers,
+            loc='center',
+            cellLoc='center'
+        )
+        table.auto_set_font_size(False)
+        table.set_fontsize(8)
+        table.scale(1.2, 1.8)
+        
+        for (r, col_idx), cell in table.get_celld().items():
+            if r == 0:
+                cell.set_text_props(weight='bold', color='white')
+                cell.set_facecolor('#1f77b4')
+                cell.set_edgecolor('#1f77b4')
+            else:
+                if r % 2 == 0:
+                    cell.set_facecolor('#f2f2f2')
+                else:
+                    cell.set_facecolor('white')
+                cell.set_edgecolor('#e0e0e0')
+                
+        plt.tight_layout()
+        plt.savefig(output_png, dpi=300, bbox_inches='tight')
+        plt.close()
+        print(f"\033[1;32mOverall TTE summary table saved as PNG to: {output_png}\033[0m")
+    except ImportError:
+        print("matplotlib not installed, skipping PNG table generation.")
+    except Exception as e:
+        print(f"Error generating PNG table: {e}")
+
 def main():
     root_dir = os.path.abspath(os.path.dirname(__file__))
     
@@ -888,7 +1082,7 @@ def main():
     command, target_cve, num_trials, trial_name_arg, run_all, yes, extra_args = parse_arguments(root_dir)
     
     if not command:
-        print("Error: Command (up, down, build, status, log, clean, copy, stat_plot, tte_check, tte_plot, ttr) is required.")
+        print("Error: Command (up, down, build, status, log, clean, copy, stat_plot, tte_check, tte_plot, ttr, summary) is required.")
         print_usage()
         sys.exit(1)
 
@@ -915,6 +1109,9 @@ def main():
             cve_list = [selected]
     elif command == "clean":
         run_clean()
+        sys.exit(0)
+    elif command == "summary":
+        run_summary(root_dir)
         sys.exit(0)
     else:
         if target_cve:
