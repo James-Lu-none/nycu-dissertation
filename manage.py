@@ -938,25 +938,13 @@ def run_summary(root_dir):
             compile_info_path = None
             for r, dirs, files in os.walk(cve_dir):
                 for f in files:
-                    if f in ["dgf_compile_info-cd.txt", "dgf_compile_info-dual-cd.txt", "dgf_compile_info.txt"]:
+                    if f in ["dgf_compile_info-cd.txt"]:
                         compile_info_path = os.path.join(r, f)
                         break
                 if compile_info_path:
                     break
-                    
-            if not compile_info_path:
-                # Fallback to copy from running/existing docker container if possible
-                for container_suffix in ["afl-cd-1", "afl-dual-cd-1"]:
-                    c_name = f"{cve}-{container_suffix}"
-                    res = subprocess.run(["docker", "ps", "-a", "-q", "-f", f"name=^/{c_name}$"], capture_output=True, text=True)
-                    if res.stdout.strip():
-                        # Try to copy it to a temporary path under cve_dir
-                        temp_path = os.path.join(cve_dir, "dgf_compile_info-cd.txt")
-                        cp_res = subprocess.run(["docker", "cp", f"{c_name}:/workspace/dgf_compile_info-cd.txt", temp_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                        if cp_res.returncode == 0 or os.path.exists(temp_path):
-                            compile_info_path = temp_path
-                            break
-                            
+            print(f"found {compile_info_path}")
+            
             compile_info = parse_dgf_compile_info(compile_info_path)
             
             dd_row = {}
