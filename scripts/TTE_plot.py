@@ -369,6 +369,122 @@ def parse_exposure_file(file_path):
         print(f"Error parsing {file_path}: {e}")
     return None
 
+def analyze_and_write_lineage(artifact_dir, session_dir, method, trial, plot_dir):
+    exposure_file_path = os.path.join(artifact_dir, session_dir, method, trial, "dgf_target_exposure.txt")
+    if not os.path.exists(exposure_file_path):
+        return
+        
+    try:
+        with open(exposure_file_path, 'r') as f:
+            content = f.read()
+    except Exception as e:
+        print(f"Error reading exposure file {exposure_file_path}: {e}")
+        return
+        
+    if "Target reached!" not in content:
+        return
+        
+    match = re.search(r'Crash File:\s*(.*)', content)
+    if not match:
+        return
+        
+    crash_file_info = match.group(1).strip()
+    
+    # Extract fuzzer name (CD vs DD vs main)
+    if "dual-cd" in method:
+        fuzzer_name = "cd"
+    elif "dual-dd" in method:
+        fuzzer_name = "dd"
+    else:
+        fuzzer_name = "main"
+        
+    label, crash_filename = os.path.split(crash_file_info)
+    if not label:
+        label = "main"
+        
+    instance_name = fuzzer_name if label == "main" else "slave"
+    
+    # Prepare chain
+    chain = []
+    
+    # Add crash log name
+    crash_log_name = crash_filename
+    if not crash_log_name.endswith(".log"):
+        crash_log_name += ".log"
+        
+    current_instance = instance_name
+    
+    # Regex to find src:(\d+)
+    src_match = re.search(r'src:(\d+)', crash_filename)
+    next_id = src_match.group(1) if src_match else None
+    
+    # We store (display_name, instance, filename)
+    chain.append((crash_log_name, current_instance, None))
+    
+    visited = set() # Avoid cycles
+    
+    while next_id:
+        queue_dir = os.path.join(artifact_dir, session_dir, method, trial, "out", current_instance, "queue")
+        if not os.path.isdir(queue_dir):
+            break
+            
+        matched_file = None
+        if os.path.exists(queue_dir):
+            for root, dirs, files in os.walk(queue_dir):
+                for f in files:
+                    if f.startswith(f"id:{next_id}"):
+                        matched_file = f
+                        queue_dir = root
+                        break
+                if matched_file:
+                    break
+                    
+        if not matched_file:
+            break
+            
+        # To avoid infinite loop (e.g. symlinks or weird queue cycles)
+        file_key = (current_instance, matched_file)
+        if file_key in visited:
+            break
+        visited.add(file_key)
+        
+        chain.append((matched_file, current_instance, queue_dir))
+        
+        # Parse next parent
+        sync_match = re.search(r'sync:([^,]+)', matched_file)
+        src_match = re.search(r'src:(\d+)', matched_file)
+        
+        if sync_match and src_match:
+            current_instance = sync_match.group(1)
+            next_id = src_match.group(1)
+        elif src_match:
+            next_id = src_match.group(1)
+        else:
+            next_id = None
+            
+    # Now generate the chain text
+    lines = []
+    for i in range(len(chain)):
+        child_name, _, _ = chain[i]
+        lines.append(f"{child_name}")
+        
+    if not lines:
+        return
+        
+    chain_content = "\n".join(lines) + "\n"
+    
+    # Write to destination
+    dest_dir = os.path.join(plot_dir, session_dir, trial)
+    os.makedirs(dest_dir, exist_ok=True)
+    dest_file = os.path.join(dest_dir, f"{method}_vulnerability_source_chain.txt")
+    
+    try:
+        with open(dest_file, "w") as f:
+            f.write(chain_content)
+        print(f"Lineage chain for {method} {trial} successfully written to {dest_file}")
+    except Exception as e:
+        print(f"Error writing lineage file {dest_file}: {e}")
+
 def main():
     parser = argparse.ArgumentParser(description="Generate TTE comparison summary plot from exposure files.")
     parser.add_argument("--bench", required=True, help="Full benchmark directory name (e.g. libming-4.8.1_swftophp_CVE-2019-9114)")
@@ -460,12 +576,17 @@ def main():
     print(f"Detected matching trial items ({len(trial_items)}): {[t['label'] for t in trial_items]}")
     print("Reading TTEs from existing dgf_target_exposure.txt files...")
     method_ttes = {}
+    plot_dir = os.path.join(artifact_dir, "plot")
     for method in methods:
         method_ttes[method] = []
         for item in trial_items:
             exposure_file_path = os.path.join(artifact_dir, item["session_dir"], method, item["trial"], "dgf_target_exposure.txt")
             tte = parse_exposure_file(exposure_file_path)
             method_ttes[method].append(tte)
+            try:
+                analyze_and_write_lineage(artifact_dir, item["session_dir"], method, item["trial"], plot_dir)
+            except Exception as e:
+                print(f"Error analyzing lineage for {method} {item['trial']}: {e}")
 
     # Combine dual-dd and dual-cd into a single method "dual"
     dual_keys = [k for k in method_ttes.keys() if "dual" in k.lower()]
