@@ -6,6 +6,7 @@ import re
 import datetime
 import shutil
 import time
+import concurrent.futures
 
 def get_cves(root_dir):
     cves_path = os.path.join(root_dir, "cves.env")
@@ -250,13 +251,13 @@ def run_docker_compose_command(root_dir, command, cve_list, num_trials, run_all,
     gen_cmd = [python_bin, os.path.join(root_dir, "scripts/generate_master_compose.py"), str(num_trials)]
     subprocess.run(gen_cmd)
     
-    for cve in cve_list:
+    def process_cve(cve):
         print(f"\n\033[1;34m[Docker-Compose]\033[0m \033[1;35m{cve}\033[0m >> \033[1;32m{command} {' '.join(extra_args)}\033[0m")
         
         cve_bench_dir = os.path.join(root_dir, "bench", cve)
         if not os.path.isdir(cve_bench_dir):
             print(f"Warning: Benchmark directory 'bench/{cve}' not found. Skipping.")
-            continue
+            return
             
         current_session_file = os.path.join(cve_bench_dir, ".current_session")
         env_dict = os.environ.copy()
@@ -289,7 +290,7 @@ def run_docker_compose_command(root_dir, command, cve_list, num_trials, run_all,
         compose_yaml_path = os.path.join(cve_bench_dir, "compose.yaml")
         if not os.path.isfile(compose_yaml_path):
             print(f"Warning: compose.yaml not found in bench/{cve}. Skipping.")
-            continue
+            return
             
         cmd_args = ["docker", "compose"]
         if command == "up":
@@ -335,7 +336,16 @@ def run_docker_compose_command(root_dir, command, cve_list, num_trials, run_all,
                     print(f"\033[1;31mError: Failed to tag docker image {image_name} as {registry_tag}\033[0m")
             else:
                 print(f"\033[1;31mError: IMAGE_NAME not found in {env_file}\033[0m")
-        
+
+    if command == "build":
+        max_workers = min(len(cve_list), 4)
+        print(f"\n\033[1;34m[Parallel Build]\033[0m Compiling {len(cve_list)} CVE images in parallel with max_workers={max_workers}...")
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            executor.map(process_cve, cve_list)
+    else:
+        for cve in cve_list:
+            process_cve(cve)
+            
     print("\n\033[1;32mDone.\033[0m")
 
 def run_stop(cve_list):
