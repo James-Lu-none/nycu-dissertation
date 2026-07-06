@@ -82,7 +82,7 @@ def run_slurm_command(root_dir, command, cve_list, num_trials, run_all, yes, ext
                 os.remove(sif_path)
             
             print(f"Pulling Apptainer image for {image_name}...")
-            docker_uri = f"docker://docker.io/location0717/{image_name}"
+            docker_uri = f"docker://registry.optixbase.com:30000/{image_name}"
             apptainer_cmd = ["apptainer", "pull", sif_path, docker_uri]
             
             apptainer_res = subprocess.run(apptainer_cmd, cwd=cve_bench_dir)

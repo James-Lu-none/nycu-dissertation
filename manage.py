@@ -124,14 +124,15 @@ def build_fuzzer_image(root_dir, target, extra_args=None):
         sys.exit(1)
         
     image_tag = f"location0717/{target}:latest"
-    print(f"\n\033[1;34m[Build Docker]\033[0m Building docker image \033[1;35m{image_tag}\033[0m...")
+    registry_tag = f"registry.optixbase.com:30000/{target}:latest"
+    print(f"\n\033[1;34m[Build Docker]\033[0m Building docker image \033[1;35m{image_tag}\033[0m and \033[1;35m{registry_tag}\033[0m...")
     
     cmd = ["docker", "build"]
     if target == "cafl":
         cmd += ["--build-arg", "CPPFLAGS=-Dcd"]
     if extra_args:
         cmd += extra_args
-    cmd += ["-t", image_tag, "./AFLplusplus"]
+    cmd += ["-t", image_tag, "-t", registry_tag, "./AFLplusplus"]
     
     print(f"Executing: {' '.join(cmd)}")
     build_res = subprocess.run(cmd, cwd=root_dir)
@@ -139,13 +140,13 @@ def build_fuzzer_image(root_dir, target, extra_args=None):
         print(f"Error: Failed to build docker image {image_tag}")
         sys.exit(1)
         
-    # print(f"\n\033[1;34m[Docker Push]\033[0m Pushing image \033[1;35m{image_tag}\033[0m to docker hub...")
-    # push_res = subprocess.run(["docker", "push", image_tag])
-    # if push_res.returncode != 0:
-    #     print(f"Error: Failed to push docker image {image_tag}")
-    #     sys.exit(1)
+    print(f"\n\033[1;34m[Docker Push]\033[0m Pushing image \033[1;35m{registry_tag}\033[0m to registry...")
+    push_res = subprocess.run(["docker", "push", registry_tag])
+    if push_res.returncode != 0:
+        print(f"Error: Failed to push docker image {registry_tag}")
+        sys.exit(1)
         
-    print(f"\n\033[1;32mSuccessfully built {image_tag}\033[0m")
+    print(f"\n\033[1;32mSuccessfully built and pushed {registry_tag}\033[0m")
 
 def parse_arguments(root_dir):
     args = sys.argv[1:]
@@ -308,7 +309,32 @@ def run_docker_compose_command(root_dir, command, cve_list, num_trials, run_all,
         elif command == "build":
             cmd_args += ["build"] + extra_args
             
-        subprocess.run(cmd_args, cwd=cve_bench_dir, env=env_dict)
+        build_res = subprocess.run(cmd_args, cwd=cve_bench_dir, env=env_dict)
+        if command == "build" and build_res.returncode == 0:
+            image_name = None
+            env_file = os.path.join(cve_bench_dir, ".env")
+            if os.path.isfile(env_file):
+                with open(env_file, 'r') as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith('#') and '=' in line:
+                            k, v = line.split('=', 1)
+                            if k.strip() == "IMAGE_NAME":
+                                image_name = v.strip().strip('"').strip("'")
+                                break
+            if image_name:
+                registry_tag = f"registry.optixbase.com:30000/{image_name}"
+                print(f"\n\033[1;34m[Docker Tag & Push]\033[0m Tagging \033[1;35m{image_name}\033[0m as \033[1;35m{registry_tag}\033[0m...")
+                tag_res = subprocess.run(["docker", "tag", image_name, registry_tag])
+                if tag_res.returncode == 0:
+                    print(f"\033[1;34m[Docker Tag & Push]\033[0m Pushing \033[1;35m{registry_tag}\033[0m to registry...")
+                    push_res = subprocess.run(["docker", "push", registry_tag])
+                    if push_res.returncode != 0:
+                        print(f"\033[1;31mError: Failed to push docker image {registry_tag}\033[0m")
+                else:
+                    print(f"\033[1;31mError: Failed to tag docker image {image_name} as {registry_tag}\033[0m")
+            else:
+                print(f"\033[1;31mError: IMAGE_NAME not found in {env_file}\033[0m")
         
     print("\n\033[1;32mDone.\033[0m")
 
