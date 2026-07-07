@@ -312,12 +312,15 @@ def generate_tte_table_image(method_ttes, output_path, cve, dual_sources=None):
                 label += f"\n(CD:{cd_wins}, DD:{dd_wins})"
         cell_text.append([label, success_str, geo_mean_str, mean_str, var_str, max_str, speedup_str, p_val_str])
         
-    fig, ax = plt.subplots(figsize=(9.2, len(sorted_methods) * 0.4 + 0.5))
+    image_columns = [c for i, c in enumerate(columns) if i not in (4, 5)]
+    image_cell_text = [[c for i, c in enumerate(row) if i not in (4, 5)] for row in cell_text]
+        
+    fig, ax = plt.subplots(figsize=(7.8, len(sorted_methods) * 0.4 + 0.5))
     ax.axis('off')
     
     table = ax.table(
-        cellText=cell_text,
-        colLabels=columns,
+        cellText=image_cell_text,
+        colLabels=image_columns,
         loc='center',
         cellLoc='center'
     )
