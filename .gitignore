@@ -3,3 +3,5 @@
 cves.env
 bench/docker-compose.master.yml
 *.pyc
+logs
+*.sif
