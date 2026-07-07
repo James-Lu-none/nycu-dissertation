@@ -44,13 +44,18 @@ def run_slurm_command(root_dir, command, cve_list, num_trials, run_all, yes, ext
             trial_name = active_trial_name
             print(f"Starting Slurm jobs for \033[1;35m{cve}\033[0m with SESSION_ID=\033[1;36m{session_id}\033[0m and TRIAL_NAME=\033[1;35m{trial_name}\033[0m")
             
-            num_tasks = num_trials * 8
+            if run_all:
+                num_tasks = num_trials * 8
+                run_all_val = "1"
+            else:
+                num_tasks = num_trials * 4
+                run_all_val = "0"
             
             sbatch_cmd = [
                 "sbatch",
                 f"--job-name=afl_{cve}",
                 f"--array=1-{num_tasks}",
-                f"--export=ALL,CVE={cve},SESSION_ID={session_id},TRIAL_NAME={trial_name}"
+                f"--export=ALL,CVE={cve},SESSION_ID={session_id},TRIAL_NAME={trial_name},RUN_ALL={run_all_val}"
             ]
             
             # Export variables from .env

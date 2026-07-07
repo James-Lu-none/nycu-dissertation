@@ -14,9 +14,20 @@ SESSION_ID=${SESSION_ID:-"exp_01"}
 TRIAL_NAME=${TRIAL_NAME:-"bench"}
 ROOT_DIR="/home/user/workspace/nycu-dissertation"
 
+RUN_ALL=${RUN_ALL:-0}
+
+if [ "$RUN_ALL" = "1" ]; then
+  ACTIVE_ROLES=(0 1 2 3 4 5 6 7)
+  MOD=8
+else
+  ACTIVE_ROLES=(4 5 6 7)
+  MOD=4
+fi
+
 IDX=$((SLURM_ARRAY_TASK_ID - 1))
-TRIAL_NUM=$(( (IDX / 8) + 1 ))
-ROLE_ID=$(( IDX % 8 ))
+TRIAL_NUM=$(( (IDX / MOD) + 1 ))
+ROLE_IDX=$(( IDX % MOD ))
+ROLE_ID=${ACTIVE_ROLES[$ROLE_IDX]}
 
 case $ROLE_ID in
   0) TARGET=$TARGET_BIN_BASE;    FUZZER="afl-fuzz";         ROLE="-M"; NAME="main";  METHOD="base" ;;
@@ -30,7 +41,7 @@ case $ROLE_ID in
 esac
 
 DEST_DIR="${ROOT_DIR}/artifact/${CVE}/${TRIAL_NAME}/${METHOD}/trial${TRIAL_NUM}"
-LOCAL_OUT="/tmp/fuzz_${SLURM_JOB_ID}_${SLURM_ARRAY_TASK_ID}/out"
+LOCAL_OUT="/dev/shm/fuzz_${SLURM_JOB_ID}_${SLURM_ARRAY_TASK_ID}/out"
 
 mkdir -p "$DEST_DIR"
 mkdir -p "$LOCAL_OUT"
@@ -44,8 +55,15 @@ sync_data() {
   cp -a "$LOCAL_OUT/." "$DEST_DIR/"
 }
 
+cleanup() {
+  echo "[*] Job ending. Performing final sync..."
+  sync_data
+  echo "[*] Cleaning up local RAM disk storage..."
+  rm -rf "/dev/shm/fuzz_${SLURM_JOB_ID}_${SLURM_ARRAY_TASK_ID}"
+}
+
 # Trap to sync data when job ends or is cancelled
-trap sync_data EXIT SIGINT SIGTERM
+trap cleanup EXIT SIGINT SIGTERM
 
 # Background periodic sync every 5 minutes
 (
@@ -63,4 +81,3 @@ apptainer exec \
   bash -c "cd /workspace && ${FUZZER} -i in -o out ${ROLE} ${NAME} -- ${TARGET} ${TARGET_ARGS}"
 
 kill $SYNC_PID 2>/dev/null
-sync_data
