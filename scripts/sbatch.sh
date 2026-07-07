@@ -12,7 +12,7 @@ export APPTAINERENV_AFL_NO_AFFINITY=1
 
 SESSION_ID=${SESSION_ID:-"exp_01"}
 TRIAL_NAME=${TRIAL_NAME:-"bench"}
-ROOT_DIR="/home/user/workspace/nycu-dissertation"
+ROOT_DIR="${HOME}/workspace/nycu-dissertation"
 
 RUN_ALL=${RUN_ALL:-0}
 
