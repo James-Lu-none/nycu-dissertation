@@ -49,34 +49,6 @@ def get_latest_success_rate(cve, root_dir):
         
     return reached_trials / total_trials, reached_trials, total_trials
 
-def get_cve_durations(root_dir):
-    durations = {}
-    cves_path = os.path.join(root_dir, "cves.env")
-    cves_template_path = os.path.join(root_dir, "cves.env.template")
-    
-    def parse_durations(path):
-        d = {}
-        with open(path, 'r') as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith('#'):
-                    continue
-                if ',' in line:
-                    parts = line.split(',', 1)
-                    cve = parts[0].strip().replace('"', '').replace("'", '').replace(" ", "").replace("\r", "")
-                    try:
-                        dur = int(parts[1].strip())
-                        d[cve] = dur
-                    except ValueError:
-                        pass
-        return d
-
-    if os.path.isfile(cves_path):
-        durations = parse_durations(cves_path)
-    elif os.path.isfile(cves_template_path):
-        durations = parse_durations(cves_template_path)
-    return durations
-
 def main():
     root_dir = os.path.abspath(os.path.dirname(__file__))
     
@@ -102,15 +74,10 @@ def main():
         print(f"Error: Benchmark directory '{cve_bench_dir}' does not exist.")
         sys.exit(1)
         
-    # Load CVE durations from cves.env
-    cve_durations = get_cve_durations(root_dir)
-    cve_duration = cve_durations.get(cve)
-    if not cve_duration:
-        print(f"\033[1;31mError: No duration specified for CVE '{cve}' in cves.env.\033[0m")
-        sys.exit(1)
-        
+    cve_duration = args.duration
+    
     print(f"\033[1;32m[Loop Runner] Initialized for CVE: {cve}\033[0m")
-    print(f"\033[1;32m[Loop Runner] Run duration per trial: {cve_duration} seconds (from cves.env)\033[0m")
+    print(f"\033[1;32m[Loop Runner] Run duration per trial: {cve_duration} seconds\033[0m")
     print(f"\033[1;32m[Loop Runner] Total loop iterations: {iterations}\033[0m")
     print(f"\033[1;32m[Loop Runner] Trials per CVE: {trials}\033[0m")
     
