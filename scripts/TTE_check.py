@@ -59,12 +59,25 @@ def get_docker_image_name(benchmark_dir, method):
                     return v.strip().strip('"').strip("'")
     return None
 
-def check_image_exists(image_name):
-    try:
-        res = subprocess.run(["docker", "image", "inspect", image_name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        return res.returncode == 0
-    except Exception:
-        return False
+def check_image_exists(image_name, cve_name=None):
+    import shutil
+    if shutil.which("docker"):
+        try:
+            res = subprocess.run(["docker", "image", "inspect", image_name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            return res.returncode == 0
+        except Exception:
+            return False
+    else:
+        if not cve_name:
+            return False
+        scripts_dir = os.path.dirname(os.path.realpath(__file__))
+        root_dir = os.path.dirname(scripts_dir)
+        bench_dir = os.path.join(root_dir, "bench", cve_name)
+        env_image_name = get_docker_image_name(bench_dir, None)
+        if not env_image_name:
+            return False
+        sif_path = os.path.join(bench_dir, f"{env_image_name}.sif")
+        return os.path.exists(sif_path)
 
 def triage_crashes_in_container(image_name, binary, flags, local_crashes_dir, target_trace, cve_name, dest_logs_dir=None):
     local_crashes_dir = os.path.abspath(local_crashes_dir)
@@ -320,12 +333,19 @@ def main():
             image_name = re.sub(r'-dd(:|$)', '-multistage\\1', orig_image_name)
         print(f"Docker image mapped for {method} (using multistage version): {image_name}")
         
-        image_exists = check_image_exists(image_name)
+        image_exists = check_image_exists(image_name, cve_name=args.bench)
+        import shutil
         if not image_exists:
-            print(f"Docker image {image_name} not found locally.")
+            if shutil.which("docker"):
+                print(f"Docker image {image_name} not found locally.")
+            else:
+                print(f"Apptainer image for {args.bench} not found locally.")
             continue
         else:
-            print(f"Docker image {image_name} is available locally.")
+            if shutil.which("docker"):
+                print(f"Docker image {image_name} is available locally.")
+            else:
+                print(f"Apptainer image for {args.bench} is available locally.")
             
         for item in trial_items:
             local_trial_dir = os.path.join(artifact_dir, item["session_dir"], method, item["trial"])
