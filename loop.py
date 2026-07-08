@@ -6,6 +6,49 @@ import time
 import datetime
 import argparse
 
+def get_latest_success_rate(cve, root_dir):
+    import re
+    artifact_cve_dir = os.path.join(root_dir, "artifact", cve)
+    if not os.path.isdir(artifact_cve_dir):
+        return 0.0
+        
+    sessions = []
+    for d in os.listdir(artifact_cve_dir):
+        if os.path.isdir(os.path.join(artifact_cve_dir, d)) and d not in ["plot", "TTE_check"]:
+            sessions.append(d)
+            
+    if not sessions:
+        return 0.0
+        
+    def sort_session_key(x):
+        ts_match = re.search(r'_(\d{8}_\d{6})$', x)
+        return ts_match.group(1) if ts_match else ""
+        
+    sessions.sort(key=sort_session_key)
+    latest_session = sessions[-1]
+    latest_session_dir = os.path.join(artifact_cve_dir, latest_session)
+    
+    total_trials = 0
+    reached_trials = 0
+    
+    for root, dirs, files in os.walk(latest_session_dir):
+        for file in files:
+            if file == "dgf_target_exposure.txt":
+                total_trials += 1
+                file_path = os.path.join(root, file)
+                try:
+                    with open(file_path, "r") as f:
+                        first_line = f.readline().strip()
+                        if first_line == "Target reached!":
+                            reached_trials += 1
+                except Exception:
+                    pass
+                    
+    if total_trials == 0:
+        return 0.0, 0, 0
+        
+    return reached_trials / total_trials, reached_trials, total_trials
+
 def get_cve_durations(root_dir):
     durations = {}
     cves_path = os.path.join(root_dir, "cves.env")
@@ -89,22 +132,57 @@ def main():
         print("\n\033[1;33m[Step 2/5] Starting containers...\033[0m")
         subprocess.run([python_bin, manage_script, "up", cve, str(trials), "-y"])
         
-        # Step C: Wait for the duration
-        print(f"\n\033[1;33m[Step 3/5] Fuzzing for {cve_duration} seconds...\033[0m")
-        sleep_interval = 300
-        if cve_duration < 60:
-            sleep_interval = 10
-        if cve_duration < 10:
-            sleep_interval = 1
-            
+        # Step C: Wait for the duration with tiered success rate checks
+        tiers = [900, 1800, 3600, 7200, 10800, 14400, 21600, 28800, 43200]
+        active_tiers = [t for t in tiers if t < cve_duration]
+        active_tiers.append(cve_duration)
+        active_tiers = sorted(list(set(active_tiers)))
+        
+        print(f"\n\033[1;33m[Step 3/5] Fuzzing with dynamic tiers {active_tiers} (up to {cve_duration}s)...\033[0m")
+        
         elapsed = 0
-        while elapsed < cve_duration:
-            remaining = cve_duration - elapsed
-            sleep_time = min(remaining, sleep_interval)
-            time.sleep(sleep_time)
-            elapsed += sleep_time
-            if elapsed < cve_duration:
-                print(f"  -> Elapsed: {elapsed}/{cve_duration} seconds...")
+        for tier_limit in active_tiers:
+            sleep_time_for_tier = tier_limit - elapsed
+            if sleep_time_for_tier <= 0:
+                continue
+                
+            print(f"  -> Monitoring fuzzers for {sleep_time_for_tier} seconds to reach next tier ({tier_limit}s)...")
+            
+            sub_elapsed = 0
+            sub_interval = 300
+            if sleep_time_for_tier < 60:
+                sub_interval = 10
+            elif sleep_time_for_tier < 10:
+                sub_interval = 1
+                
+            while sub_elapsed < sleep_time_for_tier:
+                remaining = sleep_time_for_tier - sub_elapsed
+                st = min(remaining, sub_interval)
+                time.sleep(st)
+                sub_elapsed += st
+                # print periodic progress
+                if (elapsed + sub_elapsed) % 300 == 0 or (elapsed + sub_elapsed) == tier_limit:
+                    print(f"     -> Elapsed: {elapsed + sub_elapsed}/{cve_duration} seconds...")
+                    
+            elapsed = tier_limit
+            
+            # Tier reached! Run sync and check success rate
+            print(f"\n\033[1;33m[Tier Evaluation] Reached {elapsed}s. Syncing results and checking success rate...\033[0m")
+            if not args.slurm:
+                subprocess.run([python_bin, manage_script, "copy", cve, str(trials)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            else:
+                time.sleep(5)  # Let background sync complete
+                
+            # Run tte_check in silent mode
+            subprocess.run([python_bin, manage_py, "tte_check", cve, "-y"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            
+            # Calculate rate
+            rate, reached, total = get_latest_success_rate(cve, root_dir)
+            print(f"\033[1;32m[Tier Evaluation] Success rate at {elapsed}s: {rate:.1%} ({reached}/{total} trials reached)\033[0m")
+            
+            if rate >= 0.50:
+                print(f"\033[1;32m[Early Stop] Success rate is {rate:.1%} (>= 50%). Stopping campaign for {cve} early!\033[0m")
+                break
                 
         # Step D: Gracefully stop containers
         print("\n\033[1;33m[Step 4/6] Stopping containers gracefully to flush final state...\033[0m" if not args.slurm else "\n\033[1;33m[Step 4/6] Stopping Slurm jobs...\033[0m")
