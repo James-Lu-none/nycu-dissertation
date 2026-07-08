@@ -18,6 +18,7 @@ def main():
     parser.add_argument("duration", type=int, help="Duration of fuzzing per CVE trial in seconds")
     parser.add_argument("iterations", type=int, help="Number of iterations to run the full CVE loop")
     parser.add_argument("--trials", type=int, default=15, help="Number of trials per CVE (default: 15)")
+    parser.add_argument("--slurm", action="store_true", help="Run in Slurm mode using manage_slurm.py")
     args = parser.parse_args()
     
     duration = args.duration
@@ -46,6 +47,7 @@ def main():
     
     python_bin = sys.executable
     manage_py = os.path.join(root_dir, "manage.py")
+    manage_script = os.path.join(root_dir, "manage_slurm.py" if args.slurm else "manage.py")
     
     for idx, cve in enumerate(cve_list, 1):
         cve_bench_dir = os.path.join(root_dir, "bench", cve)
@@ -63,11 +65,11 @@ def main():
             
             # Step A: Compile docker images
             print("\n\033[1;33m[Step 1/5] Compiling docker images...\033[0m")
-            subprocess.run([python_bin, manage_py, "build", cve, str(trials)])
+            subprocess.run([python_bin, manage_script, "build", cve, str(trials)])
 
             # Step B: Start containers
             print("\n\033[1;33m[Step 2/5] Starting containers...\033[0m")
-            subprocess.run([python_bin, manage_py, "up", cve, str(trials), "-y"])
+            subprocess.run([python_bin, manage_script, "up", cve, str(trials), "-y"])
             
             # Step C: Wait for the duration
             print(f"\n\033[1;33m[Step 3/5] Fuzzing for {duration} seconds...\033[0m")
@@ -87,16 +89,17 @@ def main():
                     print(f"  -> Elapsed: {elapsed}/{duration} seconds...")
                     
             # Step D: Gracefully stop containers
-            print("\n\033[1;33m[Step 4/6] Stopping containers gracefully to flush final state...\033[0m")
-            subprocess.run([python_bin, manage_py, "stop", cve, str(trials)])
+            print("\n\033[1;33m[Step 4/6] Stopping containers gracefully to flush final state...\033[0m" if not args.slurm else "\n\033[1;33m[Step 4/6] Stopping Slurm jobs...\033[0m")
+            subprocess.run([python_bin, manage_script, "stop", cve, str(trials)])
             
-            # Step E: Copy results
-            print("\n\033[1;33m[Step 5/6] Copying trial results...\033[0m")
-            subprocess.run([python_bin, manage_py, "copy", cve, str(trials)])
-            
-            # Step F: Shut down containers (clean all containers & volumes)
-            print("\n\033[1;33m[Step 6/6] Cleaning up containers and volumes...\033[0m")
-            subprocess.run([python_bin, manage_py, "clean"])
+            if not args.slurm:
+                # Step E: Copy results
+                print("\n\033[1;33m[Step 5/6] Copying trial results...\033[0m")
+                subprocess.run([python_bin, manage_script, "copy", cve, str(trials)])
+                
+                # Step F: Shut down containers (clean all containers & volumes)
+                print("\n\033[1;33m[Step 6/6] Cleaning up containers and volumes...\033[0m")
+                subprocess.run([python_bin, manage_script, "clean"])
             
             # Extra: Run TTE check
             print("\n\033[1;35m[Post-processing] Running TTE check...\033[0m")
