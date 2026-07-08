@@ -2,9 +2,11 @@
 #SBATCH --job-name=afl_bench
 #SBATCH --partition=iais_cge_teacher
 #SBATCH --nodes=1
-#SBATCH --cpus-per-task=1
+#SBATCH --cpus-per-task=2
+#SBATCH --time=25:00:00
 #SBATCH --output=logs/slurm-%A_%a.out
 
+export APPTAINERENV_AFL_NO_UI=1
 export APPTAINERENV_AFL_NO_AFFINITY=1
 
 # Environment variables expected from manage_slurm.py:
@@ -12,41 +14,49 @@ export APPTAINERENV_AFL_NO_AFFINITY=1
 
 SESSION_ID=${SESSION_ID:-"exp_01"}
 TRIAL_NAME=${TRIAL_NAME:-"bench"}
-ROOT_DIR="${HOME}/workspace/nycu-dissertation"
 
+ROOT_DIR="${HOME}/workspace/nycu-dissertation"
 RUN_ALL=${RUN_ALL:-0}
 
 if [ "$RUN_ALL" = "1" ]; then
-  ACTIVE_ROLES=(0 1 2 3 4 5 6 7)
-  MOD=8
-else
-  ACTIVE_ROLES=(4 5 6 7)
+  ACTIVE_METHODS=("base" "cd" "dd" "dual")
   MOD=4
+else
+  ACTIVE_METHODS=("dd" "dual")
+  MOD=2
 fi
 
 IDX=$((SLURM_ARRAY_TASK_ID - 1))
 TRIAL_NUM=$(( (IDX / MOD) + 1 ))
-ROLE_IDX=$(( IDX % MOD ))
-ROLE_ID=${ACTIVE_ROLES[$ROLE_IDX]}
+METHOD_IDX=$(( IDX % MOD ))
+METHOD_NAME=${ACTIVE_METHODS[$METHOD_IDX]}
 
-case $ROLE_ID in
-  0) TARGET=$TARGET_BIN_BASE;    FUZZER="afl-fuzz";         ROLE="-M"; NAME="main";  METHOD="base" ;;
-  1) TARGET=$TARGET_BIN_BASE;    FUZZER="afl-fuzz";         ROLE="-S"; NAME="slave"; METHOD="base" ;;
-  2) TARGET=$TARGET_BIN_CD;      FUZZER="afl-fuzz-cd";      ROLE="-M"; NAME="main";  METHOD="cd"   ;;
-  3) TARGET=$TARGET_BIN_CD;      FUZZER="afl-fuzz-cd";      ROLE="-S"; NAME="slave"; METHOD="cd"   ;;
-  4) TARGET=$TARGET_BIN_SOLO_DD; FUZZER="afl-fuzz-solo-dd"; ROLE="-M"; NAME="main";  METHOD="dd"   ;;
-  5) TARGET=$TARGET_BIN_SOLO_DD; FUZZER="afl-fuzz-solo-dd"; ROLE="-S"; NAME="slave"; METHOD="dd"   ;;
-  6) TARGET=$TARGET_BIN_DUAL_DD; FUZZER="afl-fuzz-dual-dd"; ROLE="-M"; NAME="dd";    METHOD="dual-dd" ;;
-  7) TARGET=$TARGET_BIN_DUAL_CD; FUZZER="afl-fuzz-dual-cd"; ROLE="-S"; NAME="cd";    METHOD="dual-cd" ;; 
+case $METHOD_NAME in
+  "base")
+    M_TARGET=$TARGET_BIN_BASE;     M_FUZZER="afl-fuzz";         M_NAME="main"
+    S_TARGET=$TARGET_BIN_BASE;     S_FUZZER="afl-fuzz";         S_NAME="slave"
+    ;;
+  "cd")
+    M_TARGET=$TARGET_BIN_CD;       M_FUZZER="afl-fuzz-cd";      M_NAME="main"
+    S_TARGET=$TARGET_BIN_CD;       S_FUZZER="afl-fuzz-cd";      S_NAME="slave"
+    ;;
+  "dd")
+    M_TARGET=$TARGET_BIN_SOLO_DD;  M_FUZZER="afl-fuzz-solo-dd"; M_NAME="main"
+    S_TARGET=$TARGET_BIN_SOLO_DD;  S_FUZZER="afl-fuzz-solo-dd"; S_NAME="slave"
+    ;;
+  "dual")
+    M_TARGET=$TARGET_BIN_DUAL_DD;  M_FUZZER="afl-fuzz-dual-dd"; M_NAME="dd"
+    S_TARGET=$TARGET_BIN_DUAL_CD;  S_FUZZER="afl-fuzz-dual-cd"; S_NAME="cd"
+    ;;
 esac
 
-DEST_DIR="${ROOT_DIR}/artifact/${CVE}/${TRIAL_NAME}/${METHOD}/trial${TRIAL_NUM}"
+DEST_DIR="${ROOT_DIR}/artifact/${CVE}/${TRIAL_NAME}/${METHOD_NAME}/trial${TRIAL_NUM}"
 LOCAL_OUT="/dev/shm/fuzz_${SLURM_JOB_ID}_${SLURM_ARRAY_TASK_ID}/out"
 
 mkdir -p "$DEST_DIR"
 mkdir -p "$LOCAL_OUT"
 
-echo "[*] Starting Trial: $TRIAL_NUM, Role: $NAME, Target: $TARGET, Fuzzer: $FUZZER"
+echo "[*] Starting Trial: $TRIAL_NUM, Method: $METHOD_NAME"
 echo "[*] Dest dir: $DEST_DIR"
 echo "[*] Local out: $LOCAL_OUT"
 
@@ -62,7 +72,6 @@ cleanup() {
   rm -rf "/dev/shm/fuzz_${SLURM_JOB_ID}_${SLURM_ARRAY_TASK_ID}"
 }
 
-# Trap to sync data when job ends or is cancelled
 trap cleanup EXIT SIGINT SIGTERM
 
 # Background periodic sync every 5 minutes
@@ -74,10 +83,31 @@ trap cleanup EXIT SIGINT SIGTERM
 ) &
 SYNC_PID=$!
 
-# Run fuzzer natively with Apptainer
+echo "[*] Starting Main Fuzzer ($M_NAME)..."
 apptainer exec \
   --bind ${LOCAL_OUT}:/workspace/out \
   ${ROOT_DIR}/bench/${CVE}/${IMAGE_NAME}.sif \
-  bash -c "cd /workspace && ${FUZZER} -i in -o out ${ROLE} ${NAME} -- ${TARGET} ${TARGET_ARGS}"
+  bash -c "cd /workspace && ${M_FUZZER} -i /workspace/in -o /workspace/out -M ${M_NAME} -- ${M_TARGET} ${TARGET_ARGS}" &
+MAIN_PID=$!
+
+sleep 2
+
+echo "[*] Starting Slave Fuzzer ($S_NAME)..."
+apptainer exec \
+  --bind ${LOCAL_OUT}:/workspace/out \
+  ${ROOT_DIR}/bench/${CVE}/${IMAGE_NAME}.sif \
+  bash -c "cd /workspace" &
+SLAVE_PID=$!
+
+wait $MAIN_PID
+MAIN_EXIT=$?
+wait $SLAVE_PID
+SLAVE_EXIT=$?
 
 kill $SYNC_PID 2>/dev/null
+
+if [ $MAIN_EXIT -ne 0 ] || [ $SLAVE_EXIT -ne 0 ]; then
+    echo "[-] Error: One of the fuzzers crashed! Main: $MAIN_EXIT, Slave: $SLAVE_EXIT"
+fi
+
+exit 0

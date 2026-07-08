@@ -45,10 +45,10 @@ def run_slurm_command(root_dir, command, cve_list, num_trials, run_all, yes, ext
             print(f"Starting Slurm jobs for \033[1;35m{cve}\033[0m with SESSION_ID=\033[1;36m{session_id}\033[0m and TRIAL_NAME=\033[1;35m{trial_name}\033[0m")
             
             if run_all:
-                num_tasks = num_trials * 8
+                num_tasks = num_trials * 4
                 run_all_val = "1"
             else:
-                num_tasks = num_trials * 4
+                num_tasks = num_trials * 2
                 run_all_val = "0"
             
             sbatch_cmd = [
