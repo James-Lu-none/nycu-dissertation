@@ -96,7 +96,7 @@ echo "[*] Starting Slave Fuzzer ($S_NAME)..."
 apptainer exec \
   --bind ${LOCAL_OUT}:/workspace/out \
   ${ROOT_DIR}/bench/${CVE}/${IMAGE_NAME}.sif \
-  bash -c "cd /workspace" &
+  bash -c "cd /workspace && ${S_FUZZER} -i /workspace/in -o /workspace/out -M ${S_NAME} -- ${S_TARGET} ${TARGET_ARGS}" &
 SLAVE_PID=$!
 
 wait $MAIN_PID
