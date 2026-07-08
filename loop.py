@@ -6,6 +6,34 @@ import time
 import datetime
 import argparse
 
+def get_cve_durations(root_dir):
+    durations = {}
+    cves_path = os.path.join(root_dir, "cves.env")
+    cves_template_path = os.path.join(root_dir, "cves.env.template")
+    
+    def parse_durations(path):
+        d = {}
+        with open(path, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+                if ',' in line:
+                    parts = line.split(',', 1)
+                    cve = parts[0].strip().replace('"', '').replace("'", '').replace(" ", "").replace("\r", "")
+                    try:
+                        dur = int(parts[1].strip())
+                        d[cve] = dur
+                    except ValueError:
+                        pass
+        return d
+
+    if os.path.isfile(cves_path):
+        durations = parse_durations(cves_path)
+    elif os.path.isfile(cves_template_path):
+        durations = parse_durations(cves_template_path)
+    return durations
+
 def main():
     root_dir = os.path.abspath(os.path.dirname(__file__))
     
@@ -22,7 +50,6 @@ def main():
     parser.add_argument("--slurm", action="store_true", help="Run in Slurm mode using manage_slurm.py")
     args = parser.parse_args()
     
-    duration = args.duration
     cve = args.cve
     iterations = args.iterations
     trials = args.trials
@@ -32,8 +59,15 @@ def main():
         print(f"Error: Benchmark directory '{cve_bench_dir}' does not exist.")
         sys.exit(1)
         
+    # Load CVE durations from cves.env
+    cve_durations = get_cve_durations(root_dir)
+    cve_duration = cve_durations.get(cve)
+    if not cve_duration:
+        print(f"\033[1;31mError: No duration specified for CVE '{cve}' in cves.env.\033[0m")
+        sys.exit(1)
+        
     print(f"\033[1;32m[Loop Runner] Initialized for CVE: {cve}\033[0m")
-    print(f"\033[1;32m[Loop Runner] Run duration per trial: {duration} seconds\033[0m")
+    print(f"\033[1;32m[Loop Runner] Run duration per trial: {cve_duration} seconds (from cves.env)\033[0m")
     print(f"\033[1;32m[Loop Runner] Total loop iterations: {iterations}\033[0m")
     print(f"\033[1;32m[Loop Runner] Trials per CVE: {trials}\033[0m")
     
@@ -56,21 +90,21 @@ def main():
         subprocess.run([python_bin, manage_script, "up", cve, str(trials), "-y"])
         
         # Step C: Wait for the duration
-        print(f"\n\033[1;33m[Step 3/5] Fuzzing for {duration} seconds...\033[0m")
+        print(f"\n\033[1;33m[Step 3/5] Fuzzing for {cve_duration} seconds...\033[0m")
         sleep_interval = 300
-        if duration < 60:
+        if cve_duration < 60:
             sleep_interval = 10
-        if duration < 10:
+        if cve_duration < 10:
             sleep_interval = 1
             
         elapsed = 0
-        while elapsed < duration:
-            remaining = duration - elapsed
+        while elapsed < cve_duration:
+            remaining = cve_duration - elapsed
             sleep_time = min(remaining, sleep_interval)
             time.sleep(sleep_time)
             elapsed += sleep_time
-            if elapsed < duration:
-                print(f"  -> Elapsed: {elapsed}/{duration} seconds...")
+            if elapsed < cve_duration:
+                print(f"  -> Elapsed: {elapsed}/{cve_duration} seconds...")
                 
         # Step D: Gracefully stop containers
         print("\n\033[1;33m[Step 4/6] Stopping containers gracefully to flush final state...\033[0m" if not args.slurm else "\n\033[1;33m[Step 4/6] Stopping Slurm jobs...\033[0m")

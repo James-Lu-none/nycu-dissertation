@@ -12,24 +12,25 @@ def get_cves(root_dir):
     cves_path = os.path.join(root_dir, "cves.env")
     cves_template_path = os.path.join(root_dir, "cves.env.template")
     cves = []
+    
+    def parse_file(path):
+        results = []
+        with open(path, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+                if ',' in line:
+                    line = line.split(',', 1)[0].strip()
+                cve = line.replace('"', '').replace("'", '').replace(" ", "").replace("\r", "")
+                if cve:
+                    results.append(cve)
+        return results
+
     if os.path.isfile(cves_path):
-        with open(cves_path, 'r') as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith('#'):
-                    continue
-                cve = line.replace('"', '').replace("'", '').replace(" ", "").replace("\r", "")
-                if cve:
-                    cves.append(cve)
+        cves = parse_file(cves_path)
     elif os.path.isfile(cves_template_path):
-        with open(cves_template_path, 'r') as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith('#'):
-                    continue
-                cve = line.replace('"', '').replace("'", '').replace(" ", "").replace("\r", "")
-                if cve:
-                    cves.append(cve)
+        cves = parse_file(cves_template_path)
     else:
         # Fallback to directories under bench/ containing .env
         bench_dir = os.path.join(root_dir, "bench")
