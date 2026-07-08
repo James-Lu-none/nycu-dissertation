@@ -349,6 +349,7 @@ def main():
             
         for item in trial_items:
             local_trial_dir = os.path.join(artifact_dir, item["session_dir"], method, item["trial"])
+            os.makedirs(local_trial_dir, exist_ok=True)
             if "dual-cd" in method:
                 fuzzer_name = "cd"
             elif "dual-dd" in method:
