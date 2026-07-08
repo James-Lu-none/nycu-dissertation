@@ -58,7 +58,6 @@ def main():
         os.execv(venv_python, [venv_python] + sys.argv)
         
     parser = argparse.ArgumentParser(description="Continuous Trial Runner Loop for All CVEs")
-    parser.add_argument("duration", type=int, help="Duration of fuzzing per CVE trial in seconds")
     parser.add_argument("iterations", type=int, help="Number of iterations to run the full CVE loop")
     parser.add_argument("--trials", type=int, default=15, help="Number of trials per CVE (default: 15)")
     parser.add_argument("--slurm", action="store_true", help="Run in Slurm mode using manage_slurm.py")
@@ -83,7 +82,6 @@ def main():
     print(f"\033[1;32m[Loop Runner All] Initialized for {len(cve_list)} CVEs:\033[0m")
     for cve in cve_list:
         print(f"  - {cve}")
-    print(f"\033[1;32m[Loop Runner All] Run duration per CVE trial: {args.duration} seconds\033[0m")
     print(f"\033[1;32m[Loop Runner All] Total loop iterations: {iterations}\033[0m")
     print(f"\033[1;32m[Loop Runner All] Trials per CVE: {trials}\033[0m")
     
@@ -97,7 +95,7 @@ def main():
             print(f"\n\033[1;31m[Warning] Benchmark directory '{cve_bench_dir}' does not exist. Skipping {cve}.\033[0m")
             continue
             
-        cve_duration = args.duration
+        cve_duration = 43200
         
         print(f"\033[1;32m[Loop Runner All] Using duration for {cve}: {cve_duration} seconds\033[0m")
             
@@ -118,15 +116,12 @@ def main():
             subprocess.run([python_bin, manage_script, "up", cve, str(trials), "-y"])
             
             # Step C: Wait for the duration with tiered success rate checks
-            tiers = [900, 1800, 3600, 7200, 10800, 14400, 21600, 28800, 43200]
-            active_tiers = [t for t in tiers if t < cve_duration]
-            active_tiers.append(cve_duration)
-            active_tiers = sorted(list(set(active_tiers)))
+            tiers = [900, 1800, 3600, 7200, 10800, 14400, 18000, 21600, 25200, 28800, 32400, 36000, 39600, 43200]
             
-            print(f"\n\033[1;33m[Step 3/5] Fuzzing with dynamic tiers {active_tiers} (up to {cve_duration}s)...\033[0m")
+            print(f"\n\033[1;33m[Step 3/5] Fuzzing with dynamic tiers {tiers} (up to {cve_duration}s)...\033[0m")
             
             elapsed = 0
-            for tier_limit in active_tiers:
+            for tier_limit in tiers:
                 sleep_time_for_tier = tier_limit - elapsed
                 if sleep_time_for_tier <= 0:
                     continue

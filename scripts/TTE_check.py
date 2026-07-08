@@ -97,16 +97,39 @@ def triage_crashes_in_container(image_name, binary, flags, local_crashes_dir, ta
     if os.path.exists(result_path):
         os.remove(result_path)
 
-    cmd = [
-        "docker", "run", "--rm",
-        "--cap-add=SYS_PTRACE",
-        "--security-opt", "seccomp=unconfined",
-        "-w", "/workspace",
-        "-v", f"{local_crashes_dir}:/workspace/out/main/crashes",
-        image_name,
-        "python3", "/workspace/out/main/crashes/.triage.py",
-        binary
-    ] + flags
+    if shutil.which("docker"):
+        cmd = [
+            "docker", "run", "--rm",
+            "--cap-add=SYS_PTRACE",
+            "--security-opt", "seccomp=unconfined",
+            "-w", "/workspace",
+            "-v", f"{local_crashes_dir}:/workspace/out/main/crashes",
+            image_name,
+            "python3", "/workspace/out/main/crashes/.triage.py",
+            binary
+        ] + flags
+    else:
+        # Fallback to Apptainer
+        scripts_dir = os.path.dirname(os.path.realpath(__file__))
+        root_dir = os.path.dirname(scripts_dir)
+        bench_dir = os.path.join(root_dir, "bench", cve_name)
+        
+        env_image_name = get_docker_image_name(bench_dir, None)
+        if not env_image_name:
+            print(f"Error: Could not find IMAGE_NAME in {bench_dir}/.env for Apptainer fallback.")
+            sys.exit(1)
+        sif_path = os.path.join(bench_dir, f"{env_image_name}.sif")
+        if not os.path.exists(sif_path):
+            print(f"Error: Apptainer image {sif_path} not found.")
+            sys.exit(1)
+            
+        cmd = [
+            "apptainer", "exec",
+            "--bind", f"{local_crashes_dir}:/workspace/out/main/crashes",
+            sif_path,
+            "python3", "/workspace/out/main/crashes/.triage.py",
+            binary
+        ] + flags
     
     try:
         result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
