@@ -93,11 +93,33 @@ trap cleanup EXIT SIGINT SIGTERM
 ) &
 SYNC_PID=$!
 
+cat << 'EOF' > "$LOCAL_OUT/sync_txt.sh"
+#!/bin/bash
+MODE=$1
+mkdir -p out/.txt_sync
+while true; do
+  if [ "$MODE" == "main" ]; then
+    find . -maxdepth 1 -name '*.txt' -exec cp {} out/.txt_sync/ \; 2>/dev/null
+  else
+    for f in *.txt; do
+      [ -f "$f" ] || continue
+      if [[ "$f" == *_slave.txt ]]; then
+        cp "$f" "out/.txt_sync/$f" 2>/dev/null
+      else
+        cp "$f" "out/.txt_sync/${f%.txt}_slave.txt" 2>/dev/null
+      fi
+    done
+  fi
+  sleep 60
+done
+EOF
+chmod +x "$LOCAL_OUT/sync_txt.sh"
+
 echo "[*] Starting Main Fuzzer ($M_NAME)..."
 apptainer exec \
   --bind ${LOCAL_OUT}:/workspace/out \
   ${ROOT_DIR}/bench/${CVE}/${IMAGE_NAME}.sif \
-  bash -c "cd /workspace && mkdir -p out/.txt_sync && ( while true; do find . -maxdepth 1 -name '*.txt' -exec cp {} out/.txt_sync/ \; 2>/dev/null; sleep 60; done ) & ${M_FUZZER} -i /workspace/in -o /workspace/out -M ${M_NAME} -- ${M_TARGET} ${TARGET_ARGS}" &
+  bash -c "cd /workspace || exit 1; /workspace/out/sync_txt.sh main & exec ${M_FUZZER} -i /workspace/in -o /workspace/out -M ${M_NAME} -- ${M_TARGET} ${TARGET_ARGS}" &
 MAIN_PID=$!
 
 sleep 2
@@ -106,7 +128,7 @@ echo "[*] Starting Slave Fuzzer ($S_NAME)..."
 apptainer exec \
   --bind ${LOCAL_OUT}:/workspace/out \
   ${ROOT_DIR}/bench/${CVE}/${IMAGE_NAME}.sif \
-  bash -c "cd /workspace && mkdir -p out/.txt_sync && ( while true; do for f in *.txt; do [ -f \"\$f\" ] || continue; if [[ \"\$f\" == *_slave.txt ]]; then cp \"\$f\" \"out/.txt_sync/\$f\" 2>/dev/null; else cp \"\$f\" \"out/.txt_sync/\${f%.txt}_slave.txt\" 2>/dev/null; fi; done; sleep 60; done ) & ${S_FUZZER} -i /workspace/in -o /workspace/out -M ${S_NAME} -- ${S_TARGET} ${TARGET_ARGS}" &
+  bash -c "cd /workspace || exit 1; /workspace/out/sync_txt.sh slave & exec ${S_FUZZER} -i /workspace/in -o /workspace/out -M ${S_NAME} -- ${S_TARGET} ${TARGET_ARGS}" &
 SLAVE_PID=$!
 
 wait $MAIN_PID
