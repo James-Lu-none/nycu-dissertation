@@ -107,9 +107,20 @@ def run_slurm_status(root_dir, cve_list):
         print("Note: Stats are syncing in the background from local compute nodes.")
 
 def run_slurm_copy(root_dir, cve_list, num_trials, trial_name_arg):
-    print("\n\033[1;34m[Slurm Copy]\033[0m")
-    print("In Slurm mode, fuzzer outputs are automatically synced to the artifact/ directory upon exit and periodically.")
-    print("No additional copy step is required!")
+    print("\n\033[1;34m[Slurm Copy Request]\033[0m")
+    import glob
+    for cve in cve_list:
+        trial_name = trial_name_arg if trial_name_arg else manage.get_active_trial_name(root_dir, cve)
+        if not trial_name:
+            continue
+        
+        print(f"Requesting background sync for \033[1;35m{cve}\033[0m (trial: {trial_name})...")
+        pattern = os.path.join(root_dir, "artifact", cve, trial_name, "*", "trial*")
+        dirs = glob.glob(pattern)
+        for d in dirs:
+            if os.path.isdir(d):
+                with open(os.path.join(d, ".pull_request"), "w") as f:
+                    f.write("sync")
 
 def main():
     root_dir = os.path.dirname(os.path.abspath(__file__))

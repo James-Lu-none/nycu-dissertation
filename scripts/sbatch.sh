@@ -62,7 +62,14 @@ echo "[*] Local out: $LOCAL_OUT"
 
 sync_data() {
   echo "[*] Syncing data to $DEST_DIR..."
-  cp -a "$LOCAL_OUT/." "$DEST_DIR/"
+  # Copy the out folder itself
+  cp -a "$LOCAL_OUT" "$DEST_DIR/"
+  
+  # Move any .txt files synced from the container
+  if [ -d "$DEST_DIR/out/.txt_sync" ]; then
+    mv "$DEST_DIR/out/.txt_sync"/*.txt "$DEST_DIR/" 2>/dev/null || true
+    rm -rf "$DEST_DIR/out/.txt_sync"
+  fi
 }
 
 cleanup() {
@@ -74,11 +81,14 @@ cleanup() {
 
 trap cleanup EXIT SIGINT SIGTERM
 
-# Background periodic sync every 5 minutes
+# Background polling for pull request
 (
   while true; do
-    sleep 300
-    sync_data
+    if [ -f "$DEST_DIR/.pull_request" ]; then
+      sync_data
+      rm -f "$DEST_DIR/.pull_request"
+    fi
+    sleep 5
   done
 ) &
 SYNC_PID=$!
@@ -87,7 +97,7 @@ echo "[*] Starting Main Fuzzer ($M_NAME)..."
 apptainer exec \
   --bind ${LOCAL_OUT}:/workspace/out \
   ${ROOT_DIR}/bench/${CVE}/${IMAGE_NAME}.sif \
-  bash -c "cd /workspace && ${M_FUZZER} -i /workspace/in -o /workspace/out -M ${M_NAME} -- ${M_TARGET} ${TARGET_ARGS}" &
+  bash -c "cd /workspace && mkdir -p out/.txt_sync && ( while true; do find . -maxdepth 1 -name '*.txt' -exec cp {} out/.txt_sync/ \; 2>/dev/null; sleep 60; done ) & ${M_FUZZER} -i /workspace/in -o /workspace/out -M ${M_NAME} -- ${M_TARGET} ${TARGET_ARGS}" &
 MAIN_PID=$!
 
 sleep 2
@@ -96,7 +106,7 @@ echo "[*] Starting Slave Fuzzer ($S_NAME)..."
 apptainer exec \
   --bind ${LOCAL_OUT}:/workspace/out \
   ${ROOT_DIR}/bench/${CVE}/${IMAGE_NAME}.sif \
-  bash -c "cd /workspace && ${S_FUZZER} -i /workspace/in -o /workspace/out -M ${S_NAME} -- ${S_TARGET} ${TARGET_ARGS}" &
+  bash -c "cd /workspace && mkdir -p out/.txt_sync && ( while true; do for f in *.txt; do [ -f \"\$f\" ] || continue; if [[ \"\$f\" == *_slave.txt ]]; then cp \"\$f\" \"out/.txt_sync/\$f\" 2>/dev/null; else cp \"\$f\" \"out/.txt_sync/\${f%.txt}_slave.txt\" 2>/dev/null; fi; done; sleep 60; done ) & ${S_FUZZER} -i /workspace/in -o /workspace/out -M ${S_NAME} -- ${S_TARGET} ${TARGET_ARGS}" &
 SLAVE_PID=$!
 
 wait $MAIN_PID

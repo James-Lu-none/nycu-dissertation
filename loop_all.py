@@ -148,10 +148,19 @@ def main():
                 
                 # Tier reached! Run sync and check success rate
                 print(f"\n\033[1;33m[Tier Evaluation] Reached {elapsed}s. Syncing results and checking success rate...\033[0m")
-                if not args.slurm:
-                    subprocess.run([python_bin, manage_script, "copy", cve, str(trials)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                else:
-                    time.sleep(5)  # Let background sync complete
+                subprocess.run([python_bin, manage_script, "copy", cve, str(trials)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                
+                if args.slurm:
+                    print(f"     -> Waiting for SLURM nodes to complete background sync...")
+                    wait_time = 0
+                    import glob
+                    while wait_time < 30:
+                        pending = glob.glob(os.path.join(root_dir, "artifact", cve, "*", "*", "trial*", ".pull_request"))
+                        if not pending:
+                            break
+                        time.sleep(1)
+                        wait_time += 1
+                    time.sleep(2)  # Extra buffer for disk flush
                     
                 # Run tte_check in silent mode
                 subprocess.run([python_bin, manage_py, "tte_check", cve, "-y"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
