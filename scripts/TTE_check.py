@@ -165,7 +165,7 @@ def triage_crashes_in_container(image_name, binary, flags, local_crashes_dir, ta
         try:
             host_uid = os.getuid() if hasattr(os, 'getuid') else 0
             host_gid = os.getgid() if hasattr(os, 'getgid') else 0
-            subprocess.run(["sudo", "chown", "-R", f"{host_uid}:{host_gid}", local_crashes_dir], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run(["sudo", "-n", "chown", "-R", f"{host_uid}:{host_gid}", local_crashes_dir], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         except Exception:
             pass
         
