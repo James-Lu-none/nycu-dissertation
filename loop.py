@@ -146,13 +146,19 @@ def main():
                                 
                 print(f"     -> Waiting for SLURM nodes to complete background sync...")
                 wait_time = 0
-                while wait_time < 30:
+                while wait_time < 300:
                     pending = glob.glob(os.path.join(root_dir, "artifact", cve, "*", "*", "trial*", ".pull_request"))
                     if not pending:
                         break
+                    if wait_time % 10 == 0 and wait_time > 0:
+                        print(f"        ... still waiting, {len(pending)} nodes are syncing ...")
                     time.sleep(1)
                     wait_time += 1
-                time.sleep(2)  # Extra buffer for disk flush
+                    
+                if wait_time >= 300:
+                    print(f"        \033[1;31m[!] Warning: Sync timed out after 300s! Data might be incomplete.\033[0m")
+                else:
+                    time.sleep(2)  # Extra buffer for disk flush
             else:
                 subprocess.run([python_bin, manage_script, "copy", cve, str(trials)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 
