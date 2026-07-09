@@ -350,25 +350,33 @@ def main():
         for item in trial_items:
             local_trial_dir = os.path.join(artifact_dir, item["session_dir"], method, item["trial"])
             os.makedirs(local_trial_dir, exist_ok=True)
-            if "dual-cd" in method:
-                fuzzer_name = "cd"
-            elif "dual-dd" in method:
-                fuzzer_name = "dd"
-            else:
-                fuzzer_name = "main"
-            local_crashes_dir = os.path.join(local_trial_dir, f"out/{fuzzer_name}/crashes")
             exposure_file_path = os.path.join(local_trial_dir, "dgf_target_exposure.txt")
             
             # Locate all sub-crashes directories
             crashes_dirs = []
-            master_crashes_dir = os.path.join(local_trial_dir, f"out/{fuzzer_name}/crashes")
-            if os.path.exists(master_crashes_dir):
-                crashes_dirs.append(("main", master_crashes_dir))
-                
-            if fuzzer_name == "main":
-                slave_crashes_dir = os.path.join(local_trial_dir, "out/slave/crashes")
-                if os.path.exists(slave_crashes_dir):
-                    crashes_dirs.append(("slave", slave_crashes_dir))
+            if method == "dual":
+                dd_dir = os.path.join(local_trial_dir, "out/dd/crashes")
+                if os.path.exists(dd_dir):
+                    crashes_dirs.append(("dd", dd_dir))
+                cd_dir = os.path.join(local_trial_dir, "out/cd/crashes")
+                if os.path.exists(cd_dir):
+                    crashes_dirs.append(("cd", cd_dir))
+            else:
+                if "dual-cd" in method:
+                    fuzzer_name = "cd"
+                elif "dual-dd" in method:
+                    fuzzer_name = "dd"
+                else:
+                    fuzzer_name = "main"
+                    
+                master_crashes_dir = os.path.join(local_trial_dir, f"out/{fuzzer_name}/crashes")
+                if os.path.exists(master_crashes_dir):
+                    crashes_dirs.append(("main", master_crashes_dir))
+                    
+                if fuzzer_name == "main":
+                    slave_crashes_dir = os.path.join(local_trial_dir, "out/slave/crashes")
+                    if os.path.exists(slave_crashes_dir):
+                        crashes_dirs.append(("slave", slave_crashes_dir))
                     
             best_tte_ms = None
             best_matching_crash = None
