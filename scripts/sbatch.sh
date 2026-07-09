@@ -5,6 +5,7 @@
 #SBATCH --cpus-per-task=2
 #SBATCH --time=25:00:00
 #SBATCH --output=logs/slurm-%A_%a.out
+#SBATCH --mem-per-cpu=8G
 
 export APPTAINERENV_AFL_NO_UI=1
 export APPTAINERENV_AFL_NO_AFFINITY=1
@@ -74,6 +75,7 @@ sync_data() {
 
 cleanup() {
   echo "[*] Job ending. Performing final sync..."
+  sleep 3
   sync_data
   echo "[*] Cleaning up local RAM disk storage..."
   rm -rf "/dev/shm/fuzz_${SLURM_JOB_ID}_${SLURM_ARRAY_TASK_ID}"
@@ -128,7 +130,7 @@ echo "[*] Starting Slave Fuzzer ($S_NAME)..."
 apptainer exec \
   --bind ${LOCAL_OUT}:/workspace/out \
   ${ROOT_DIR}/bench/${CVE}/${IMAGE_NAME}.sif \
-  bash -c "cd /workspace || exit 1; /workspace/out/sync_txt.sh slave & exec ${S_FUZZER} -i /workspace/in -o /workspace/out -M ${S_NAME} -- ${S_TARGET} ${TARGET_ARGS}" &
+  bash -c "cd /workspace || exit 1; /workspace/out/sync_txt.sh slave & exec ${S_FUZZER} -i /workspace/in -o /workspace/out -S ${S_NAME} -- ${S_TARGET} ${TARGET_ARGS}" &
 SLAVE_PID=$!
 
 wait $MAIN_PID
