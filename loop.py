@@ -162,8 +162,8 @@ def main():
             else:
                 subprocess.run([python_bin, manage_script, "copy", cve, str(trials)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 
-            # Run tte_check in silent mode
-            subprocess.run([python_bin, manage_py, "tte_check", cve, "-y"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            # Run tte_check
+            subprocess.run([python_bin, manage_py, "tte_check", cve, "-y"])
             
             # Calculate rate
             rate, reached, total = get_latest_success_rate(cve, root_dir)
