@@ -99,7 +99,7 @@ def main():
         subprocess.run([python_bin, manage_script, "up", cve, str(trials), "-y"])
         
         # Step C: Wait for the duration with tiered success rate checks
-        tiers = [900, 1800, 3600, 7200, 10800, 14400, 18000, 21600, 25200, 28800, 32400, 36000, 39600, 43200]
+        tiers = [300, 600, 900, 1800, 3600, 7200, 10800, 14400, 18000, 21600, 25200, 28800, 32400, 36000, 39600, 43200]
         
         print(f"\n\033[1;33m[Step 3/5] Fuzzing with dynamic tiers {tiers} (up to {cve_duration}s)...\033[0m")
         
