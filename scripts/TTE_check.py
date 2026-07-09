@@ -402,10 +402,19 @@ def main():
                 
                 print(f"Trial {item['label']} ({name}): Triaging {len(crash_files)} crash files in a single container run...")
                 
+                # Strip leading paths if necessary, but actually the .env specifies the path like ./cxxfilt-base
+                # We need the ASAN version.
                 if binary.endswith("-base"):
                     asan_binary = binary[:-5] + "-asan"
                 else:
+                    # If it doesn't end with -base, just append -asan (or handle specific cases)
                     asan_binary = f"{binary}-asan"
+                    
+                # Fix for paths: if it starts with ./, it's relative to /workspace inside the container.
+                # The container execution already binds and works in the right context or uses the absolute path if provided.
+                # Actually, TTE_check.py explicitly calls it from the command line in Docker. Let's make it absolute.
+                if asan_binary.startswith("./"):
+                    asan_binary = "/workspace/" + asan_binary[2:]
                     
                 dest_logs_dir = os.path.join(artifact_dir, item["session_dir"], "TTE_check", f"{method}_{item['trial']}_{name}_full_logs")
                 
