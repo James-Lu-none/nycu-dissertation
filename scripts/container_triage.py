@@ -38,6 +38,16 @@ def main():
     binary = sys.argv[1]
     flags = sys.argv[2:]
     
+    # Copy binary to /tmp to avoid NFS/Lustre latency during symbolization
+    import shutil
+    tmp_binary = os.path.join("/tmp", os.path.basename(binary))
+    try:
+        shutil.copy(binary, tmp_binary)
+        os.chmod(tmp_binary, 0o755)
+        binary = tmp_binary
+    except Exception as e:
+        print(f"DEBUG: Failed to copy binary to /tmp: {e}")
+    
     trace_path = "/workspace/out/main/crashes/.target_trace"
     if not os.path.exists(trace_path):
         print("Error: .target_trace not found in container")
