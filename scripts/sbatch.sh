@@ -124,6 +124,10 @@ chmod +x "$LOCAL_OUT/sync_txt.sh"
 
 echo "[*] Starting Main Fuzzer ($M_NAME)..."
 apptainer exec \
+  --cleanenv \
+  --containall \
+  --pid \
+  --ipc \
   --no-home \
   --bind ${LOCAL_OUT}:/workspace/out \
   ${ROOT_DIR}/bench/${CVE}/${IMAGE_NAME}.sif \
@@ -134,6 +138,10 @@ sleep 2
 
 echo "[*] Starting Slave Fuzzer ($S_NAME)..."
 apptainer exec \
+  --cleanenv \
+  --containall \
+  --pid \
+  --ipc \
   --no-home \
   --bind ${LOCAL_OUT}:/workspace/out \
   ${ROOT_DIR}/bench/${CVE}/${IMAGE_NAME}.sif \

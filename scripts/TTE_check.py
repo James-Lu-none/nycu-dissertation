@@ -122,14 +122,27 @@ def triage_crashes_in_container(image_name, binary, flags, local_crashes_dir, ta
             binary
         ] + flags
     else:
-        # Fallback to Apptainer
-        # Use RAM disk for Apptainer cache to avoid hammering the NFS /home directory
         import getpass
+        import atexit
+        import time
+
         username = getpass.getuser()
-        os.environ["APPTAINER_CACHEDIR"] = f"/dev/shm/{username}_apptainer_cache"
-        os.environ["APPTAINER_TMPDIR"] = f"/dev/shm/{username}_apptainer_tmp"
-        os.makedirs(os.environ["APPTAINER_CACHEDIR"], exist_ok=True)
-        os.makedirs(os.environ["APPTAINER_TMPDIR"], exist_ok=True)
+        pid = os.getpid()
+        
+        shm_base = f"/dev/shm/{username}_triage_{pid}"
+        shm_cache = os.path.join(shm_base, "cache")
+        shm_tmp = os.path.join(shm_base, "tmp")
+        
+        os.makedirs(shm_cache, exist_ok=True)
+        os.makedirs(shm_tmp, exist_ok=True)
+        
+        os.environ["APPTAINER_CACHEDIR"] = shm_cache
+        os.environ["APPTAINER_TMPDIR"] = shm_tmp
+
+        def cleanup_shm():
+            print(f"\n[+] cleaning RAM Disk: {shm_base}")
+            shutil.rmtree(shm_base, ignore_errors=True)
+        atexit.register(cleanup_shm)
 
         scripts_dir = os.path.dirname(os.path.realpath(__file__))
         root_dir = os.path.dirname(scripts_dir)
@@ -139,16 +152,36 @@ def triage_crashes_in_container(image_name, binary, flags, local_crashes_dir, ta
         if not env_image_name:
             print(f"Error: Could not find IMAGE_NAME in {bench_dir}/.env for Apptainer fallback.")
             sys.exit(1)
-        sif_path = os.path.join(bench_dir, f"{env_image_name}.sif")
-        if not os.path.exists(sif_path):
-            print(f"Error: Apptainer image {sif_path} not found.")
-            sys.exit(1)
             
+        orig_sif_path = os.path.join(bench_dir, f"{env_image_name}.sif")
+        if not os.path.exists(orig_sif_path):
+            print(f"Error: Apptainer image {orig_sif_path} not found.")
+            sys.exit(1)
+        
+        ram_sandbox_path = os.path.join(shm_base, f"{env_image_name}_sandbox")
+        if not os.path.exists(ram_sandbox_path):
+            print(f"[+] Extracting Apptainer sandbox directly to RAM Disk: {ram_sandbox_path}")
+            try:
+                subprocess.run(
+                    ["apptainer", "build", "--sandbox", ram_sandbox_path, orig_sif_path],
+                    check=True,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL
+                )
+            except subprocess.CalledProcessError as e:
+                print(f"Error: Failed to extract sandbox to RAM. {e}")
+                sys.exit(1)
+        
+        print(f"[+] Apptainer Sandbox ready in RAM: {ram_sandbox_path}")
         cmd = [
             "apptainer", "exec",
+            "--cleanenv",
+            "--containall",
+            "--pid",
+            "--ipc",
             "--no-home",
             "--bind", f"{local_crashes_dir}:/workspace/out/main/crashes",
-            sif_path,
+            ram_sandbox_path,
             "python3", "/workspace/out/main/crashes/.triage.py",
             binary
         ] + flags
