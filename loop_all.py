@@ -6,7 +6,7 @@ import time
 import datetime
 import argparse
 
-def get_latest_success_rate(cve, root_dir, expected_total=0):
+def get_latest_success_rate(cve, root_dir, expected_total=0, target_method="dual"):
     import re
     artifact_cve_dir = os.path.join(root_dir, "artifact", cve)
     if not os.path.isdir(artifact_cve_dir):
@@ -26,12 +26,16 @@ def get_latest_success_rate(cve, root_dir, expected_total=0):
         
     sessions.sort(key=sort_session_key)
     latest_session = sessions[-1]
-    latest_session_dir = os.path.join(artifact_cve_dir, latest_session)
     
+    # Target only the specific method directory
+    target_method_dir = os.path.join(artifact_cve_dir, latest_session, target_method)
+    if not os.path.exists(target_method_dir):
+        return 0.0, 0, expected_total if expected_total > 0 else 0
+        
     total_trials = 0
     reached_trials = 0
     
-    for root, dirs, files in os.walk(latest_session_dir):
+    for root, dirs, files in os.walk(target_method_dir):
         if "dgf_target_exposure.txt" in files:
             total_trials += 1
             file_path = os.path.join(root, "dgf_target_exposure.txt")
@@ -160,7 +164,7 @@ def main():
                     subprocess.run([python_bin, manage_py, "tte_check", cve, "-y"])
                 
                 # Calculate rate
-                expected_total = trials * (4 if args.run_all else 2) if hasattr(args, 'run_all') else trials * 2
+                expected_total = trials
                 rate, reached, total = get_latest_success_rate(cve, root_dir, expected_total)
                 print(f"\033[1;32m[Tier Evaluation] Success rate at {elapsed}s: {rate:.1%} ({reached}/{total} trials reached)\033[0m")
                 

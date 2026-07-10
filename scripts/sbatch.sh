@@ -144,10 +144,18 @@ SLAVE_PID=$!
 (
   while true; do
     sleep 300
-    echo "[*] Running live triage..."
-    python3 "${ROOT_DIR}/scripts/live_triage.py" --cve "$CVE" --image "$SANDBOX_DIR" --local-out "$LOCAL_OUT" -- $M_TARGET $TARGET_ARGS
+    echo "[*] [$(date)] Running live triage..." >> "$DEST_DIR/triage.log"
+    python3 -u "${ROOT_DIR}/scripts/live_triage.py" --cve "$CVE" --image "$SANDBOX_DIR" --local-out "$LOCAL_OUT" -- $M_TARGET $TARGET_ARGS >> "$DEST_DIR/triage.log" 2>&1
+    
+    # Sync triage stats back to NFS
+    mkdir -p "$DEST_DIR/out/main/crashes" "$DEST_DIR/out/slave/crashes"
+    cp "$LOCAL_OUT/main/crashes/.triage_stats" "$DEST_DIR/out/main/crashes/" 2>/dev/null || true
+    cp "$LOCAL_OUT/main/crashes/.triaged_crashes" "$DEST_DIR/out/main/crashes/" 2>/dev/null || true
+    cp "$LOCAL_OUT/slave/crashes/.triage_stats" "$DEST_DIR/out/slave/crashes/" 2>/dev/null || true
+    cp "$LOCAL_OUT/slave/crashes/.triaged_crashes" "$DEST_DIR/out/slave/crashes/" 2>/dev/null || true
+    
     if [ -f "$LOCAL_OUT/dgf_target_exposure.txt" ]; then
-      echo "[+] TTE Found! Terminating fuzzers early..."
+      echo "[+] TTE Found! Terminating fuzzers early..." >> "$DEST_DIR/triage.log"
       kill $MAIN_PID $SLAVE_PID 2>/dev/null
       break
     fi

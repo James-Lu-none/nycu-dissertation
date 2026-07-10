@@ -96,11 +96,13 @@ def main():
     best_matching_crash = None
 
     for crashes_dir in crashes_dirs:
+        fuzzer_dir = os.path.basename(os.path.dirname(crashes_dir))
         crashes = [f for f in os.listdir(crashes_dir) if f.startswith("id:")]
         if not crashes:
+            print(f"      [{fuzzer_dir}] [Triage Stats] 0 total crashes found by Fuzzer so far.")
             continue
             
-        print(f"Triaging {len(crashes)} crashes in {crashes_dir}...")
+        print(f"      [{fuzzer_dir}] Triaging {len(crashes)} total crashes in {crashes_dir}...")
         
         # Prepare target trace
         trace_path = os.path.join(crashes_dir, ".target_trace")
@@ -128,6 +130,7 @@ def main():
             "--containall",
             "--pid",
             "--ipc",
+            "--pwd", "/workspace",
             "--no-home",
             "--bind", f"{crashes_dir}:/workspace/out/main/crashes",
             image_path,
@@ -136,9 +139,9 @@ def main():
         ] + flags
         
         try:
-            subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run(cmd, check=True)
         except subprocess.CalledProcessError:
-            print(f"Triage execution failed for {crashes_dir}")
+            print(f"      [{fuzzer_dir}] Triage execution failed for {crashes_dir}")
             continue
             
         # Parse result
