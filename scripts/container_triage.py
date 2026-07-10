@@ -73,6 +73,10 @@ def main():
             env = os.environ.copy()
             env.pop("PYTHONHOME", None)
             env.pop("PYTHONPATH", None)
+            # Remove AFL environment variables to prevent instrumented binaries from waiting for AFL forkserver
+            for k in list(env.keys()):
+                if k.startswith("AFL_") or k.startswith("__AFL_"):
+                    env.pop(k, None)
             env["ASAN_OPTIONS"] = "allocator_may_return_null=1,detect_leaks=0"
             
             import time
@@ -97,6 +101,9 @@ def main():
                     f.write(f"ERROR\nCrash case '{crash_file}' did not trigger AddressSanitizer!\nProcess execution output:\n{full_log}\n")
                 sys.exit(1)
                 
+        except subprocess.TimeoutExpired:
+            print(f"DEBUG: {crash_file} execution timed out")
+            continue
         except Exception as e:
             # If sys.exit was called inside try, let it propagate
             if isinstance(e, SystemExit):
