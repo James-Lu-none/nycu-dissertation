@@ -6,11 +6,11 @@ import time
 import datetime
 import argparse
 
-def get_latest_success_rate(cve, root_dir):
+def get_latest_success_rate(cve, root_dir, expected_total=0):
     import re
     artifact_cve_dir = os.path.join(root_dir, "artifact", cve)
     if not os.path.isdir(artifact_cve_dir):
-        return 0.0
+        return 0.0, 0, expected_total if expected_total > 0 else 0
         
     sessions = []
     for d in os.listdir(artifact_cve_dir):
@@ -18,7 +18,7 @@ def get_latest_success_rate(cve, root_dir):
             sessions.append(d)
             
     if not sessions:
-        return 0.0
+        return 0.0, 0, expected_total if expected_total > 0 else 0
         
     def sort_session_key(x):
         ts_match = re.search(r'_(\d{8}_\d{6})$', x)
@@ -32,18 +32,20 @@ def get_latest_success_rate(cve, root_dir):
     reached_trials = 0
     
     for root, dirs, files in os.walk(latest_session_dir):
-        for file in files:
-            if file == "dgf_target_exposure.txt":
-                total_trials += 1
-                file_path = os.path.join(root, file)
-                try:
-                    with open(file_path, "r") as f:
-                        first_line = f.readline().strip()
-                        if first_line == "Target reached!":
-                            reached_trials += 1
-                except Exception:
-                    pass
-                    
+        if "dgf_target_exposure.txt" in files:
+            total_trials += 1
+            file_path = os.path.join(root, "dgf_target_exposure.txt")
+            try:
+                with open(file_path, "r") as f:
+                    first_line = f.readline().strip()
+                    if first_line == "Target reached!":
+                        reached_trials += 1
+            except Exception:
+                pass
+                
+    if expected_total > 0:
+        total_trials = expected_total
+        
     if total_trials == 0:
         return 0.0, 0, 0
         
@@ -141,7 +143,8 @@ def main():
                 subprocess.run([python_bin, manage_py, "tte_check", cve, "-y"])
 
             # Calculate rate
-            rate, reached, total = get_latest_success_rate(cve, root_dir)
+            expected_total = trials * (4 if args.run_all else 2) if hasattr(args, 'run_all') else trials * 2
+            rate, reached, total = get_latest_success_rate(cve, root_dir, expected_total)
             print(f"\033[1;32m[Tier Evaluation] Success rate at {elapsed}s: {rate:.1%} ({reached}/{total} trials reached)\033[0m")
             
             if rate >= 0.50:

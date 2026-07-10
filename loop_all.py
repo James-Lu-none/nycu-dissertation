@@ -158,7 +158,8 @@ def main():
                     subprocess.run([python_bin, manage_py, "tte_check", cve, "-y"])
                 
                 # Calculate rate
-                rate, reached, total = get_latest_success_rate(cve, root_dir)
+                expected_total = trials * (4 if args.run_all else 2) if hasattr(args, 'run_all') else trials * 2
+                rate, reached, total = get_latest_success_rate(cve, root_dir, expected_total)
                 print(f"\033[1;32m[Tier Evaluation] Success rate at {elapsed}s: {rate:.1%} ({reached}/{total} trials reached)\033[0m")
                 
                 if rate >= 0.50:

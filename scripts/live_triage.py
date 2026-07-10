@@ -154,13 +154,33 @@ def main():
                         best_matching_crash = crash_id
                         
     if best_tte_ms is not None:
-        print(f"\n[+] TTE FOUND! Crash ID: {best_matching_crash}, Time: {best_tte_ms} ms")
+        print(f"      [+] TTE FOUND! Crash ID: {best_matching_crash}, Time: {best_tte_ms} ms")
         with open(exposure_file, "w") as f:
             f.write("Target reached!\n")
             f.write(f"TTE (ms): {best_tte_ms}\n")
             f.write(f"Crash file: {best_matching_crash}\n")
+            
+        stats_path = os.path.join(crashes_dir, ".triage_stats")
+        if os.path.exists(stats_path):
+            with open(stats_path, 'r') as f:
+                stats = f.read().strip().split(',')
+                if len(stats) == 3:
+                    count, avg_time, max_time = stats
+                    if int(count) > 0:
+                        print(f"      [{fuzzer_dir}] [Triage Stats] Processed {count} new crashes. Avg: {float(avg_time)*1000:.1f}ms, Max: {float(max_time)*1000:.1f}ms")
     else:
-        print("No matching crashes found yet.")
+        stats_path = os.path.join(crashes_dir, ".triage_stats")
+        if os.path.exists(stats_path):
+            with open(stats_path, 'r') as f:
+                stats = f.read().strip().split(',')
+                if len(stats) == 3:
+                    count, avg_time, max_time = stats
+                    if int(count) > 0:
+                        print(f"      [{fuzzer_dir}] [Triage Stats] No matches. Processed {count} new crashes. Avg: {float(avg_time)*1000:.1f}ms, Max: {float(max_time)*1000:.1f}ms")
+                    else:
+                        print(f"      [{fuzzer_dir}] [Triage Stats] No new crashes to process.")
+        else:
+            print(f"      [{fuzzer_dir}] [Triage] No matching crashes found yet.")
 
 if __name__ == "__main__":
     main()

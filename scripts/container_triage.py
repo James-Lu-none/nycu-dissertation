@@ -86,6 +86,9 @@ def main():
         result_path = "/workspace/out/main/crashes/.triage_result"
         with open(result_path, 'w') as f:
             f.write("None\n")
+        stats_path = "/workspace/out/main/crashes/.triage_stats"
+        with open(stats_path, 'w') as f:
+            f.write("0,0.0,0.0\n")
         sys.exit(0)
         
     crash_files = new_crash_files
@@ -211,7 +214,10 @@ def main():
     with open(triaged_record_path, 'a') as f:
         for cf in crash_files:
             f.write(f"{cf}\n")
-        f.write(f"STATS:{count},{avg_time:.6f},{max_time:.6f}\n")
+            
+    stats_path = "/workspace/out/main/crashes/.triage_stats"
+    with open(stats_path, 'w') as f:
+        f.write(f"{count},{avg_time:.6f},{max_time:.6f}\n")
 
 if __name__ == '__main__':
     main()
