@@ -2,6 +2,9 @@ import os
 import re
 import subprocess
 import sys
+import multiprocessing
+import concurrent.futures
+import time
 from triage import *
 
 CVE_NAME = "PLACEHOLDER_CVE_NAME"
@@ -75,55 +78,47 @@ def main():
     matching_crash = None
     triage_times = []
     
-    for crash_file in crash_files:
+    def process_crash(crash_file):
         elapsed_ms = get_crash_time(crash_file)
         crash_path = os.path.join(crashes_dir, crash_file)
         
+        env = os.environ.copy()
+        env.pop("PYTHONHOME", None)
+        env.pop("PYTHONPATH", None)
+        for k in list(env.keys()):
+            if k.startswith("AFL_") or k.startswith("__AFL_"):
+                env.pop(k, None)
+        env["ASAN_OPTIONS"] = "allocator_may_return_null=1,detect_leaks=0,symbolize=1"
+        env["ASAN_SYMBOLIZER_PATH"] = "/usr/lib/llvm-20/bin/llvm-symbolizer"
+        
+        t_start = time.time()
         try:
-            env = os.environ.copy()
-            env.pop("PYTHONHOME", None)
-            env.pop("PYTHONPATH", None)
-            # Remove AFL environment variables to prevent instrumented binaries from waiting for AFL forkserver
-            for k in list(env.keys()):
-                if k.startswith("AFL_") or k.startswith("__AFL_"):
-                    env.pop(k, None)
-            env["ASAN_OPTIONS"] = "allocator_may_return_null=1,detect_leaks=0"
-            
-            import time
-            t_start = time.time()
             if "@@" in flags:
                 run_args = [crash_path if arg == "@@" else arg for arg in flags]
                 cmd = [binary] + run_args
                 res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=4, env=env)
             else:
-                cmd = [binary]
+                cmd = [binary] + flags
                 with open(crash_path, 'rb') as stdin_file:
                     res = subprocess.run(cmd, stdin=stdin_file, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=4, env=env)
             t_end = time.time()
-            triage_times.append(t_end - t_start)
+            exec_time = t_end - t_start
             
             bt_text = res.stdout.decode('utf-8', errors='replace')
             full_log = bt_text + "\n" + res.stderr.decode('utf-8', errors='replace')
             
             if "AddressSanitizer" not in full_log and "Sanitizer" not in full_log:
-                result_path = "/workspace/out/main/crashes/.triage_result"
-                with open(result_path, 'w') as f:
-                    f.write(f"ERROR\nCrash case '{crash_file}' did not trigger AddressSanitizer!\nProcess execution output:\n{full_log}\n")
-                sys.exit(1)
+                return {"error": f"Crash case '{crash_file}' did not trigger AddressSanitizer!\nProcess execution output:\n{full_log}", "crash_file": crash_file}
                 
         except subprocess.TimeoutExpired:
             print(f"DEBUG: {crash_file} execution timed out")
-            continue
+            return {"timeout": True, "exec_time": 4.0, "crash_file": crash_file}
         except Exception as e:
-            # If sys.exit was called inside try, let it propagate
             if isinstance(e, SystemExit):
                 raise e
             import traceback
             err_trace = traceback.format_exc()
-            result_path = "/workspace/out/main/crashes/.triage_result"
-            with open(result_path, 'w') as f:
-                f.write(f"ERROR\nException occurred during triage of '{crash_file}': {str(e)}\nTraceback:\n{err_trace}\n")
-            sys.exit(1)
+            return {"error": f"Exception occurred during triage of '{crash_file}': {str(e)}\nTraceback:\n{err_trace}", "crash_file": crash_file}
             
         found_match = False
         func_name = get_triage_function_name(CVE_NAME)
@@ -134,57 +129,54 @@ def main():
                 found_match = True
         else:
             print(f"DEBUG: No triage method found for {CVE_NAME} (searched: {func_name})")
-            # Trace Subsequence matching commented out:
-            # frames = []
-            # for line in bt_text.splitlines():
-            #     m = re.search(r'([\w\-]+\.[c|h]):(\d+)', line)
-            #     if m:
-            #         frames.append(f"{m.group(1)}:{m.group(2)}")
-            #         
-            # start_indices = [idx for idx, f in enumerate(frames) if is_frame_match(f, required_target_trace[0])]
-            # 
-            # if start_indices:
-            #     print(f"DEBUG: {crash_file} matched required_target_trace[0] ({required_target_trace[0]}) at frame indices {start_indices}")
-            #     print(f"DEBUG: Full backtrace frames for {crash_file}: {frames}")
-            #     
-            # for start_idx in start_indices:
-            #     matched_count = 1
-            #     curr_idx = start_idx + 1
-            #     matched_subset = [frames[start_idx]]
-            #     for target in required_target_trace[1:]:
-            #         for j in range(curr_idx, len(frames)):
-            #             if is_frame_match(frames[j], target):
-            #                 matched_count += 1
-            #                 curr_idx = j + 1
-            #                 matched_subset.append(frames[j])
-            #                 break
-            #     if matched_count >= match_required:
-            #         print(f"DEBUG: {crash_file} matched target trace subsequence (matched {matched_count} frames: {matched_subset})")
-            #         found_match = True
-            #         break
-            #     else:
-            #         print(f"DEBUG: {crash_file} matched only {matched_count} frames: {matched_subset} (required {match_required})")
-                
-        if found_match:
-            # Write full log for the matched crash case to crashes/full_logs/
-            logs_dir = "/workspace/out/main/crashes/full_logs"
-            os.makedirs(logs_dir, exist_ok=True)
-            try:
-                os.chmod(logs_dir, 0o777)
-            except Exception:
-                pass
-            log_file_path = os.path.join(logs_dir, f"{crash_file}.log")
-            try:
-                with open(log_file_path, 'w') as lf:
-                    lf.write(full_log)
-                os.chmod(log_file_path, 0o666)
-            except Exception:
-                pass
-
-            tte_ms = elapsed_ms
-            matching_crash = crash_file
-            break
             
+        return {"match": found_match, "elapsed_ms": elapsed_ms, "exec_time": exec_time, "crash_file": crash_file, "full_log": full_log}
+
+    max_workers = max(1, multiprocessing.cpu_count())
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [executor.submit(process_crash, cf) for cf in crash_files]
+        for future in futures:
+            result = future.result()
+            
+            if "error" in result:
+                result_path = "/workspace/out/main/crashes/.triage_result"
+                with open(result_path, 'w') as f:
+                    f.write(f"ERROR\n{result['error']}\n")
+                # Cancel remaining
+                for f2 in futures:
+                    f2.cancel()
+                sys.exit(1)
+                
+            if "timeout" in result:
+                triage_times.append(result["exec_time"])
+                continue
+                
+            triage_times.append(result["exec_time"])
+            if result.get("match"):
+                tte_ms = result["elapsed_ms"]
+                matching_crash = result["crash_file"]
+                full_log = result["full_log"]
+                
+                # Write full log for the matched crash case to crashes/full_logs/
+                logs_dir = "/workspace/out/main/crashes/full_logs"
+                os.makedirs(logs_dir, exist_ok=True)
+                try:
+                    os.chmod(logs_dir, 0o777)
+                except Exception:
+                    pass
+                log_file_path = os.path.join(logs_dir, f"{matching_crash}.log")
+                try:
+                    with open(log_file_path, 'w') as lf:
+                        lf.write(full_log)
+                    os.chmod(log_file_path, 0o666)
+                except Exception:
+                    pass
+                
+                # Cancel remaining
+                for f2 in futures:
+                    f2.cancel()
+                break
+
     avg_time = sum(triage_times) / len(triage_times) if triage_times else 0.0
     max_time = max(triage_times) if triage_times else 0.0
     count = len(triage_times)
