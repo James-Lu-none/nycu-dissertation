@@ -71,6 +71,25 @@ def main():
     crash_files = [f for f in os.listdir(crashes_dir) if f.startswith("id:")]
     crash_files.sort(key=get_crash_time)
     
+    # Filter already triaged crashes to save CPU
+    triaged_record_path = os.path.join(crashes_dir, ".triaged_crashes")
+    already_triaged = set()
+    if os.path.exists(triaged_record_path):
+        with open(triaged_record_path, 'r') as f:
+            for line in f:
+                already_triaged.add(line.strip())
+                
+    new_crash_files = [f for f in crash_files if f not in already_triaged]
+    
+    if not new_crash_files:
+        print("DEBUG: No new crashes to triage.")
+        result_path = "/workspace/out/main/crashes/.triage_result"
+        with open(result_path, 'w') as f:
+            f.write("None\n")
+        sys.exit(0)
+        
+    crash_files = new_crash_files
+    
     match_required = min(len(target_trace), 4)
     required_target_trace = target_trace[:match_required]
     
@@ -183,10 +202,15 @@ def main():
     
     result_path = "/workspace/out/main/crashes/.triage_result"
     with open(result_path, 'w') as f:
-        if tte_ms is not None:
-            f.write(f"FOUND\n{tte_ms}\n{matching_crash}\n")
+        if matching_crash:
+            f.write(f"{matching_crash},{tte_ms}\n")
         else:
-            f.write("NOT_FOUND\n")
+            f.write("None\n")
+            
+    # Record these as triaged
+    with open(triaged_record_path, 'a') as f:
+        for cf in crash_files:
+            f.write(f"{cf}\n")
         f.write(f"STATS:{count},{avg_time:.6f},{max_time:.6f}\n")
 
 if __name__ == '__main__':

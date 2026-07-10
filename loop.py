@@ -133,38 +133,13 @@ def main():
             print(f"\n\033[1;33m[Tier Evaluation] Reached {elapsed}s. Syncing results and checking success rate...\033[0m")
             
             if args.slurm:
-                print(f"     -> Requesting SLURM nodes to sync...")
-                import glob
-                dirs = glob.glob(os.path.join(root_dir, "artifact", cve, "*", "*", "trial*"))
-                if not dirs:
-                    print(f"        \033[1;31m[!] No trial directories found for {cve}! (Jobs might still be pending in SLURM)\033[0m")
-                else:
-                    for d in dirs:
-                        if os.path.isdir(d):
-                            with open(os.path.join(d, ".pull_request"), "w") as f:
-                                f.write("sync")
-                                
-                print(f"     -> Waiting for SLURM nodes to complete background sync...")
-                wait_time = 0
-                while wait_time < 300:
-                    pending = glob.glob(os.path.join(root_dir, "artifact", cve, "*", "*", "trial*", ".pull_request"))
-                    if not pending:
-                        break
-                    if wait_time % 10 == 0 and wait_time > 0:
-                        print(f"        ... still waiting, {len(pending)} nodes are syncing ...")
-                    time.sleep(1)
-                    wait_time += 1
-                    
-                if wait_time >= 300:
-                    print(f"        \033[1;31m[!] Warning: Sync timed out after 300s! Data might be incomplete.\033[0m")
-                else:
-                    time.sleep(2)  # Extra buffer for disk flush
+                # In SLURM mode, compute nodes self-triage and sync results automatically
+                print(f"     -> [SLURM] Reading live triage results from NFS...")
             else:
                 subprocess.run([python_bin, manage_script, "copy", cve, str(trials)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                
-            # Run tte_check
-            subprocess.run([python_bin, manage_py, "tte_check", cve, "-y"])
-            
+                # Run tte_check locally for non-SLURM
+                subprocess.run([python_bin, manage_py, "tte_check", cve, "-y"])
+
             # Calculate rate
             rate, reached, total = get_latest_success_rate(cve, root_dir)
             print(f"\033[1;32m[Tier Evaluation] Success rate at {elapsed}s: {rate:.1%} ({reached}/{total} trials reached)\033[0m")

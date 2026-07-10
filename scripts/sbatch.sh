@@ -88,17 +88,9 @@ cleanup() {
 
 trap cleanup EXIT SIGINT SIGTERM
 
-# Background polling for pull request
-(
-  while true; do
-    if [ -f "$DEST_DIR/.pull_request" ]; then
-      sync_data
-      rm -f "$DEST_DIR/.pull_request"
-    fi
-    sleep 5
-  done
-) &
-SYNC_PID=$!
+SANDBOX_DIR="/dev/shm/fuzz_${SLURM_JOB_ID}_${SLURM_ARRAY_TASK_ID}/sandbox"
+echo "[*] Building Apptainer Sandbox in RAM ($SANDBOX_DIR)..."
+apptainer build --sandbox "$SANDBOX_DIR" "${ROOT_DIR}/bench/${CVE}/${IMAGE_NAME}.sif"
 
 cat << 'EOF' > "$LOCAL_OUT/sync_txt.sh"
 #!/bin/bash
@@ -130,7 +122,7 @@ apptainer exec \
   --ipc \
   --no-home \
   --bind ${LOCAL_OUT}:/workspace/out \
-  ${ROOT_DIR}/bench/${CVE}/${IMAGE_NAME}.sif \
+  "$SANDBOX_DIR" \
   bash -c "cd /workspace || exit 1; /workspace/out/sync_txt.sh main & exec ${M_FUZZER} -i /workspace/in -o /workspace/out -M ${M_NAME} -- ${M_TARGET} ${TARGET_ARGS}" &
 MAIN_PID=$!
 
@@ -144,16 +136,31 @@ apptainer exec \
   --ipc \
   --no-home \
   --bind ${LOCAL_OUT}:/workspace/out \
-  ${ROOT_DIR}/bench/${CVE}/${IMAGE_NAME}.sif \
+  "$SANDBOX_DIR" \
   bash -c "cd /workspace || exit 1; /workspace/out/sync_txt.sh slave & exec ${S_FUZZER} -i /workspace/in -o /workspace/out -S ${S_NAME} -- ${S_TARGET} ${TARGET_ARGS}" &
 SLAVE_PID=$!
+
+# Background polling for live triage
+(
+  while true; do
+    sleep 300
+    echo "[*] Running live triage..."
+    python3 "${ROOT_DIR}/scripts/live_triage.py" --cve "$CVE" --image "$SANDBOX_DIR" --local-out "$LOCAL_OUT" -- $M_TARGET $TARGET_ARGS
+    if [ -f "$LOCAL_OUT/dgf_target_exposure.txt" ]; then
+      echo "[+] TTE Found! Terminating fuzzers early..."
+      kill $MAIN_PID $SLAVE_PID 2>/dev/null
+      break
+    fi
+  done
+) &
+TRIAGE_PID=$!
 
 wait $MAIN_PID
 MAIN_EXIT=$?
 wait $SLAVE_PID
 SLAVE_EXIT=$?
 
-kill $SYNC_PID 2>/dev/null
+kill $TRIAGE_PID 2>/dev/null
 
 if [ $MAIN_EXIT -ne 0 ] || [ $SLAVE_EXIT -ne 0 ]; then
     echo "[-] Error: One of the fuzzers crashed! Main: $MAIN_EXIT, Slave: $SLAVE_EXIT"
