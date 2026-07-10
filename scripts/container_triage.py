@@ -86,21 +86,16 @@ def main():
             bt_text = res.stdout.decode('utf-8', errors='replace')
             full_log = bt_text + "\n" + res.stderr.decode('utf-8', errors='replace')
             
-            # Write full log to crashes/full_logs/
-            logs_dir = "/workspace/out/main/crashes/full_logs"
-            os.makedirs(logs_dir, exist_ok=True)
-            try:
-                os.chmod(logs_dir, 0o777)
-            except Exception:
-                pass
-            log_file_path = os.path.join(logs_dir, f"{crash_file}.log")
-            with open(log_file_path, 'w') as lf:
-                lf.write(full_log)
-            try:
-                os.chmod(log_file_path, 0o666)
-            except Exception:
-                pass
-        except Exception:
+            if "AddressSanitizer" not in full_log and "Sanitizer" not in full_log:
+                result_path = "/workspace/out/main/crashes/.triage_result"
+                with open(result_path, 'w') as f:
+                    f.write(f"ERROR\nCrash case '{crash_file}' did not trigger AddressSanitizer!\nProcess execution output:\n{full_log}\n")
+                sys.exit(1)
+                
+        except Exception as e:
+            # If sys.exit was called inside try, let it propagate
+            if isinstance(e, SystemExit):
+                raise e
             continue
             
         found_match = False
@@ -144,6 +139,21 @@ def main():
             #         print(f"DEBUG: {crash_file} matched only {matched_count} frames: {matched_subset} (required {match_required})")
                 
         if found_match:
+            # Write full log for the matched crash case to crashes/full_logs/
+            logs_dir = "/workspace/out/main/crashes/full_logs"
+            os.makedirs(logs_dir, exist_ok=True)
+            try:
+                os.chmod(logs_dir, 0o777)
+            except Exception:
+                pass
+            log_file_path = os.path.join(logs_dir, f"{crash_file}.log")
+            try:
+                with open(log_file_path, 'w') as lf:
+                    lf.write(full_log)
+                os.chmod(log_file_path, 0o666)
+            except Exception:
+                pass
+
             tte_ms = elapsed_ms
             matching_crash = crash_file
             break

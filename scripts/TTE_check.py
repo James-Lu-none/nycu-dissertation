@@ -175,9 +175,17 @@ def triage_crashes_in_container(image_name, binary, flags, local_crashes_dir, ta
     if os.path.exists(result_path):
         with open(result_path, 'r') as f:
             lines = [line.strip() for line in f if line.strip()]
-            if lines and lines[0] == "FOUND":
-                tte_ms = int(lines[1])
-                matching_crash = lines[2]
+            if lines:
+                if lines[0] == "FOUND":
+                    tte_ms = int(lines[1])
+                    matching_crash = lines[2]
+                elif lines[0] == "ERROR":
+                    err_msg = "\n".join(lines[1:])
+                    print("="*60)
+                    print(f"CRITICAL ERROR: Triage process encountered failure inside the container:")
+                    print(err_msg)
+                    print("="*60)
+                    sys.exit(1)
                 
     # Copy full logs to the host's artifact directory
     if dest_logs_dir:
