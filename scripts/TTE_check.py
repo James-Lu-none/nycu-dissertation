@@ -123,6 +123,14 @@ def triage_crashes_in_container(image_name, binary, flags, local_crashes_dir, ta
         ] + flags
     else:
         # Fallback to Apptainer
+        # Use RAM disk for Apptainer cache to avoid hammering the NFS /home directory
+        import getpass
+        username = getpass.getuser()
+        os.environ["APPTAINER_CACHEDIR"] = f"/dev/shm/{username}_apptainer_cache"
+        os.environ["APPTAINER_TMPDIR"] = f"/dev/shm/{username}_apptainer_tmp"
+        os.makedirs(os.environ["APPTAINER_CACHEDIR"], exist_ok=True)
+        os.makedirs(os.environ["APPTAINER_TMPDIR"], exist_ok=True)
+
         scripts_dir = os.path.dirname(os.path.realpath(__file__))
         root_dir = os.path.dirname(scripts_dir)
         bench_dir = os.path.join(root_dir, "bench", cve_name)
@@ -138,6 +146,7 @@ def triage_crashes_in_container(image_name, binary, flags, local_crashes_dir, ta
             
         cmd = [
             "apptainer", "exec",
+            "--no-home",
             "--bind", f"{local_crashes_dir}:/workspace/out/main/crashes",
             sif_path,
             "python3", "/workspace/out/main/crashes/.triage.py",

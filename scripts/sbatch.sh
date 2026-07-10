@@ -10,6 +10,11 @@
 export APPTAINERENV_AFL_NO_UI=1
 export APPTAINERENV_AFL_NO_AFFINITY=1
 
+# Use RAM disk for Apptainer cache to avoid hammering the NFS /home directory
+export APPTAINER_CACHEDIR="/dev/shm/${USER}_apptainer_cache"
+export APPTAINER_TMPDIR="/dev/shm/${USER}_apptainer_tmp"
+mkdir -p "$APPTAINER_CACHEDIR" "$APPTAINER_TMPDIR"
+
 # Environment variables expected from manage_slurm.py:
 # CVE, IMAGE_NAME, SESSION_ID, TRIAL_NAME, TARGET_BIN_BASE, TARGET_BIN_CD, TARGET_BIN_SOLO_DD, TARGET_BIN_DUAL_DD, TARGET_BIN_DUAL_CD, TARGET_ARGS
 
@@ -119,6 +124,7 @@ chmod +x "$LOCAL_OUT/sync_txt.sh"
 
 echo "[*] Starting Main Fuzzer ($M_NAME)..."
 apptainer exec \
+  --no-home \
   --bind ${LOCAL_OUT}:/workspace/out \
   ${ROOT_DIR}/bench/${CVE}/${IMAGE_NAME}.sif \
   bash -c "cd /workspace || exit 1; /workspace/out/sync_txt.sh main & exec ${M_FUZZER} -i /workspace/in -o /workspace/out -M ${M_NAME} -- ${M_TARGET} ${TARGET_ARGS}" &
@@ -128,6 +134,7 @@ sleep 2
 
 echo "[*] Starting Slave Fuzzer ($S_NAME)..."
 apptainer exec \
+  --no-home \
   --bind ${LOCAL_OUT}:/workspace/out \
   ${ROOT_DIR}/bench/${CVE}/${IMAGE_NAME}.sif \
   bash -c "cd /workspace || exit 1; /workspace/out/sync_txt.sh slave & exec ${S_FUZZER} -i /workspace/in -o /workspace/out -S ${S_NAME} -- ${S_TARGET} ${TARGET_ARGS}" &
