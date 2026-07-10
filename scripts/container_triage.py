@@ -101,7 +101,12 @@ def main():
             # If sys.exit was called inside try, let it propagate
             if isinstance(e, SystemExit):
                 raise e
-            continue
+            import traceback
+            err_trace = traceback.format_exc()
+            result_path = "/workspace/out/main/crashes/.triage_result"
+            with open(result_path, 'w') as f:
+                f.write(f"ERROR\nException occurred during triage of '{crash_file}': {str(e)}\nTraceback:\n{err_trace}\n")
+            sys.exit(1)
             
         found_match = False
         func_name = get_triage_function_name(CVE_NAME)
