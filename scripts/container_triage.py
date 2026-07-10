@@ -63,6 +63,7 @@ def main():
     
     tte_ms = None
     matching_crash = None
+    triage_times = []
     
     for crash_file in crash_files:
         elapsed_ms = get_crash_time(crash_file)
@@ -74,6 +75,8 @@ def main():
             env.pop("PYTHONPATH", None)
             env["ASAN_OPTIONS"] = "allocator_may_return_null=1,detect_leaks=0"
             
+            import time
+            t_start = time.time()
             if "@@" in flags:
                 run_args = [crash_path if arg == "@@" else arg for arg in flags]
                 cmd = [binary] + run_args
@@ -82,6 +85,8 @@ def main():
                 cmd = [binary]
                 with open(crash_path, 'rb') as stdin_file:
                     res = subprocess.run(cmd, stdin=stdin_file, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=4, env=env)
+            t_end = time.time()
+            triage_times.append(t_end - t_start)
             
             bt_text = res.stdout.decode('utf-8', errors='replace')
             full_log = bt_text + "\n" + res.stderr.decode('utf-8', errors='replace')
@@ -158,12 +163,17 @@ def main():
             matching_crash = crash_file
             break
             
+    avg_time = sum(triage_times) / len(triage_times) if triage_times else 0.0
+    max_time = max(triage_times) if triage_times else 0.0
+    count = len(triage_times)
+    
     result_path = "/workspace/out/main/crashes/.triage_result"
     with open(result_path, 'w') as f:
         if tte_ms is not None:
             f.write(f"FOUND\n{tte_ms}\n{matching_crash}\n")
         else:
             f.write("NOT_FOUND\n")
+        f.write(f"STATS:{count},{avg_time:.6f},{max_time:.6f}\n")
 
 if __name__ == '__main__':
     main()

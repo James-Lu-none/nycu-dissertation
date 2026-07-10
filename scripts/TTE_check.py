@@ -187,6 +187,18 @@ def triage_crashes_in_container(image_name, binary, flags, local_crashes_dir, ta
                     print("="*60)
                     sys.exit(1)
                 
+                # Check for STATS line
+                for line in lines:
+                    if line.startswith("STATS:"):
+                        try:
+                            parts = line.split(":", 1)[1].split(",")
+                            count = int(parts[0])
+                            avg_ms = float(parts[1]) * 1000.0
+                            max_ms = float(parts[2]) * 1000.0
+                            print(f"  [+] Triage performance: checked {count} cases | avg: {avg_ms:.1f} ms | max: {max_ms:.1f} ms")
+                        except Exception:
+                            pass
+                
     # Copy full logs to the host's artifact directory
     if dest_logs_dir:
         host_logs_dir = os.path.join(local_crashes_dir, "full_logs")
