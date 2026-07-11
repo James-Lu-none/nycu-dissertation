@@ -44,28 +44,7 @@ def main():
     if not triage_func:
         print(f"Error: Triage function {triage_func_name} not found.")
         sys.exit(1)
-        
-    # Get the target trace
-    import inspect
-    source = inspect.getsource(triage_func)
-    target_trace = []
-    in_trace = False
-    for line in source.split('\n'):
-        line = line.strip()
-        if 'target_trace = [' in line:
-            in_trace = True
-            continue
-        if in_trace and ']' in line:
-            break
-        if in_trace:
-            trace_line = line.strip('",\' \t')
-            if trace_line:
-                target_trace.append(trace_line)
-                
-    if not target_trace:
-        print("Error: Target trace could not be extracted.")
-        sys.exit(1)
-        
+    
     # Check both main and slave crashes directories
     crashes_dirs = []
     main_crashes = os.path.join(local_out, "main/crashes")
@@ -104,12 +83,6 @@ def main():
             
         print(f"      [{fuzzer_dir}] Triaging {len(crashes)} total crashes in {crashes_dir}...")
         
-        # Prepare target trace
-        trace_path = os.path.join(crashes_dir, ".target_trace")
-        with open(trace_path, 'w') as f:
-            for t in target_trace:
-                f.write(t + "\n")
-                
         # Copy helper scripts
         triage_helper_path = os.path.join(scripts_dir, "container_triage.py")
         with open(triage_helper_path, 'r') as f:

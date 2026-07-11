@@ -50,22 +50,6 @@ def main():
         binary = tmp_binary
     except Exception as e:
         print(f"DEBUG: Failed to copy binary to /tmp: {e}")
-    
-    trace_path = "/workspace/out/main/crashes/.target_trace"
-    if not os.path.exists(trace_path):
-        print("Error: .target_trace not found in container")
-        sys.exit(1)
-        
-    target_trace = []
-    with open(trace_path, 'r') as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                target_trace.append(line)
-                
-    if not target_trace:
-        print("Error: target_trace is empty")
-        sys.exit(1)
         
     crashes_dir = "/workspace/out/main/crashes"
     crash_files = [f for f in os.listdir(crashes_dir) if f.startswith("id:")]
@@ -92,9 +76,6 @@ def main():
         sys.exit(0)
         
     crash_files = new_crash_files
-    
-    match_required = min(len(target_trace), 4)
-    required_target_trace = target_trace[:match_required]
     
     tte_ms = None
     matching_crash = None
