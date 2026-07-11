@@ -109,6 +109,10 @@ def triage_crashes_in_container(image_name, binary, flags, local_crashes_dir, ta
     result_path = os.path.join(local_crashes_dir, ".triage_result")
     if os.path.exists(result_path):
         os.remove(result_path)
+        
+    triaged_record_path = os.path.join(local_crashes_dir, ".triaged_crashes")
+    if os.path.exists(triaged_record_path):
+        os.remove(triaged_record_path)
 
     if shutil.which("docker"):
         cmd = [
