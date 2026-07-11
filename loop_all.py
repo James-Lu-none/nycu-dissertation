@@ -64,9 +64,10 @@ def main():
         os.execv(venv_python, [venv_python] + sys.argv)
         
     parser = argparse.ArgumentParser(description="Continuous Trial Runner Loop for All CVEs")
-    parser.add_argument("iterations", type=int, help="Number of iterations to run the full CVE loop")
+    parser.add_argument("--iterations", type=int, default=1, help="Number of iterations to run the full CVE loop (default: 1)")
     parser.add_argument("--trials", type=int, default=15, help="Number of trials per CVE (default: 15)")
     parser.add_argument("--slurm", action="store_true", help="Run in Slurm mode using manage_slurm.py")
+    parser.add_argument("--max-time", type=int, default=43200, help="Maximum fuzzing time in seconds per iteration (default: 43200)")
     args = parser.parse_args()
     
     iterations = args.iterations
@@ -101,7 +102,7 @@ def main():
             print(f"\n\033[1;31m[Warning] Benchmark directory '{cve_bench_dir}' does not exist. Skipping {cve}.\033[0m")
             continue
             
-        cve_duration = 43200
+        cve_duration = args.max_time
         
         print(f"\033[1;32m[Loop Runner All] Using duration for {cve}: {cve_duration} seconds\033[0m")
             
