@@ -131,7 +131,7 @@ def main():
             with open(result_path, 'r') as f:
                 res = f.read().strip()
                 if res != "None":
-                    parts = res.split(',')
+                    parts = res.rsplit(',', 1)
                     crash_id = parts[0]
                     crash_time = int(parts[1])
                     if best_tte_ms is None or crash_time < best_tte_ms:
