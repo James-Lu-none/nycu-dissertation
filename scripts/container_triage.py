@@ -111,7 +111,8 @@ def main():
             full_log = bt_text + "\n" + res.stderr.decode('utf-8', errors='replace')
             
             if "AddressSanitizer" not in full_log and "Sanitizer" not in full_log:
-                return {"error": f"Crash case '{crash_file}' did not trigger AddressSanitizer!\nProcess execution output:\n{full_log}", "crash_file": crash_file}
+                print(f"DEBUG: Crash case '{crash_file}' did not trigger AddressSanitizer. Skipping.")
+                return {"match": False, "elapsed_ms": elapsed_ms, "exec_time": exec_time, "crash_file": crash_file, "full_log": full_log}
                 
         except subprocess.TimeoutExpired:
             print(f"DEBUG: {crash_file} execution timed out")

@@ -115,6 +115,9 @@ def main():
             subprocess.run(cmd, check=True)
         except subprocess.CalledProcessError:
             print(f"      [{fuzzer_dir}] Triage execution failed for {crashes_dir}")
+            if os.path.exists(result_path):
+                with open(result_path, 'r') as f:
+                    print(f"      [{fuzzer_dir}] Error details:\n{f.read().strip()}")
             continue
             
         # Parse result
