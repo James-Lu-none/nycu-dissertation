@@ -29,10 +29,10 @@ def main():
     scripts_dir = os.path.dirname(os.path.realpath(__file__))
     sys.path.append(scripts_dir)
     try:
-        from triage import get_triage_function_name
+        from container_triage import get_triage_function_name
         import triage
-    except ImportError:
-        print("Error: triage.py not found.")
+    except ImportError as e:
+        print(f"Error importing modules: {e}")
         sys.exit(1)
         
     triage_func_name = get_triage_function_name(cve)
