@@ -259,17 +259,15 @@ def main():
         return ts_match.group(1) if ts_match else ""
     session_dirs.sort(key=sort_session_key)
 
-    # Find fuzzer methods from the first session path
-    first_session_path = os.path.join(root, session_dirs[0])
+    # Parse fuzzer methods from the requested arguments
     valid_methods = []
     for m in methods:
-        if os.path.exists(os.path.join(first_session_path, m)):
-            if m.lower() == "dual":
-                valid_methods.append("dual-dd")
-                valid_methods.append("dual-cd")
-            else:
-                valid_methods.append(m)
-                
+        if m.lower() == "dual":
+            valid_methods.append("dual-dd")
+            valid_methods.append("dual-cd")
+        else:
+            valid_methods.append(m)
+            
     if not valid_methods:
         print("No valid method directories found.")
         return
@@ -317,7 +315,10 @@ def main():
             times, edges, execs = parse_plot_data(plot_file)
             trial_method_data[method] = (times, edges, execs)
             
-            if times:
+            if not times:
+                print(f"  [!] Missing or empty data for {method}: {plot_file}")
+            else:
+                print(f"  [+] Loaded {len(times)} data points for {method}: {plot_file}")
                 method_runs_time[method].append((times, edges))
                 method_runs_exec[method].append((execs, edges))
                 max_time_all = max(max_time_all, times[-1])
