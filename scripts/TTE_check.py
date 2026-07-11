@@ -216,31 +216,32 @@ def triage_crashes_in_container(image_name, binary, flags, local_crashes_dir, ta
     
     if os.path.exists(result_path):
         with open(result_path, 'r') as f:
-            lines = [line.strip() for line in f if line.strip()]
-            if lines:
-                if lines[0] == "FOUND":
-                    tte_ms = int(lines[1])
-                    matching_crash = lines[2]
-                elif lines[0] == "ERROR":
-                    err_msg = "\n".join(lines[1:])
+            res = f.read().strip()
+            if res and res != "None":
+                if res.startswith("ERROR"):
                     print("="*60)
                     print(f"CRITICAL ERROR: Triage process encountered failure inside the container:")
-                    print(err_msg)
+                    print(res)
                     print("="*60)
                     sys.exit(1)
-                
-                # Check for STATS line
-                for line in lines:
-                    if line.startswith("STATS:"):
-                        try:
-                            parts = line.split(":", 1)[1].split(",")
-                            count = int(parts[0])
-                            avg_ms = float(parts[1]) * 1000.0
-                            max_ms = float(parts[2]) * 1000.0
-                            print(f"  [+] Triage performance: checked {count} cases | avg: {avg_ms:.1f} ms | max: {max_ms:.1f} ms")
-                        except Exception:
-                            pass
-                
+                else:
+                    parts = res.rsplit(',', 1)
+                    if len(parts) == 2:
+                        matching_crash = parts[0]
+                        tte_ms = int(parts[1])
+    stats_path = os.path.join(local_crashes_dir, ".triage_stats")
+    if os.path.exists(stats_path):
+        try:
+            with open(stats_path, 'r') as f:
+                parts = f.read().strip().split(",")
+                if len(parts) == 3:
+                    count = int(parts[0])
+                    avg_ms = float(parts[1]) * 1000.0
+                    max_ms = float(parts[2]) * 1000.0
+                    if count > 0:
+                        print(f"  [+] Triage performance: checked {count} cases | avg: {avg_ms:.1f} ms | max: {max_ms:.1f} ms")
+        except Exception:
+            pass
     # Copy full logs to the host's artifact directory
     if dest_logs_dir:
         host_logs_dir = os.path.join(local_crashes_dir, "full_logs")
