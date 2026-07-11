@@ -80,7 +80,7 @@ sync_data() {
 cleanup_fast() {
   echo "[*] Abort signal received (scancel/timeout). Performing fast sync..."
   # Discard massive queue/hangs directories to ensure sync completes before SIGKILL (30s)
-  rm -rf "$LOCAL_OUT/main/queue" "$LOCAL_OUT/slave/queue" "$LOCAL_OUT/main/hangs" "$LOCAL_OUT/slave/hangs" 2>/dev/null
+  rm -rf "$LOCAL_OUT/${M_NAME}/queue" "$LOCAL_OUT/${S_NAME}/queue" "$LOCAL_OUT/${M_NAME}/hangs" "$LOCAL_OUT/${S_NAME}/hangs" 2>/dev/null
   sync_data
   echo "[*] Cleaning up local RAM disk storage..."
   rm -rf "/dev/shm/fuzz_${SLURM_JOB_ID}_${SLURM_ARRAY_TASK_ID}"
@@ -106,15 +106,15 @@ cat << 'EOF' > "$LOCAL_OUT/sync_txt.sh"
 MODE=$1
 mkdir -p out/.txt_sync
 while true; do
-  if [ "$MODE" == "main" ]; then
+  if [ "$MODE" == "main" ] || [ "$MODE" == "dd" ]; then
     find . -maxdepth 1 -name '*.txt' -exec cp {} out/.txt_sync/ \; 2>/dev/null
   else
     for f in *.txt; do
       [ -f "$f" ] || continue
-      if [[ "$f" == *_slave.txt ]]; then
+      if [[ "$f" == *_slave.txt ]] || [[ "$f" == *_cd.txt ]]; then
         cp "$f" "out/.txt_sync/$f" 2>/dev/null
       else
-        cp "$f" "out/.txt_sync/${f%.txt}_slave.txt" 2>/dev/null
+        cp "$f" "out/.txt_sync/${f%.txt}_${MODE}.txt" 2>/dev/null
       fi
     done
   fi
@@ -157,11 +157,11 @@ SLAVE_PID=$!
     python3 -u "${ROOT_DIR}/scripts/live_triage.py" --cve "$CVE" --image "$SANDBOX_DIR" --local-out "$LOCAL_OUT" $M_TARGET $TARGET_ARGS >> "$DEST_DIR/triage.log" 2>&1
     
     # Sync triage stats back to NFS
-    mkdir -p "$DEST_DIR/out/main/crashes" "$DEST_DIR/out/slave/crashes"
-    cp "$LOCAL_OUT/main/crashes/.triage_stats" "$DEST_DIR/out/main/crashes/" 2>/dev/null || true
-    cp "$LOCAL_OUT/main/crashes/.triaged_crashes" "$DEST_DIR/out/main/crashes/" 2>/dev/null || true
-    cp "$LOCAL_OUT/slave/crashes/.triage_stats" "$DEST_DIR/out/slave/crashes/" 2>/dev/null || true
-    cp "$LOCAL_OUT/slave/crashes/.triaged_crashes" "$DEST_DIR/out/slave/crashes/" 2>/dev/null || true
+    mkdir -p "$DEST_DIR/out/${M_NAME}/crashes" "$DEST_DIR/out/${S_NAME}/crashes"
+    cp "$LOCAL_OUT/${M_NAME}/crashes/.triage_stats" "$DEST_DIR/out/${M_NAME}/crashes/" 2>/dev/null || true
+    cp "$LOCAL_OUT/${M_NAME}/crashes/.triaged_crashes" "$DEST_DIR/out/${M_NAME}/crashes/" 2>/dev/null || true
+    cp "$LOCAL_OUT/${S_NAME}/crashes/.triage_stats" "$DEST_DIR/out/${S_NAME}/crashes/" 2>/dev/null || true
+    cp "$LOCAL_OUT/${S_NAME}/crashes/.triaged_crashes" "$DEST_DIR/out/${S_NAME}/crashes/" 2>/dev/null || true
     
     if [ -f "$LOCAL_OUT/dgf_target_exposure.txt" ]; then
       echo "[+] TTE Found! Terminating fuzzers early..." >> "$DEST_DIR/triage.log"
