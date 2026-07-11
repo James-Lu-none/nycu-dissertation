@@ -261,7 +261,15 @@ def main():
 
     # Find fuzzer methods from the first session path
     first_session_path = os.path.join(root, session_dirs[0])
-    valid_methods = [m for m in methods if os.path.exists(os.path.join(first_session_path, m))]
+    valid_methods = []
+    for m in methods:
+        if os.path.exists(os.path.join(first_session_path, m)):
+            if m.lower() == "dual":
+                valid_methods.append("dual-dd")
+                valid_methods.append("dual-cd")
+            else:
+                valid_methods.append(m)
+                
     if not valid_methods:
         print("No valid method directories found.")
         return
@@ -304,7 +312,8 @@ def main():
         
         for method in valid_methods:
             fuzzer_name = get_fuzzer_name(method)
-            plot_file = os.path.join(root, item["session_dir"], method, item["trial"], f"out/{fuzzer_name}/plot_data")
+            dir_method = "dual" if method.startswith("dual-") else method
+            plot_file = os.path.join(root, item["session_dir"], dir_method, item["trial"], f"out/{fuzzer_name}/plot_data")
             times, edges, execs = parse_plot_data(plot_file)
             trial_method_data[method] = (times, edges, execs)
             
@@ -439,8 +448,9 @@ def main():
         for method in dual_methods:
             values = []
             fuzzer_name = get_fuzzer_name(method)
+            dir_method = "dual" if method.startswith("dual-") else method
             for item in trial_items:
-                stats_file = os.path.join(root, item["session_dir"], method, item["trial"], f"out/{fuzzer_name}/fuzzer_stats")
+                stats_file = os.path.join(root, item["session_dir"], dir_method, item["trial"], f"out/{fuzzer_name}/fuzzer_stats")
                 val = parse_corpus_imported(stats_file)
                 if val is not None:
                     values.append(val)
