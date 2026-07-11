@@ -68,25 +68,34 @@ echo "[*] Local out: $LOCAL_OUT"
 
 sync_data() {
   echo "[*] Syncing data to $DEST_DIR..."
-  # Copy the out folder itself
-  cp -a "$LOCAL_OUT" "$DEST_DIR/"
+  mkdir -p "$DEST_DIR/out"
+  cp -a "$LOCAL_OUT/"* "$DEST_DIR/out/" 2>/dev/null || true
   
-  # Move any .txt files synced from the container
   if [ -d "$DEST_DIR/out/.txt_sync" ]; then
     mv "$DEST_DIR/out/.txt_sync"/*.txt "$DEST_DIR/" 2>/dev/null || true
     rm -rf "$DEST_DIR/out/.txt_sync"
   fi
 }
 
-cleanup() {
-  echo "[*] Job ending. Performing final sync..."
-  sleep 3
+cleanup_fast() {
+  echo "[*] Abort signal received (scancel/timeout). Performing fast sync..."
+  # Discard massive queue/hangs directories to ensure sync completes before SIGKILL (30s)
+  rm -rf "$LOCAL_OUT/main/queue" "$LOCAL_OUT/slave/queue" "$LOCAL_OUT/main/hangs" "$LOCAL_OUT/slave/hangs" 2>/dev/null
+  sync_data
+  echo "[*] Cleaning up local RAM disk storage..."
+  rm -rf "/dev/shm/fuzz_${SLURM_JOB_ID}_${SLURM_ARRAY_TASK_ID}"
+  exit 0
+}
+
+cleanup_normal() {
+  echo "[*] Job completed naturally. Performing final sync..."
   sync_data
   echo "[*] Cleaning up local RAM disk storage..."
   rm -rf "/dev/shm/fuzz_${SLURM_JOB_ID}_${SLURM_ARRAY_TASK_ID}"
 }
 
-trap cleanup EXIT SIGINT SIGTERM
+trap cleanup_fast SIGINT SIGTERM
+trap cleanup_normal EXIT
 
 SANDBOX_DIR="/dev/shm/fuzz_${SLURM_JOB_ID}_${SLURM_ARRAY_TASK_ID}/sandbox"
 echo "[*] Building Apptainer Sandbox in RAM ($SANDBOX_DIR)..."
