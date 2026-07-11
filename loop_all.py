@@ -104,7 +104,7 @@ def main():
             
         cve_duration = args.max_time
         
-        print(f"\033[1;32m[Loop Runner All] Using duration for {cve}: {cve_duration} seconds\033[0m")
+        print(f"\033[1;32m[Loop Runner All] Using duration for {cve}: up to {cve_duration} seconds\033[0m")
             
         print(f"\n\033[1;34m==================================================\033[0m")
         print(f"\033[1;34m[CVE {idx}/{len(cve_list)}] Starting M={iterations} iterations for: {cve}\033[0m")
@@ -123,7 +123,9 @@ def main():
             subprocess.run([python_bin, manage_script, "up", cve, str(trials), "-y"])
             
             # Step C: Wait for the duration with 5-minute success rate checks
-            tiers = list(range(300, cve_duration + 300, 300))
+            tiers = list(range(300, cve_duration, 300))
+            if not tiers or tiers[-1] != cve_duration:
+                tiers.append(cve_duration)
             
             print(f"\n\033[1;33m[Step 3/5] Fuzzing with dynamic tiers {tiers} (up to {cve_duration}s)...\033[0m")
             
