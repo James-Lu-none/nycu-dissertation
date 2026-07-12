@@ -970,19 +970,34 @@ def run_summary(root_dir):
     summary_data = []
     for cve, csv_path in benchmarks:
         try:
-            # Locate dgf_compile_info-cd.txt recursively under artifact/cve
             cve_dir = os.path.dirname(os.path.dirname(csv_path))
             compile_info_path = None
+            dd_func_slice_path = None
+            dd_dfg_slice_path = None
             for r, dirs, files in os.walk(cve_dir):
                 for f in files:
                     if f in ["dgf_compile_info-cd.txt"]:
                         compile_info_path = os.path.join(r, f)
-                        break
-                if compile_info_path:
-                    break
-            print(f"found {compile_info_path}")
+                    if f.startswith("slice_func-") and "dd" in f and f.endswith(".txt"):
+                        dd_func_slice_path = os.path.join(r, f)
+                    if f.startswith("slice_dfg-") and "dd" in f and f.endswith(".txt"):
+                        dd_dfg_slice_path = os.path.join(r, f)
             
-            compile_info = parse_dgf_compile_info(compile_info_path)
+            print(f"found compile_info: {compile_info_path}")
+            print(f"found func_slice: {dd_func_slice_path}")
+            print(f"found dfg_slice: {dd_dfg_slice_path}")
+            
+            compile_info = parse_dgf_compile_info(compile_info_path) if compile_info_path else {}
+            
+            dd_func_slice_count = "N.A."
+            if dd_func_slice_path and os.path.isfile(dd_func_slice_path):
+                with open(dd_func_slice_path, 'r', encoding='utf-8') as sf:
+                    dd_func_slice_count = str(sum(1 for line in sf if line.strip()))
+                    
+            dd_dfg_slice_count = "N.A."
+            if dd_dfg_slice_path and os.path.isfile(dd_dfg_slice_path):
+                with open(dd_dfg_slice_path, 'r', encoding='utf-8') as df:
+                    dd_dfg_slice_count = str(sum(1 for line in df if line.strip()))
             
             dd_row = {}
             dual_row = {}
@@ -1007,10 +1022,12 @@ def run_summary(root_dir):
             
             summary_data.append({
                 "CVE": cve,
-                "# control": compile_info["control"],
-                "# caller": compile_info["caller"],
-                "# edge cov": compile_info["edge_cov"],
-                "# prune": compile_info["prune"],
+                "CD # control": compile_info.get("control", "N.A."),
+                "CD # caller": compile_info.get("caller", "N.A."),
+                "CD # edge cov": compile_info.get("edge_cov", "N.A."),
+                "CD # prune": compile_info.get("prune", "N.A."),
+                "DD # function slice": dd_func_slice_count,
+                "DD # dep": dd_dfg_slice_count,
                 "dd Geo mean TTE": dd_geo,
                 "dd succes rate": dd_success,
                 "dual Geo mean TTE": dual_geo,
@@ -1030,7 +1047,8 @@ def run_summary(root_dir):
     # Write to a CSV file in artifact root
     output_csv = os.path.join(artifact_root, "TTE_overall_summary.csv")
     headers = [
-        "CVE", "# control", "# caller", "# edge cov", "# prune",
+        "CVE", "CD # control", "CD # caller", "CD # edge cov", "CD # prune",
+        "DD # function slice", "DD # dep",
         "dd Geo mean TTE", "dd succes rate", "dual Geo mean TTE", "dual succes rate",
         "speedup", "p-value", "dd Max TTE", "dual Max TTE"
     ]
@@ -1049,10 +1067,12 @@ def run_summary(root_dir):
         import matplotlib.pyplot as plt
         cell_text = [[
             row["CVE"],
-            row["# control"],
-            row["# caller"],
-            row["# edge cov"],
-            row["# prune"],
+            row["CD # control"],
+            row["CD # caller"],
+            row["CD # edge cov"],
+            row["CD # prune"],
+            row["DD # function slice"],
+            row["DD # dep"],
             row["dd Geo mean TTE"],
             row["dd succes rate"],
             row["dual Geo mean TTE"],
