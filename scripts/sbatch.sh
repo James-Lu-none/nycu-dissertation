@@ -48,8 +48,7 @@ case $METHOD_NAME in
     TARGET=$TARGET_BIN_SOLO_DD;  FUZZER="afl-fuzz-solo-dd";   NAME="dd"
     ;;
   "muoafl")
-    # Using DUAL_DD logic or MUOAFL env var fallback
-    TARGET=${TARGET_BIN_MUOAFL:-${TARGET_BIN_DUAL_DD%-dual-dd}-dd-muoafl}; FUZZER="afl-fuzz-dd-muoafl"; NAME="muoafl"
+    TARGET=$TARGET_BIN_MUOAFL; FUZZER="afl-fuzz-dd-muoafl"; NAME="muoafl"
     ;;
 esac
 
