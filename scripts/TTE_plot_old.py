@@ -6,8 +6,8 @@ import argparse
 
 def get_method_label(method):
     m_low = method.lower()
-    if "muoafl" in m_low:
-        return "muoafl"
+    if "dual" in m_low:
+        return "dual"
     elif "cd" in m_low:
         return "cd"
     elif "dd" in m_low:
@@ -17,7 +17,7 @@ def get_method_label(method):
     else:
         return method
 
-def generate_tte_summary_plot(method_ttes, output_path, cve):
+def generate_tte_summary_plot(method_ttes, output_path, cve, dual_sources=None):
     """
     Generates Time to Bug Exposure (TTE) box plot.
     """
@@ -35,7 +35,7 @@ def generate_tte_summary_plot(method_ttes, output_path, cve):
 
     def get_sort_key(m):
         m_low = m.lower()
-        if "muoafl" in m_low:
+        if "dual" in m_low:
             return 3
         elif "cd" in m_low:
             return 2
@@ -87,7 +87,7 @@ def generate_tte_summary_plot(method_ttes, output_path, cve):
     plt.figure(figsize=(5.5, 4.5))
 
     colors_map = {
-        'muoafl': '#ff7f0e',    # orange
+        'dual': '#ff7f0e',    # orange
         'cd': '#2ca02c',       # green
         'dd': '#1f77b4',       # blue
         'base': '#7f7f7f'      # gray
@@ -146,7 +146,32 @@ def generate_tte_summary_plot(method_ttes, output_path, cve):
         valid_ttes = [ttes[idx] for idx in valid_indices]
         if valid_ttes:
             x_jitter = np.random.normal(i + 1, 0.04, size=len(valid_ttes))
-            plt.scatter(x_jitter, valid_ttes, color=color, edgecolor='black', alpha=0.8, s=45, zorder=3)
+            if get_method_label(method) == "dual" and dual_sources:
+                cd_x, cd_y = [], []
+                dd_x, dd_y = [], []
+                other_x, other_y = [], []
+                for idx, val, xj in zip(valid_indices, valid_ttes, x_jitter):
+                    if idx < len(dual_sources):
+                        src = dual_sources[idx]
+                    else:
+                        src = None
+                    if src == "cd":
+                        cd_x.append(xj)
+                        cd_y.append(val)
+                    elif src == "dd":
+                        dd_x.append(xj)
+                        dd_y.append(val)
+                    else:
+                        other_x.append(xj)
+                        other_y.append(val)
+                if cd_x:
+                    plt.scatter(cd_x, cd_y, color='#ff7f0e', edgecolor='#2ca02c', alpha=0.9, s=55, linewidth=1.8, marker='o', zorder=3)
+                if dd_x:
+                    plt.scatter(dd_x, dd_y, color='#ff7f0e', edgecolor='#1f77b4', alpha=0.9, s=55, linewidth=1.8, marker='s', zorder=3)
+                if other_x:
+                    plt.scatter(other_x, other_y, color=color, edgecolor='black', alpha=0.8, s=45, zorder=3)
+            else:
+                plt.scatter(x_jitter, valid_ttes, color=color, edgecolor='black', alpha=0.8, s=45, zorder=3)
             
             geo_mean = np.exp(np.mean(np.log(valid_ttes)))
             plt.hlines(y=geo_mean, xmin=i + 1 - 0.25, xmax=i + 1 + 0.25, colors='red', linestyles='--', linewidth=1.8, zorder=4)
@@ -172,7 +197,21 @@ def generate_tte_summary_plot(method_ttes, output_path, cve):
     median_line = mlines.Line2D([], [], color='black', linestyle='-', linewidth=1.5, label='Median')
     legend_patches.extend([geo_mean_line, median_line])
 
-
+    has_dual_cd = False
+    has_dual_dd = False
+    if "dual" in method_ttes and dual_sources:
+        for val, src in zip(method_ttes["dual"], dual_sources):
+            if val is not None:
+                if src == "cd":
+                    has_dual_cd = True
+                elif src == "dd":
+                    has_dual_dd = True
+    if has_dual_cd:
+        cd_legend = mlines.Line2D([], [], color='none', marker='o', markerfacecolor='#ff7f0e', markeredgecolor='#2ca02c', markeredgewidth=1.8, linestyle='None', markersize=8, label='Dual (CD faster)')
+        legend_patches.append(cd_legend)
+    if has_dual_dd:
+        dd_legend = mlines.Line2D([], [], color='none', marker='s', markerfacecolor='#ff7f0e', markeredgecolor='#1f77b4', markeredgewidth=1.8, linestyle='None', markersize=8, label='Dual (DD faster)')
+        legend_patches.append(dd_legend)
     
     plt.legend(handles=legend_patches, loc='best', fontsize=10)
 
@@ -180,7 +219,7 @@ def generate_tte_summary_plot(method_ttes, output_path, cve):
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
     plt.close()
 
-def generate_tte_table_image(method_ttes, output_path, cve):
+def generate_tte_table_image(method_ttes, output_path, cve, dual_sources=None):
     try:
         import matplotlib.pyplot as plt
         import numpy as np
@@ -197,7 +236,7 @@ def generate_tte_table_image(method_ttes, output_path, cve):
     
     def get_sort_key(m):
         m_low = m.lower()
-        if "muoafl" in m_low:
+        if "dual" in m_low:
             return 3
         elif "cd" in m_low:
             return 2
@@ -552,7 +591,26 @@ def main():
             except Exception as e:
                 print(f"Error analyzing lineage for {method} {item['trial']}: {e}")
 
-
+    # Combine dual-dd and dual-cd into a single method "dual"
+    dual_keys = [k for k in method_ttes.keys() if "dual" in k.lower()]
+    dual_sources = []
+    if dual_keys:
+        max_trials = max(len(method_ttes[k]) for k in dual_keys)
+        dual_ttes = []
+        for i in range(max_trials):
+            best_val = None
+            best_source = None
+            for k in dual_keys:
+                if i < len(method_ttes[k]) and method_ttes[k][i] is not None:
+                    val = method_ttes[k][i]
+                    if best_val is None or val < best_val:
+                        best_val = val
+                        best_source = "cd" if "cd" in k.lower() else ("dd" if "dd" in k.lower() else k)
+            dual_ttes.append(best_val)
+            dual_sources.append(best_source)
+        for k in dual_keys:
+            del method_ttes[k]
+        method_ttes["dual"] = dual_ttes
 
     if method_ttes:
         print("\n================ Generating TTE Summary Plot & Table ================")
@@ -567,22 +625,22 @@ def main():
             tte_summary_path = os.path.join(plot_dir, f"{trial_name}_TTE_comparison_summary.png")
             tte_table_path = os.path.join(plot_dir, f"{trial_name}_TTE_summary_table.png")
             
-        generate_tte_summary_plot(method_ttes, tte_summary_path, args.bench)
-        generate_tte_table_image(method_ttes, tte_table_path, args.bench)
+        generate_tte_summary_plot(method_ttes, tte_summary_path, args.bench, dual_sources=dual_sources)
+        generate_tte_table_image(method_ttes, tte_table_path, args.bench, dual_sources=dual_sources)
         
-        # 2. Generate dd vs muoafl only comparison plots
-        dd_muoafl_ttes = {k: v for k, v in method_ttes.items() if k in ["dd", "muoafl"]}
-        if len(dd_muoafl_ttes) > 0:
-            print("\n================ Generating TTE Summary Plot & Table (dd vs muoafl only) ================")
+        # 2. Generate dd vs dual only comparison plots
+        dd_dual_ttes = {k: v for k, v in method_ttes.items() if k in ["dd", "dual"]}
+        if len(dd_dual_ttes) > 0:
+            print("\n================ Generating TTE Summary Plot & Table (dd vs dual only) ================")
             if trial_name == "all":
-                tte_summary_path_dd_muoafl = os.path.join(plot_dir, "TTE_comparison_summary_dd_muoafl.png")
-                tte_table_path_dd_muoafl = os.path.join(plot_dir, "TTE_summary_table_dd_muoafl.png")
+                tte_summary_path_dd_dual = os.path.join(plot_dir, "TTE_comparison_summary_dd_dual.png")
+                tte_table_path_dd_dual = os.path.join(plot_dir, "TTE_summary_table_dd_dual.png")
             else:
-                tte_summary_path_dd_muoafl = os.path.join(plot_dir, f"{trial_name}_TTE_comparison_summary_dd_muoafl.png")
-                tte_table_path_dd_muoafl = os.path.join(plot_dir, f"{trial_name}_TTE_summary_table_dd_muoafl.png")
+                tte_summary_path_dd_dual = os.path.join(plot_dir, f"{trial_name}_TTE_comparison_summary_dd_dual.png")
+                tte_table_path_dd_dual = os.path.join(plot_dir, f"{trial_name}_TTE_summary_table_dd_dual.png")
                 
-            generate_tte_summary_plot(dd_muoafl_ttes, tte_summary_path_dd_muoafl, args.bench)
-            generate_tte_table_image(dd_muoafl_ttes, tte_table_path_dd_muoafl, args.bench)
+            generate_tte_summary_plot(dd_dual_ttes, tte_summary_path_dd_dual, args.bench, dual_sources=dual_sources)
+            generate_tte_table_image(dd_dual_ttes, tte_table_path_dd_dual, args.bench, dual_sources=dual_sources)
 
 if __name__ == '__main__':
     main()

@@ -299,8 +299,8 @@ def run_docker_compose_command(root_dir, command, cve_list, num_trials, run_all,
             services = []
             for i in range(1, num_trials + 1):
                 if run_all:
-                    services += [f"afl-base-{i}", f"afl-cd-{i}"]
-                services += [f"afl-dd-{i}", f"afl-muoafl-{i}"]
+                    services += [f"afl-base-{i}", f"afl-base-slave-{i}", f"afl-cd-{i}", f"afl-cd-slave-{i}"]
+                services += [f"afl-dd-{i}", f"afl-dd-slave-{i}", f"afl-dual-dd-{i}", f"afl-dual-cd-{i}"]
             cmd_args += services
         elif command == "down":
             cmd_args += ["down"]
@@ -366,7 +366,7 @@ def run_stop(cve_list):
             time.sleep(3.0)
     print("\n\033[1;32mDone.\033[0m")
 
-def copy_all_txt_files(container_name, target_dir):
+def copy_all_txt_files(container_name, target_dir, is_slave=False):
     txt_files = set()
     
     res_exec = subprocess.run(["docker", "exec", container_name, "bash", "-c", "find /workspace -maxdepth 1 -name '*.txt' 2>/dev/null"], capture_output=True, text=True)
@@ -386,13 +386,24 @@ def copy_all_txt_files(container_name, target_dir):
                     txt_files.add(os.path.basename(path))
 
     for f_name in txt_files:
-        dest_path = os.path.join(target_dir, f_name)
+        if is_slave:
+            if "_slave" not in f_name:
+                idx = f_name.rfind(".txt")
+                if idx != -1:
+                    dest_name = f_name[:idx] + "_slave" + f_name[idx:]
+                else:
+                    dest_name = f"{f_name}_slave"
+            else:
+                dest_name = f_name
+            dest_path = os.path.join(target_dir, dest_name)
+        else:
+            dest_path = os.path.join(target_dir, f_name)
             
         subprocess.run(["docker", "cp", f"{container_name}:/workspace/{f_name}", dest_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 def run_copy(root_dir, cve_list, num_trials, trial_name_arg):
-    methods = ["base", "cd", "dd", "muoafl"]
-    suffixes = ["afl-base", "afl-cd", "afl-dd", "afl-muoafl"]
+    methods = ["base", "dd", "cd", "dual-dd", "dual-cd"]
+    suffixes = ["afl-base", "afl-dd", "afl-cd", "afl-dual-dd", "afl-dual-cd"]
     trials = list(range(1, num_trials + 1))
     
     for cve in cve_list:
@@ -458,7 +469,7 @@ def run_copy(root_dir, cve_list, num_trials, trial_name_arg):
                 os.makedirs(target_dir, exist_ok=True)
                 print(f"Copying results from {c_name:<55}... ", end="", flush=True)
                 
-                copy_all_txt_files(c_name, target_dir, )
+                copy_all_txt_files(c_name, target_dir, is_slave=False)
                 if suffix in ["afl-base", "afl-cd", "afl-dd"]:
                     slave_c_name = f"{cve}-{suffix}-slave-{i}"
                     res_slave = subprocess.run(["docker", "ps", "-a", "-q", "-f", f"name=^/{slave_c_name}$"], capture_output=True, text=True)
@@ -699,7 +710,7 @@ def run_stat_plot(root_dir, cve_list, trial_name_arg, yes):
     for cve in cve_list:
         trial_name = trial_name_arg if trial_name_arg else select_trial_interactively(root_dir, cve, yes)
         print(f"Running stat_plot.py on: \033[1;35m{cve}\033[0m with trial: \033[1;35m{trial_name}\033[0m")
-        cmd = [python_bin, "scripts/stat_plot.py", "--root", os.path.join(root_dir, "artifact", cve), "--methods", "base", "cd", "dd", "muoafl", "--cve", cve, "--trial-name", trial_name]
+        cmd = [python_bin, "scripts/stat_plot.py", "--root", os.path.join(root_dir, "artifact", cve), "--methods", "base", "dd", "cd", "dual-dd", "dual-cd", "--cve", cve, "--trial-name", trial_name]
         subprocess.run(cmd)
         
     print("\n\033[1;32mDone.\033[0m")
@@ -758,8 +769,8 @@ def run_arm_plot(root_dir, cve_list, trial_name_arg):
         subprocess.run(cmd_stats)
 
 def run_ttr(root_dir, cve_list, num_trials, trial_name_arg):
-    methods = ["base", "cd", "dd", "muoafl"]
-    suffixes = ["afl-base", "afl-cd", "afl-dd", "afl-muoafl"]
+    methods = ["base", "dd", "cd", "dual-dd", "dual-cd"]
+    suffixes = ["afl-base", "afl-dd", "afl-cd", "afl-dual-dd", "afl-dual-cd"]
     trials = list(range(1, num_trials + 1))
     
     venv_activate = os.path.join(root_dir, "../.venv/bin/activate")
@@ -830,7 +841,7 @@ def run_ttr(root_dir, cve_list, num_trials, trial_name_arg):
                 os.makedirs(target_dir, exist_ok=True)
                 print(f"Copying TTR logs from {c_name:<55}... ", end="", flush=True)
                 
-                copy_all_txt_files(c_name, target_dir, )
+                copy_all_txt_files(c_name, target_dir, is_slave=False)
                 
                 if suffix in ["afl-base", "afl-cd", "afl-dd"]:
                     slave_c_name = f"{cve}-{suffix}-slave-{i}"
@@ -876,7 +887,7 @@ def run_ttr(root_dir, cve_list, num_trials, trial_name_arg):
                 else:
                     print("\033[1;31mFailed\033[0m")
                     
-        ttr_cmd = [python_bin, "scripts/TTR.py", "--root", os.path.join(root_dir, "artifact", cve), "--methods", "base", "cd", "dd", "muoafl", "--cve", cve, "--trial-name", trial_name_arg if trial_name_arg else trial_name]
+        ttr_cmd = [python_bin, "scripts/TTR.py", "--root", os.path.join(root_dir, "artifact", cve), "--methods", "base", "dd", "cd", "dual-dd", "dual-cd", "--cve", cve, "--trial-name", trial_name_arg if trial_name_arg else trial_name]
         subprocess.run(ttr_cmd)
         
 def detect_num_trials(root_dir, cve_list):
@@ -948,12 +959,12 @@ def run_summary(root_dir):
     for item in sorted(os.listdir(artifact_root)):
         item_path = os.path.join(artifact_root, item)
         if os.path.isdir(item_path):
-            csv_path = os.path.join(item_path, "plot", "TTE_summary_table_dd_muoafl.csv")
+            csv_path = os.path.join(item_path, "plot", "TTE_summary_table_dd_dual.csv")
             if os.path.isfile(csv_path):
                 benchmarks.append((item, csv_path))
                 
     if not benchmarks:
-        print("No TTE_summary_table_dd_muoafl.csv files found.")
+        print("No TTE_summary_table_dd_dual.csv files found.")
         return
         
     summary_data = []
@@ -989,25 +1000,25 @@ def run_summary(root_dir):
                     dd_dfg_slice_count = str(sum(1 for line in df if line.strip()))
             
             dd_row = {}
-            muoafl_row = {}
+            dual_row = {}
             with open(csv_path, mode='r', encoding='utf-8') as f:
                 reader = csv.DictReader(f)
                 for row in reader:
                     config = row.get("Configuration", "").lower()
-                    if "dd" in config and "muoafl" not in config:
+                    if "dd" in config and "dual" not in config:
                         dd_row = row
-                    elif "muoafl" in config:
-                        muoafl_row = row
+                    elif "dual" in config:
+                        dual_row = row
             
             dd_geo = dd_row.get("Geo Mean TTE", "N.A.")
             dd_success = dd_row.get("Success Rate", "N.A.")
-            muoafl_geo = muoafl_row.get("Geo Mean TTE", "N.A.")
-            muoafl_success = muoafl_row.get("Success Rate", "N.A.")
-            speedup = muoafl_row.get("Speedup", "N.A.")
-            p_val = muoafl_row.get("p-value", "N.A.")
+            dual_geo = dual_row.get("Geo Mean TTE", "N.A.")
+            dual_success = dual_row.get("Success Rate", "N.A.")
+            speedup = dual_row.get("Speedup", "N.A.")
+            p_val = dual_row.get("p-value", "N.A.")
             
             dd_max = dd_row.get("Max TTE", "N.A.")
-            muoafl_max = muoafl_row.get("Max TTE", "N.A.")
+            dual_max = dual_row.get("Max TTE", "N.A.")
             
             summary_data.append({
                 "CVE": cve,
@@ -1019,12 +1030,12 @@ def run_summary(root_dir):
                 "DD # dep": dd_dfg_slice_count,
                 "dd Geo mean TTE": dd_geo,
                 "dd succes rate": dd_success,
-                "muoafl Geo mean TTE": muoafl_geo,
-                "muoafl succes rate": muoafl_success,
+                "dual Geo mean TTE": dual_geo,
+                "dual succes rate": dual_success,
                 "speedup": speedup,
                 "p-value": p_val,
                 "dd Max TTE": dd_max,
-                "muoafl Max TTE": muoafl_max
+                "dual Max TTE": dual_max
             })
         except Exception as e:
             print(f"Error parsing {csv_path}: {e}")
@@ -1038,8 +1049,8 @@ def run_summary(root_dir):
     headers = [
         "CVE", "CD # control", "CD # caller", "CD # edge cov", "CD # prune",
         "DD # function slice", "DD # dep",
-        "dd Geo mean TTE", "dd succes rate", "muoafl Geo mean TTE", "muoafl succes rate",
-        "speedup", "p-value", "dd Max TTE", "muoafl Max TTE"
+        "dd Geo mean TTE", "dd succes rate", "dual Geo mean TTE", "dual succes rate",
+        "speedup", "p-value", "dd Max TTE", "dual Max TTE"
     ]
     try:
         with open(output_csv, mode='w', newline='', encoding='utf-8') as f:
@@ -1064,12 +1075,12 @@ def run_summary(root_dir):
             row["DD # dep"],
             row["dd Geo mean TTE"],
             row["dd succes rate"],
-            row["muoafl Geo mean TTE"],
-            row["muoafl succes rate"],
+            row["dual Geo mean TTE"],
+            row["dual succes rate"],
             row["speedup"],
             row["p-value"],
             row["dd Max TTE"],
-            row["muoafl Max TTE"]
+            row["dual Max TTE"]
         ] for row in summary_data]
         
         fig, ax = plt.subplots(figsize=(16.0, len(summary_data) * 0.4 + 0.8))
