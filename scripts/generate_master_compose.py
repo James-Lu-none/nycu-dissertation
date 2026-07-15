@@ -31,6 +31,10 @@ def generate_compose(num_trials):
     volumes:
       - "afl-out-base-{i}:/workspace/out"
       - "./script.sh:/workspace/script.sh:ro"
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
 """)
         volumes_lines.append(f"""  afl-out-base-{i}:
     name: "${{CVE}}-afl-out-base-{i}"
@@ -54,6 +58,10 @@ def generate_compose(num_trials):
     volumes:
       - "afl-out-cd-{i}:/workspace/out"
       - "./script.sh:/workspace/script.sh:ro"
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
 """)
         volumes_lines.append(f"""  afl-out-cd-{i}:
     name: "${{CVE}}-afl-out-cd-{i}"
@@ -77,6 +85,10 @@ def generate_compose(num_trials):
     volumes:
       - "afl-out-dd-{i}:/workspace/out"
       - "./script.sh:/workspace/script.sh:ro"
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
 """)
         volumes_lines.append(f"""  afl-out-dd-{i}:
     name: "${{CVE}}-afl-out-dd-{i}"
@@ -100,6 +112,10 @@ def generate_compose(num_trials):
     volumes:
       - "afl-out-muoafl-{i}:/workspace/out"
       - "./script.sh:/workspace/script.sh:ro"
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
 """)
         volumes_lines.append(f"""  afl-out-muoafl-{i}:
     name: "${{CVE}}-afl-out-muoafl-{i}"
