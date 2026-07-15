@@ -136,7 +136,7 @@ def main():
             
         return {"match": found_match, "elapsed_ms": elapsed_ms, "exec_time": exec_time, "crash_file": crash_file, "full_log": full_log}
 
-    max_workers = min(16, max(1, multiprocessing.cpu_count()))
+    max_workers = min(4, max(1, multiprocessing.cpu_count()))
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = [executor.submit(process_crash, cf) for cf in crash_files]
         for future in futures:
