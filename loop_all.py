@@ -6,7 +6,7 @@ import time
 import datetime
 import argparse
 
-def get_latest_success_rate(cve, root_dir, expected_total=0, target_method="dual"):
+def get_latest_success_rate(cve, root_dir, expected_total=0, target_method="muoafl"):
     import re
     artifact_cve_dir = os.path.join(root_dir, "artifact", cve)
     if not os.path.isdir(artifact_cve_dir):
