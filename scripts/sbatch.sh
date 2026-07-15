@@ -2,7 +2,7 @@
 #SBATCH --job-name=afl_bench
 #SBATCH --partition=iais_cge_teacher
 #SBATCH --nodes=1
-#SBATCH --cpus-per-task=2
+#SBATCH --cpus-per-task=1
 #SBATCH --time=25:00:00
 #SBATCH --output=logs/slurm-%A_%a.out
 #SBATCH --mem-per-cpu=8G
