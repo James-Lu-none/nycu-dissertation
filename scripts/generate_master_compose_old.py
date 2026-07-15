@@ -25,7 +25,25 @@ def generate_compose(num_trials):
       - TARGET_ARGS=${{TARGET_ARGS}}
       - FUZZER_BIN=afl-fuzz
       - FUZZER_ROLE=M
-      - FUZZER_NAME=base
+      - FUZZER_NAME=main
+      - SESSION_ID=${{SESSION_ID}}
+      - TRIAL_NAME=${{TRIAL_NAME}}
+    volumes:
+      - "afl-out-base-{i}:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+""")
+        services_lines.append(f"""  afl-base-slave-{i}:
+    container_name: "${{CVE}}-afl-base-slave-{i}"
+    image: "${{IMAGE_NAME}}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${{TARGET_BIN_BASE}}
+      - TARGET_ARGS=${{TARGET_ARGS}}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=S
+      - FUZZER_NAME=slave
       - SESSION_ID=${{SESSION_ID}}
       - TRIAL_NAME=${{TRIAL_NAME}}
     volumes:
@@ -48,7 +66,25 @@ def generate_compose(num_trials):
       - TARGET_ARGS=${{TARGET_ARGS}}
       - FUZZER_BIN=afl-fuzz-cd
       - FUZZER_ROLE=M
-      - FUZZER_NAME=cd
+      - FUZZER_NAME=main
+      - SESSION_ID=${{SESSION_ID}}
+      - TRIAL_NAME=${{TRIAL_NAME}}
+    volumes:
+      - "afl-out-cd-{i}:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+""")
+        services_lines.append(f"""  afl-cd-slave-{i}:
+    container_name: "${{CVE}}-afl-cd-slave-{i}"
+    image: "${{IMAGE_NAME}}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${{TARGET_BIN_CD}}
+      - TARGET_ARGS=${{TARGET_ARGS}}
+      - FUZZER_BIN=afl-fuzz-cd
+      - FUZZER_ROLE=S
+      - FUZZER_NAME=slave
       - SESSION_ID=${{SESSION_ID}}
       - TRIAL_NAME=${{TRIAL_NAME}}
     volumes:
@@ -62,7 +98,7 @@ def generate_compose(num_trials):
         # DD
         services_lines.append(f"""  afl-dd-{i}:
     container_name: "${{CVE}}-afl-dd-{i}"
-    image: "${{IMAGE_NAME}}"
+{build_str}    image: "${{IMAGE_NAME}}"
     command: bash -c "bash script.sh && sleep infinity"
     working_dir: /workspace
     pid: "host"
@@ -71,7 +107,25 @@ def generate_compose(num_trials):
       - TARGET_ARGS=${{TARGET_ARGS}}
       - FUZZER_BIN=afl-fuzz-solo-dd
       - FUZZER_ROLE=M
-      - FUZZER_NAME=dd
+      - FUZZER_NAME=main
+      - SESSION_ID=${{SESSION_ID}}
+      - TRIAL_NAME=${{TRIAL_NAME}}
+    volumes:
+      - "afl-out-dd-{i}:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+""")
+        services_lines.append(f"""  afl-dd-slave-{i}:
+    container_name: "${{CVE}}-afl-dd-slave-{i}"
+    image: "${{IMAGE_NAME}}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${{TARGET_BIN_SOLO_DD}}
+      - TARGET_ARGS=${{TARGET_ARGS}}
+      - FUZZER_BIN=afl-fuzz-solo-dd
+      - FUZZER_ROLE=S
+      - FUZZER_NAME=slave
       - SESSION_ID=${{SESSION_ID}}
       - TRIAL_NAME=${{TRIAL_NAME}}
     volumes:
@@ -82,27 +136,46 @@ def generate_compose(num_trials):
     name: "${{CVE}}-afl-out-dd-{i}"
 """)
 
-        # MUOAFL
-        services_lines.append(f"""  afl-muoafl-{i}:
-    container_name: "${{CVE}}-afl-muoafl-{i}"
+        # Dual DD
+        services_lines.append(f"""  afl-dual-dd-{i}:
+    container_name: "${{CVE}}-afl-dual-dd-{i}"
     image: "${{IMAGE_NAME}}"
     command: bash -c "bash script.sh && sleep infinity"
     working_dir: /workspace
     pid: "host"
     environment:
-      - TARGET_BIN=${{TARGET_BIN_MUOAFL}}
+      - TARGET_BIN=${{TARGET_BIN_DUAL_DD}}
       - TARGET_ARGS=${{TARGET_ARGS}}
-      - FUZZER_BIN=afl-fuzz-dd-muoafl
+      - FUZZER_BIN=afl-fuzz-dual-dd
       - FUZZER_ROLE=M
-      - FUZZER_NAME=muoafl
+      - FUZZER_NAME=dd
       - SESSION_ID=${{SESSION_ID}}
       - TRIAL_NAME=${{TRIAL_NAME}}
     volumes:
-      - "afl-out-muoafl-{i}:/workspace/out"
+      - "afl-dual-out-{i}:/workspace/out"
       - "./script.sh:/workspace/script.sh:ro"
 """)
-        volumes_lines.append(f"""  afl-out-muoafl-{i}:
-    name: "${{CVE}}-afl-out-muoafl-{i}"
+        # Dual CD
+        services_lines.append(f"""  afl-dual-cd-{i}:
+    container_name: "${{CVE}}-afl-dual-cd-{i}"
+    image: "${{IMAGE_NAME}}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${{TARGET_BIN_DUAL_CD}}
+      - TARGET_ARGS=${{TARGET_ARGS}}
+      - FUZZER_BIN=afl-fuzz-dual-cd
+      - FUZZER_ROLE=S
+      - FUZZER_NAME=cd
+      - SESSION_ID=${{SESSION_ID}}
+      - TRIAL_NAME=${{TRIAL_NAME}}
+    volumes:
+      - "afl-dual-out-{i}:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+""")
+        volumes_lines.append(f"""  afl-dual-out-{i}:
+    name: "${{CVE}}-afl-dual-out-{i}"
 """)
 
     full_content = "\n".join(services_lines) + "\n" + "\n".join(volumes_lines)
@@ -125,4 +198,3 @@ if __name__ == "__main__":
         except ValueError:
             pass
     generate_compose(trials)
-
