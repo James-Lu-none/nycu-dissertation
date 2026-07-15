@@ -99,11 +99,11 @@ def main():
             if "@@" in flags:
                 run_args = [crash_path if arg == "@@" else arg for arg in flags]
                 cmd = [binary] + run_args
-                res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=4, env=env)
+                res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10, env=env)
             else:
                 cmd = [binary] + flags
                 with open(crash_path, 'rb') as stdin_file:
-                    res = subprocess.run(cmd, stdin=stdin_file, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=4, env=env)
+                    res = subprocess.run(cmd, stdin=stdin_file, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10, env=env)
             t_end = time.time()
             exec_time = t_end - t_start
             
