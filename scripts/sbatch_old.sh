@@ -25,10 +25,10 @@ ROOT_DIR="${HOME}/workspace/nycu-dissertation"
 RUN_ALL=${RUN_ALL:-0}
 
 if [ "$RUN_ALL" = "1" ]; then
-  ACTIVE_METHODS=("base" "cd" "dd" "muoafl")
+  ACTIVE_METHODS=("base" "cd" "dd" "dual")
   MOD=4
 else
-  ACTIVE_METHODS=("dd" "muoafl")
+  ACTIVE_METHODS=("dd" "dual")
   MOD=2
 fi
 
@@ -39,17 +39,20 @@ METHOD_NAME=${ACTIVE_METHODS[$METHOD_IDX]}
 
 case $METHOD_NAME in
   "base")
-    TARGET=$TARGET_BIN_BASE;     FUZZER="afl-fuzz";           NAME="base"
+    M_TARGET=$TARGET_BIN_BASE;     M_FUZZER="afl-fuzz";         M_NAME="main"
+    S_TARGET=$TARGET_BIN_BASE;     S_FUZZER="afl-fuzz";         S_NAME="slave"
     ;;
   "cd")
-    TARGET=$TARGET_BIN_CD;       FUZZER="afl-fuzz-cd";        NAME="cd"
+    M_TARGET=$TARGET_BIN_CD;       M_FUZZER="afl-fuzz-cd";      M_NAME="main"
+    S_TARGET=$TARGET_BIN_CD;       S_FUZZER="afl-fuzz-cd";      S_NAME="slave"
     ;;
   "dd")
-    TARGET=$TARGET_BIN_SOLO_DD;  FUZZER="afl-fuzz-solo-dd";   NAME="dd"
+    M_TARGET=$TARGET_BIN_SOLO_DD;  M_FUZZER="afl-fuzz-solo-dd"; M_NAME="main"
+    S_TARGET=$TARGET_BIN_SOLO_DD;  S_FUZZER="afl-fuzz-solo-dd"; S_NAME="slave"
     ;;
-  "muoafl")
-    # Using DUAL_DD logic or MUOAFL env var fallback
-    TARGET=${TARGET_BIN_MUOAFL:-${TARGET_BIN_DUAL_DD%-dual-dd}-dd-muoafl}; FUZZER="afl-fuzz-dd-muoafl"; NAME="muoafl"
+  "dual")
+    M_TARGET=$TARGET_BIN_DUAL_DD;  M_FUZZER="afl-fuzz-dual-dd"; M_NAME="dd"
+    S_TARGET=$TARGET_BIN_DUAL_CD;  S_FUZZER="afl-fuzz-dual-cd"; S_NAME="cd"
     ;;
 esac
 
@@ -76,7 +79,8 @@ sync_data() {
 
 cleanup_fast() {
   echo "[*] Abort signal received (scancel/timeout). Performing fast sync..."
-  rm -rf "$LOCAL_OUT/${NAME}/queue" "$LOCAL_OUT/${NAME}/hangs" 2>/dev/null
+  # Discard massive queue/hangs directories to ensure sync completes before SIGKILL (30s)
+  rm -rf "$LOCAL_OUT/${M_NAME}/queue" "$LOCAL_OUT/${S_NAME}/queue" "$LOCAL_OUT/${M_NAME}/hangs" "$LOCAL_OUT/${S_NAME}/hangs" 2>/dev/null
   sync_data
   echo "[*] Cleaning up local RAM disk storage..."
   rm -rf "/dev/shm/fuzz_${SLURM_JOB_ID}_${SLURM_ARRAY_TASK_ID}"
@@ -99,15 +103,27 @@ apptainer build --sandbox "$SANDBOX_DIR" "${ROOT_DIR}/bench/${CVE}/${IMAGE_NAME}
 
 cat << 'EOF' > "$LOCAL_OUT/sync_txt.sh"
 #!/bin/bash
+MODE=$1
 mkdir -p out/.txt_sync
 while true; do
-  find . -maxdepth 1 -name '*.txt' -exec cp {} out/.txt_sync/ \; 2>/dev/null
+  if [ "$MODE" == "main" ] || [ "$MODE" == "dd" ]; then
+    find . -maxdepth 1 -name '*.txt' -exec cp {} out/.txt_sync/ \; 2>/dev/null
+  else
+    for f in *.txt; do
+      [ -f "$f" ] || continue
+      if [[ "$f" == *_slave.txt ]] || [[ "$f" == *_cd.txt ]]; then
+        cp "$f" "out/.txt_sync/$f" 2>/dev/null
+      else
+        cp "$f" "out/.txt_sync/${f%.txt}_${MODE}.txt" 2>/dev/null
+      fi
+    done
+  fi
   sleep 60
 done
 EOF
 chmod +x "$LOCAL_OUT/sync_txt.sh"
 
-echo "[*] Starting Fuzzer ($NAME)..."
+echo "[*] Starting Main Fuzzer ($M_NAME)..."
 apptainer exec \
   --cleanenv \
   --containall \
@@ -116,37 +132,55 @@ apptainer exec \
   --no-home \
   --bind ${LOCAL_OUT}:/workspace/out \
   "$SANDBOX_DIR" \
-  bash -c "cd /workspace || exit 1; /workspace/out/sync_txt.sh & exec ${FUZZER} -i /workspace/in -o /workspace/out -M ${NAME} -- ${TARGET} ${TARGET_ARGS}" &
-FUZZER_PID=$!
+  bash -c "cd /workspace || exit 1; /workspace/out/sync_txt.sh main & exec ${M_FUZZER} -i /workspace/in -o /workspace/out -M ${M_NAME} -- ${M_TARGET} ${TARGET_ARGS}" &
+MAIN_PID=$!
+
+sleep 2
+
+echo "[*] Starting Slave Fuzzer ($S_NAME)..."
+apptainer exec \
+  --cleanenv \
+  --containall \
+  --pid \
+  --ipc \
+  --no-home \
+  --bind ${LOCAL_OUT}:/workspace/out \
+  "$SANDBOX_DIR" \
+  bash -c "cd /workspace || exit 1; /workspace/out/sync_txt.sh slave & exec ${S_FUZZER} -i /workspace/in -o /workspace/out -S ${S_NAME} -- ${S_TARGET} ${TARGET_ARGS}" &
+SLAVE_PID=$!
 
 # Background polling for live triage
 (
   while true; do
     sleep 300
     echo "[*] [$(date)] Running live triage..." >> "$DEST_DIR/triage.log"
-    python3 -u "${ROOT_DIR}/scripts/live_triage.py" --cve "$CVE" --image "$SANDBOX_DIR" --local-out "$LOCAL_OUT" $TARGET $TARGET_ARGS >> "$DEST_DIR/triage.log" 2>&1
+    python3 -u "${ROOT_DIR}/scripts/live_triage.py" --cve "$CVE" --image "$SANDBOX_DIR" --local-out "$LOCAL_OUT" $M_TARGET $TARGET_ARGS >> "$DEST_DIR/triage.log" 2>&1
     
     # Sync triage stats back to NFS
-    mkdir -p "$DEST_DIR/out/${NAME}/crashes"
-    cp "$LOCAL_OUT/${NAME}/crashes/.triage_stats" "$DEST_DIR/out/${NAME}/crashes/" 2>/dev/null || true
-    cp "$LOCAL_OUT/${NAME}/crashes/.triaged_crashes" "$DEST_DIR/out/${NAME}/crashes/" 2>/dev/null || true
+    mkdir -p "$DEST_DIR/out/${M_NAME}/crashes" "$DEST_DIR/out/${S_NAME}/crashes"
+    cp "$LOCAL_OUT/${M_NAME}/crashes/.triage_stats" "$DEST_DIR/out/${M_NAME}/crashes/" 2>/dev/null || true
+    cp "$LOCAL_OUT/${M_NAME}/crashes/.triaged_crashes" "$DEST_DIR/out/${M_NAME}/crashes/" 2>/dev/null || true
+    cp "$LOCAL_OUT/${S_NAME}/crashes/.triage_stats" "$DEST_DIR/out/${S_NAME}/crashes/" 2>/dev/null || true
+    cp "$LOCAL_OUT/${S_NAME}/crashes/.triaged_crashes" "$DEST_DIR/out/${S_NAME}/crashes/" 2>/dev/null || true
     
     if [ -f "$LOCAL_OUT/dgf_target_exposure.txt" ]; then
-      echo "[+] TTE Found! Terminating fuzzer early..." >> "$DEST_DIR/triage.log"
-      kill $FUZZER_PID 2>/dev/null
+      echo "[+] TTE Found! Terminating fuzzers early..." >> "$DEST_DIR/triage.log"
+      kill $MAIN_PID $SLAVE_PID 2>/dev/null
       break
     fi
   done
 ) &
 TRIAGE_PID=$!
 
-wait $FUZZER_PID
-FUZZER_EXIT=$?
+wait $MAIN_PID
+MAIN_EXIT=$?
+wait $SLAVE_PID
+SLAVE_EXIT=$?
 
 kill $TRIAGE_PID 2>/dev/null
 
-if [ $FUZZER_EXIT -ne 0 ]; then
-    echo "[-] Error: The fuzzer crashed! Exit code: $FUZZER_EXIT"
+if [ $MAIN_EXIT -ne 0 ] || [ $SLAVE_EXIT -ne 0 ]; then
+    echo "[-] Error: One of the fuzzers crashed! Main: $MAIN_EXIT, Slave: $SLAVE_EXIT"
 fi
 
 exit 0
