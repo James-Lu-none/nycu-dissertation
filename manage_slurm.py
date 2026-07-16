@@ -30,9 +30,6 @@ def run_slurm_command(root_dir, command, cve_list, num_trials, run_all, yes, tag
             
         current_session_file = os.path.join(cve_bench_dir, ".current_session")
         env_dict = get_env_dict(cve_bench_dir)
-        if "IMAGE_NAME" in env_dict and tag_value:
-            base_name = env_dict["IMAGE_NAME"].split(':')[0]
-            env_dict["IMAGE_NAME"] = f"{base_name}:{tag_value}"
         
         if command == "up":
             active_trial_name = trial_name_arg if trial_name_arg else f"trial_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"

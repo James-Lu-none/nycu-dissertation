@@ -46,11 +46,13 @@ sudo systemctl restart systemd-logind
 
 ```bash
 # v1: dafl + muofuzz (no interaction)
-./loop.sh --tag v1 --trials 30
+./loop.sh --tags v1 --trials 30
 # v2: dafl + muofuzz (use dafl distance score as additional feedback)
-./loop.sh --tag v2 --trials 30
+./loop.sh --tags v2 --trials 30
 # v3: dafl + muofuzz (use dafl distance score as additional feedback and add sematic)
-./loop.sh --tag v3 --trials 30
+./loop.sh --tags v3 --trials 30
+
+./loop_all.sh --tags="v1,v2,v3" --trials 30
 ```
 
 ### slurm cluster (apptainer)
@@ -62,6 +64,8 @@ sudo systemctl restart systemd-logind
 ./loop_all.sh --tag v2 --slurm --trials 30
 # v3: dafl + muofuzz (use dafl distance score as additional feedback and add sematic)
 ./loop_all.sh --tag v3 --slurm --trials 30
+
+./loop_all.sh --tags="v1,v2,v3" --trials 30 --slurm
 ```
 
 

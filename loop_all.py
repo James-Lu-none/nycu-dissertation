@@ -68,7 +68,7 @@ def main():
     parser.add_argument("--trials", type=int, default=15, help="Number of trials per CVE (default: 15)")
     parser.add_argument("--slurm", action="store_true", help="Run in Slurm mode using manage_slurm.py")
     parser.add_argument("--max-time", type=int, default=43200, help="Maximum fuzzing time in seconds per iteration (default: 43200)")
-    parser.add_argument("--tag", type=str, required=True, help="Target image tag (e.g. v1)")
+    parser.add_argument("--tags", type=str, default="v1", help="Target image tags, comma separated (e.g. v1,v2) (Default: v1)")
     parser.add_argument("--registry", type=str, default="registry.optixbase.com:30000", help="Docker registry URL")
     args = parser.parse_args()
     
@@ -118,11 +118,11 @@ def main():
             
             # Step A: Compile docker images
             print("\n\033[1;33m[Step 1/5] Compiling docker images...\033[0m")
-            subprocess.run([python_bin, manage_script, "build", cve, str(trials), "--tag", args.tag, "--registry", args.registry])
+            subprocess.run([python_bin, manage_script, "build", cve, str(trials), "--tags", args.tags, "--registry", args.registry])
 
             # Step B: Start containers
             print("\n\033[1;33m[Step 2/5] Starting containers...\033[0m")
-            subprocess.run([python_bin, manage_script, "up", cve, str(trials), "-y", "--tag", args.tag, "--registry", args.registry])
+            subprocess.run([python_bin, manage_script, "up", cve, str(trials), "-y", "--tags", args.tags, "--registry", args.registry])
             
             # Step C: Wait for the duration with 5-minute success rate checks
             tiers = list(range(300, cve_duration, 300))
@@ -179,16 +179,16 @@ def main():
                     
             # Step D: Gracefully stop containers
             print("\n\033[1;33m[Step 4/6] Stopping containers gracefully to flush final state...\033[0m" if not args.slurm else "\n\033[1;33m[Step 4/6] Stopping Slurm jobs...\033[0m")
-            subprocess.run([python_bin, manage_script, "stop", cve, str(trials), "--tag", args.tag, "--registry", args.registry])
+            subprocess.run([python_bin, manage_script, "stop", cve, str(trials), "--tags", args.tags, "--registry", args.registry])
             
             if not args.slurm:
                 # Step E: Copy results
                 print("\n\033[1;33m[Step 5/6] Copying trial results...\033[0m")
-                subprocess.run([python_bin, manage_script, "copy", cve, str(trials), "--tag", args.tag, "--registry", args.registry])
+                subprocess.run([python_bin, manage_script, "copy", cve, str(trials), "--tags", args.tags, "--registry", args.registry])
                 
                 # Step F: Shut down containers (clean all containers & volumes)
                 print("\n\033[1;33m[Step 6/6] Cleaning up containers and volumes...\033[0m")
-                subprocess.run([python_bin, manage_script, "clean", "--tag", args.tag, "--registry", args.registry])
+                subprocess.run([python_bin, manage_script, "clean", "--tags", args.tags, "--registry", args.registry])
             
             # Extra: Run TTE check
             print("\n\033[1;35m[Post-processing] Running TTE check...\033[0m")
