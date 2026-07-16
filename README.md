@@ -19,6 +19,47 @@ ulimit -c 0
 sudo cpupower frequency-set -g performance
 ```
 
+## build images
+
+```
+./manage.sh build dafl --tag v1
+./manage.sh build cafl --tag v1
+
+./manage.sh build muoafl --tag v1
+./manage.sh build muoafl --tag v2
+./manage.sh build muoafl --tag v3
+
+./manage.sh build --tag v1
+./manage.sh build --tag v2
+./manage.sh build --tag v3
+```
+
+## run benchmarks
+
+### normal server (docker)
+
+```bash
+# v1: dafl + muofuzz (no interaction)
+./loop.sh --tag v1 --trials 30
+# v2: dafl + muofuzz (use dafl distance score as additional feedback)
+./loop.sh --tag v2 --trials 30
+# v3: dafl + muofuzz (use dafl distance score as additional feedback and add sematic)
+./loop.sh --tag v3 --trials 30
+```
+
+### slurm cluster (apptainer)
+
+```bash
+# v1: dafl + muofuzz (no interaction)
+./loop_all.sh --tag v1 --slurm --trials 30
+# v2: dafl + muofuzz (use dafl distance score as additional feedback)
+./loop_all.sh --tag v2 --slurm --trials 30
+# v3: dafl + muofuzz (use dafl distance score as additional feedback and add sematic)
+./loop_all.sh --tag v3 --slurm --trials 30
+```
+
+
+
 ## Future Optimization Directions for CAFL (ARM & Scheduling)
 
 ### 1. Cull Queue & Favored Seed Selection
