@@ -19,6 +19,14 @@ ulimit -c 0
 sudo cpupower frequency-set -g performance
 ```
 
+```bash
+# settings for slurm
+# disable /dev/shm auto clean with RemoveIPC
+vim /etc/systemd/logind.conf
+RemoveIPC=no
+sudo systemctl restart systemd-logind
+```
+
 ## build images
 
 ```
