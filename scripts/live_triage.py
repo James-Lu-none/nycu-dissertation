@@ -61,8 +61,8 @@ def main():
         print("No crashes directories found yet.")
         sys.exit(0)
         
-    exposure_file = os.path.join(local_out, "dgf_target_exposure.txt")
-    if os.path.exists(exposure_file):
+    exposure_file = os.path.join(local_out, "tte.txt")
+    if os.path.exists(exposure_file) and os.path.getsize(exposure_file) > 0:
         print(f"TTE already found: {exposure_file}")
         sys.exit(0)
 
@@ -121,7 +121,7 @@ def main():
                 res = f.read().strip()
                 if res != "None":
                     parts = res.rsplit(',', 1)
-                    crash_id = parts[0]
+                    crash_id = f"{fuzzer_dir}/{parts[0]}"
                     crash_time = int(parts[1])
                     if best_tte_ms is None or crash_time < best_tte_ms:
                         best_tte_ms = crash_time
@@ -149,9 +149,11 @@ def main():
     if best_tte_ms is not None:
         print(f"      [+] TTE FOUND! Crash ID: {best_matching_crash}, Time: {best_tte_ms} ms")
         with open(exposure_file, "w") as f:
-            f.write("Target reached!\n")
-            f.write(f"TTE (ms): {best_tte_ms}\n")
-            f.write(f"Crash file: {best_matching_crash}\n")
+            f.write(f"{best_matching_crash}\n")
+    else:
+        # Create empty file if not found yet
+        with open(exposure_file, "w") as f:
+            pass
 
 if __name__ == "__main__":
     main()

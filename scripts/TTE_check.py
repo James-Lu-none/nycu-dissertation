@@ -417,7 +417,7 @@ def main():
         for item in trial_items:
             local_trial_dir = os.path.join(artifact_dir, item["session_dir"], method, item["trial"])
             os.makedirs(local_trial_dir, exist_ok=True)
-            exposure_file_path = os.path.join(local_trial_dir, "dgf_target_exposure.txt")
+            exposure_file_path = os.path.join(local_trial_dir, "tte.txt")
             
             # Locate all sub-crashes directories
             crashes_dirs = []
@@ -435,7 +435,7 @@ def main():
             if not crashes_dirs:
                 print(f"Trial {item['label']}: Crashes directory not found. Writing TTE: inf.")
                 with open(exposure_file_path, "w") as ef:
-                    ef.write("Target not reached\n")
+                    pass
                 continue
                 
             # Triage each crashes directory
@@ -485,13 +485,11 @@ def main():
                 tte_sec = best_tte_ms / 1000.0
                 print(f"  [+] Trial {item['label']} True TTE: {tte_sec:.3f} seconds ({best_tte_ms} ms) | Crash: {best_matching_crash}")
                 with open(exposure_file_path, "w") as ef:
-                    ef.write("Target reached!\n")
-                    ef.write(f"Elapsed:    {tte_sec:.3f} seconds ({best_tte_ms} ms)\n")
-                    ef.write(f"Crash File: {best_matching_crash}\n")
+                    ef.write(f"{best_matching_crash}\n")
             else:
                 print(f"  [-] Trial {item['label']} target was not reached by any crash.")
                 with open(exposure_file_path, "w") as ef:
-                    ef.write("Target not reached\n")
+                    pass
 
 if __name__ == '__main__':
     main()

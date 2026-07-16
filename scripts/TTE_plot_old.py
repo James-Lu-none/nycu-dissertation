@@ -362,36 +362,32 @@ def parse_exposure_file(file_path):
         return None
     try:
         with open(file_path, 'r') as f:
-            content = f.read()
-            if "Target not reached" in content:
+            content = f.read().strip()
+            if not content:
                 return None
-            match = re.search(r'Elapsed:\s+([\d\.]+)\s+seconds', content)
+            match = re.search(r'time:(\d+)', content)
             if match:
-                return float(match.group(1))
+                return float(match.group(1)) / 1000.0
     except Exception as e:
         print(f"Error parsing {file_path}: {e}")
     return None
 
 def analyze_and_write_lineage(artifact_dir, session_dir, method, trial, plot_dir):
-    exposure_file_path = os.path.join(artifact_dir, session_dir, method, trial, "dgf_target_exposure.txt")
+    exposure_file_path = os.path.join(artifact_dir, session_dir, method, trial, "tte.txt")
     if not os.path.exists(exposure_file_path):
         return
         
     try:
         with open(exposure_file_path, 'r') as f:
-            content = f.read()
+            content = f.read().strip()
     except Exception as e:
         print(f"Error reading exposure file {exposure_file_path}: {e}")
         return
         
-    if "Target reached!" not in content:
+    if not content:
         return
         
-    match = re.search(r'Crash File:\s*(.*)', content)
-    if not match:
-        return
-        
-    crash_file_info = match.group(1).strip()
+    crash_file_info = content
     
     # Extract fuzzer name (CD vs DD vs main)
     # Extract fuzzer name (main vs slave)
@@ -578,13 +574,13 @@ def main():
             
     print(f"Detected fuzzer methods: {methods}")
     print(f"Detected matching trial items ({len(trial_items)}): {[t['label'] for t in trial_items]}")
-    print("Reading TTEs from existing dgf_target_exposure.txt files...")
+    print("Reading TTEs from existing tte.txt files...")
     method_ttes = {}
     plot_dir = os.path.join(artifact_dir, "plot")
     for method in methods:
         method_ttes[method] = []
         for item in trial_items:
-            exposure_file_path = os.path.join(artifact_dir, item["session_dir"], method, item["trial"], "dgf_target_exposure.txt")
+            exposure_file_path = os.path.join(artifact_dir, item["session_dir"], method, item["trial"], "tte.txt")
             tte = parse_exposure_file(exposure_file_path)
             method_ttes[method].append(tte)
             try:

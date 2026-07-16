@@ -47,15 +47,17 @@ def check_all_methods_success(cve, root_dir, expected_total=0):
         ttes = []
         
         for root_walk, dirs, files in os.walk(method_dir):
-            if "dgf_target_exposure.txt" in files:
-                total_trials += 1
-                file_path = os.path.join(root_walk, "dgf_target_exposure.txt")
+            if "tte.txt" in files:
+                file_path = os.path.join(root_walk, "tte.txt")
                 try:
                     with open(file_path, "r") as f:
-                        content = f.read()
-                        if "Target reached!" in content:
+                        content = f.read().strip()
+                        # Only count it as a trial run if tte.txt exists (empty or not)
+                        total_trials += 1
+                        
+                        if content:  # If not empty, target was reached
                             reached_trials += 1
-                            match = re.search(r'Elapsed:\s+([\d\.]+)\s+seconds', content)
+                            match = re.search(r'time:(\d+)', content)
                             if match:
                                 ttes.append(float(match.group(1)))
                 except Exception:
