@@ -27,7 +27,7 @@ def main():
     
     # We MUST use the ASAN-instrumented binary for triage!
     import re
-    binary = re.sub(r'-(base|cd|solo-dd|dual-dd|dual-cd)$', '', binary)
+    binary = re.sub(r'-(base|cd|solo-dd|dual-dd|dual-cd|dd-muoafl.*)$', '', binary)
     if not binary.endswith("-asan"):
         binary = f"{binary}-asan"
     

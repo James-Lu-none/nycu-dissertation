@@ -451,11 +451,9 @@ def main():
                 
                 # Strip leading paths if necessary, but actually the .env specifies the path like ./cxxfilt-base
                 # We need the ASAN version.
-                if binary.endswith("-base"):
-                    asan_binary = binary[:-5] + "-asan"
-                else:
-                    # If it doesn't end with -base, just append -asan (or handle specific cases)
-                    asan_binary = f"{binary}-asan"
+                asan_binary = re.sub(r'-(base|cd|solo-dd|dual-dd|dual-cd|dd-muoafl.*)$', '', binary)
+                if not asan_binary.endswith("-asan"):
+                    asan_binary = f"{asan_binary}-asan"
                     
                 # Fix for paths: if it starts with ./, it's relative to /workspace inside the container.
                 # The container execution already binds and works in the right context or uses the absolute path if provided.

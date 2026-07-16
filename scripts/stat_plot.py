@@ -127,6 +127,8 @@ def get_fuzzer_name(method):
         return "cd"
     elif "dual-dd" in m_low:
         return "dd"
+    elif "muoafl" in m_low:
+        return "dd"
     return "main"
 
 def get_method_info(method):
@@ -141,6 +143,14 @@ def get_method_info(method):
         return "Data Dependency (dd)", "#1f77b4"
     elif "base" in m_low:
         return "Baseline (base)", "#7f7f7f"
+    elif "muoafl" in m_low:
+        if "v1" in m_low:
+            return method, "#9467bd" # purple
+        elif "v2" in m_low:
+            return method, "#8c564b" # brown
+        elif "v3" in m_low:
+            return method, "#e377c2" # pink
+        return method, "#ff7f0e"
     return method, "#7f7f7f"
 
 def plot_single_trial(methods, method_data, output_dir, cve="CVE"):

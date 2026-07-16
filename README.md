@@ -30,15 +30,13 @@ sudo systemctl restart systemd-logind
 ## build images
 
 ```
-./manage.sh build dafl --tag v1
-./manage.sh build cafl --tag v1
+./manage.sh build dafl --tags v1
+./manage.sh build cafl --tags v1
 
-./manage.sh build muoafl --tag v1
-./manage.sh build muoafl --tag v2
-./manage.sh build muoafl --tag v3
+./manage.sh build muoafl --tags v1
+./manage.sh build muoafl --tags v2
+./manage.sh build muoafl --tags v3
 
-./manage.sh build
-./manage.sh build
 ./manage.sh build
 ```
 

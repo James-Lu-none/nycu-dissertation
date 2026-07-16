@@ -7,7 +7,7 @@ import argparse
 def get_method_label(method):
     m_low = method.lower()
     if "muoafl" in m_low:
-        return "muoafl"
+        return method
     elif "cd" in m_low:
         return "cd"
     elif "dd" in m_low:
@@ -571,7 +571,7 @@ def main():
         generate_tte_table_image(method_ttes, tte_table_path, args.bench)
         
         # 2. Generate dd vs muoafl only comparison plots
-        dd_muoafl_ttes = {k: v for k, v in method_ttes.items() if k in ["dd", "muoafl"]}
+        dd_muoafl_ttes = {k: v for k, v in method_ttes.items() if k == "dd" or "muoafl" in k.lower()}
         if len(dd_muoafl_ttes) > 0:
             print("\n================ Generating TTE Summary Plot & Table (dd vs muoafl only) ================")
             if trial_name == "all":
