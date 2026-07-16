@@ -160,7 +160,7 @@ def main():
     if command in ["up", "down", "build"]:
         run_slurm_command(root_dir, command, cve_list, num_trials, run_all, yes, tags_value, registry_value, extra_args, trial_name_arg)
     elif command == "stop":
-        run_slurm_command(root_dir, "down", cve_list, num_trials, run_all, yes, tag_value, registry_value, extra_args, trial_name_arg)
+        run_slurm_command(root_dir, "down", cve_list, num_trials, run_all, yes, tags_value, registry_value, extra_args, trial_name_arg)
     elif command == "status":
         run_slurm_status(root_dir, cve_list)
     elif command == "copy":

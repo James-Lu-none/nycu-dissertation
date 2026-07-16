@@ -270,6 +270,22 @@ def main():
         else:
             valid_methods.append(m)
             
+    # Expand prefixes based on actual directories in the first session
+    expanded_methods = []
+    if session_dirs:
+        first_session = os.path.join(root, session_dirs[0])
+        available_dirs = [d for d in os.listdir(first_session) if os.path.isdir(os.path.join(first_session, d)) and d not in ["plot", "TTE_check"]]
+        for m in valid_methods:
+            matched = False
+            for am in available_dirs:
+                if am == m or am.startswith(m + "-"):
+                    if am not in expanded_methods:
+                        expanded_methods.append(am)
+                    matched = True
+            if not matched and m not in expanded_methods:
+                expanded_methods.append(m)
+        valid_methods = expanded_methods
+            
     if not valid_methods:
         print("No valid method directories found.")
         return
