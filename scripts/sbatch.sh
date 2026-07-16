@@ -92,9 +92,26 @@ cleanup_normal() {
 trap cleanup_fast SIGINT SIGTERM
 trap cleanup_normal EXIT
 
-SANDBOX_DIR="/dev/shm/fuzz_${SLURM_JOB_ID}_${SLURM_ARRAY_TASK_ID}/sandbox"
-echo "[*] Building Apptainer Sandbox in RAM ($SANDBOX_DIR)..."
-apptainer build --sandbox "$SANDBOX_DIR" "${ROOT_DIR}/bench/${CVE}/${IMAGE_NAME}.sif"
+# use a shared sandbox per compute node for the same CVE and IMAGE to drastically save RAM,
+# prevent "Too many open files in system", and avoid extracting hundreds of thousands of files multiple times.
+SAFE_IMAGE_NAME=$(echo "$IMAGE_NAME" | tr ':' '_')
+SHARED_SANDBOX="/dev/shm/apptainer_sandbox_${CVE}_${SAFE_IMAGE_NAME}"
+LOCKFILE="${SHARED_SANDBOX}.lock"
+
+# Use flock to ensure only the first job on the node builds the sandbox
+exec 9> "$LOCKFILE"
+flock 9
+if [ ! -d "$SHARED_SANDBOX" ]; then
+    echo "[*] Building Shared Apptainer Sandbox in RAM ($SHARED_SANDBOX)..."
+    ulimit -n 1048576 2>/dev/null || ulimit -n 65536 2>/dev/null || true
+    apptainer build --sandbox "${SHARED_SANDBOX}.tmp" "${ROOT_DIR}/bench/${CVE}/${IMAGE_NAME}.sif"
+    mv "${SHARED_SANDBOX}.tmp" "$SHARED_SANDBOX"
+else
+    echo "[*] Shared Sandbox already exists. Reusing it to save time and RAM!"
+fi
+flock -u 9
+
+SANDBOX_DIR="$SHARED_SANDBOX"
 
 cat << 'EOF' > "$LOCAL_OUT/sync_txt.sh"
 #!/bin/bash
