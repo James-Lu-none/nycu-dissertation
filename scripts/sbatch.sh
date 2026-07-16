@@ -6,6 +6,7 @@
 #SBATCH --time=25:00:00
 #SBATCH --output=logs/slurm-%A_%a.out
 #SBATCH --mem-per-cpu=8G
+#SBATCH --nodelist=dgx-cn01
 
 export APPTAINERENV_AFL_NO_UI=1
 export APPTAINERENV_AFL_NO_AFFINITY=1
