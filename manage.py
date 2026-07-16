@@ -162,8 +162,8 @@ def parse_arguments(root_dir):
     trial_name = None
     run_all = False
     yes = False
-    tag_value = None
     registry_value = "registry.optixbase.com:30000"
+    tags_value = None
     extra_args = []
     
     valid_commands = ["up", "down", "stop", "build", "status", "log", "clean", "copy", "stat_plot", "tte_check", "tte_plot", "ttr", "arm_plot", "summary"]
@@ -322,7 +322,7 @@ def run_docker_compose_command(root_dir, command, cve_list, num_trials, run_all,
         if parsed_image_name:
             env_dict["IMAGE_NAME"] = parsed_image_name
         
-        env_dict["MUOAFL_TAGS"] = tags_value
+        env_dict["MUOAFL_TAGS"] = tags_value if tags_value is not None else ""
         env_dict["REGISTRY"] = registry_value
             
         compose_yaml_path = os.path.join(cve_bench_dir, "compose.yaml")
@@ -371,7 +371,11 @@ def run_docker_compose_command(root_dir, command, cve_list, num_trials, run_all,
         max_workers = min(len(cve_list), 4)
         print(f"\n\033[1;34m[Parallel Build]\033[0m Compiling {len(cve_list)} CVE images in parallel with max_workers={max_workers}...")
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-            executor.map(process_cve, cve_list)
+            try:
+                for _ in executor.map(process_cve, cve_list):
+                    pass
+            except Exception as e:
+                print(f"Error during parallel build: {e}")
     else:
         for cve in cve_list:
             process_cve(cve)
@@ -1194,7 +1198,7 @@ def main():
 
     # Execute commands
     if command in ["up", "down", "build"]:
-        run_docker_compose_command(root_dir, command, cve_list, num_trials, run_all, yes, tag_value, registry_value, extra_args, trial_name_arg)
+        run_docker_compose_command(root_dir, command, cve_list, num_trials, run_all, yes, tags_value, registry_value, extra_args, trial_name_arg)
     elif command == "stop":
         run_stop(cve_list)
     elif command == "copy":
