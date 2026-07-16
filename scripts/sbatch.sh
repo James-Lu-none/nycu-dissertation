@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=afl_bench
-#SBATCH --partition=sarc
+#SBATCH --partition=defq
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=1
 #SBATCH --time=25:00:00
