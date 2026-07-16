@@ -172,8 +172,8 @@ def parse_arguments(root_dir):
     while i < len(args):
         arg = args[i]
         arg_lower = arg.lower()
-        if arg == "--tag" and i + 1 < len(args):
-            tag_value = args[i+1]
+        if arg == "--tags" and i + 1 < len(args):
+            tags_value = args[i+1]
             i += 2
             continue
         if arg == "--registry" and i + 1 < len(args):
@@ -203,7 +203,7 @@ def parse_arguments(root_dir):
             
         i += 1
             
-    return command, target_cve, num_trials, trial_name, run_all, yes, tag_value, registry_value, extra_args
+    return command, target_cve, num_trials, trial_name, run_all, yes, tags_value, registry_value, extra_args
 
 def select_cve_interactively(root_dir, action, yes):
     all_cves = get_cves(root_dir)
@@ -265,7 +265,7 @@ def run_clean():
     subprocess.run(["docker", "ps", "-a"])
     print("\n\033[1;32mDone.\033[0m")
 
-def run_docker_compose_command(root_dir, command, cve_list, num_trials, run_all, yes, tag_value, registry_value, extra_args, trial_name_arg=None):
+def run_docker_compose_command(root_dir, command, cve_list, num_trials, run_all, yes, tags_value, registry_value, extra_args, trial_name_arg=None):
     python_bin = sys.executable
     gen_cmd = [python_bin, os.path.join(root_dir, "scripts/generate_master_compose.py"), str(num_trials)]
     subprocess.run(gen_cmd)
@@ -319,14 +319,10 @@ def run_docker_compose_command(root_dir, command, cve_list, num_trials, run_all,
                             parsed_image_name = v.strip().strip('"').strip("'")
                             break
                             
-        if parsed_image_name and tag_value:
-            base_image_name = parsed_image_name.split(':')[0]
-            env_dict["IMAGE_NAME"] = f"{base_image_name}:{tag_value}"
-        elif parsed_image_name:
+        if parsed_image_name:
             env_dict["IMAGE_NAME"] = parsed_image_name
         
-        if tag_value:
-            env_dict["MUOAFL_TAG"] = tag_value
+        env_dict["MUOAFL_TAGS"] = tags_value
         env_dict["REGISTRY"] = registry_value
             
         compose_yaml_path = os.path.join(cve_bench_dir, "compose.yaml")
@@ -399,7 +395,7 @@ def run_stop(cve_list):
             time.sleep(3.0)
     print("\n\033[1;32mDone.\033[0m")
 
-def copy_all_txt_files(container_name, target_dir):
+def copy_all_txt_files(container_name, target_dir, is_slave=False):
     txt_files = set()
     
     res_exec = subprocess.run(["docker", "exec", container_name, "bash", "-c", "find /workspace -maxdepth 1 -name '*.txt' 2>/dev/null"], capture_output=True, text=True)
@@ -491,7 +487,7 @@ def run_copy(root_dir, cve_list, num_trials, trial_name_arg):
                 os.makedirs(target_dir, exist_ok=True)
                 print(f"Copying results from {c_name:<55}... ", end="", flush=True)
                 
-                copy_all_txt_files(c_name, target_dir, )
+                copy_all_txt_files(c_name, target_dir)
                 if suffix in ["afl-base", "afl-cd", "afl-dd"]:
                     slave_c_name = f"{cve}-{suffix}-slave-{i}"
                     res_slave = subprocess.run(["docker", "ps", "-a", "-q", "-f", f"name=^/{slave_c_name}$"], capture_output=True, text=True)
@@ -863,7 +859,7 @@ def run_ttr(root_dir, cve_list, num_trials, trial_name_arg):
                 os.makedirs(target_dir, exist_ok=True)
                 print(f"Copying TTR logs from {c_name:<55}... ", end="", flush=True)
                 
-                copy_all_txt_files(c_name, target_dir, )
+                copy_all_txt_files(c_name, target_dir)
                 
                 if suffix in ["afl-base", "afl-cd", "afl-dd"]:
                     slave_c_name = f"{cve}-{suffix}-slave-{i}"
@@ -1146,19 +1142,15 @@ def main():
     venv_python = os.path.abspath(os.path.join(root_dir, "../.venv/bin/python3"))
     if os.path.isfile(venv_python) and os.path.abspath(sys.executable) != venv_python:
         os.execv(venv_python, [venv_python] + sys.argv)
-    command, target_cve, num_trials, trial_name_arg, run_all, yes, tag_value, registry_value, extra_args = parse_arguments(root_dir)
+    command, target_cve, num_trials, trial_name_arg, run_all, yes, tags_value, registry_value, extra_args = parse_arguments(root_dir)
     
     if not command:
         print("Error: Command (up, down, build, status, log, clean, copy, stat_plot, tte_check, tte_plot, ttr, summary) is required.")
         print_usage()
         sys.exit(1)
 
-    if command in ["up", "build"] and tag_value is None:
-        print("Error: --tag is a required parameter for 'build' and 'up' commands.")
-        sys.exit(1)
-
     if command == "build" and target_cve in ["dafl", "cafl", "muoafl"]:
-        build_fuzzer_image(root_dir, target_cve, tag_value, registry_value, extra_args)
+        build_fuzzer_image(root_dir, target_cve, tags_value, registry_value, extra_args)
         sys.exit(0)
         
     cve_list = []

@@ -21,7 +21,7 @@ def get_env_dict(cve_bench_dir):
                         env_dict[k.strip()] = v.strip().strip('"').strip("'")
     return env_dict
 
-def run_slurm_command(root_dir, command, cve_list, num_trials, run_all, yes, tag_value, registry_value, extra_args, trial_name_arg=None):
+def run_slurm_command(root_dir, command, cve_list, num_trials, run_all, yes, tags_value, registry_value, extra_args, trial_name_arg=None):
     for cve in cve_list:
         cve_bench_dir = os.path.join(root_dir, "bench", cve)
         if not os.path.isdir(cve_bench_dir):
@@ -47,18 +47,26 @@ def run_slurm_command(root_dir, command, cve_list, num_trials, run_all, yes, tag
             trial_name = active_trial_name
             print(f"Starting Slurm jobs for \033[1;35m{cve}\033[0m with SESSION_ID=\033[1;36m{session_id}\033[0m and TRIAL_NAME=\033[1;35m{trial_name}\033[0m")
             
+            tags_list = [t.strip() for t in tags_value.split(",")] if tags_value else ["v1"]
+            
+            active_methods = []
             if run_all:
-                num_tasks = num_trials * 4
-                run_all_val = "1"
+                active_methods.extend(["base", "cd", "dd"])
             else:
-                num_tasks = num_trials * 2
-                run_all_val = "0"
+                active_methods.append("dd")
+                
+            for t in tags_list:
+                active_methods.append(f"muoafl-{t}")
+                
+            num_tasks = num_trials * len(active_methods)
+            run_all_val = "1" if run_all else "0"
+            active_methods_str = ":".join(active_methods)
             
             sbatch_cmd = [
                 "sbatch",
                 f"--job-name=afl_{cve}",
                 f"--array=1-{num_tasks}",
-                f"--export=ALL,CVE={cve},SESSION_ID={session_id},TRIAL_NAME={trial_name},RUN_ALL={run_all_val}"
+                f"--export=ALL,CVE={cve},SESSION_ID={session_id},TRIAL_NAME={trial_name},RUN_ALL={run_all_val},ACTIVE_METHODS={active_methods_str}"
             ]
             
             # Export variables from .env
@@ -78,7 +86,7 @@ def run_slurm_command(root_dir, command, cve_list, num_trials, run_all, yes, tag
             image_name = env_dict.get("IMAGE_NAME")
             if not image_name:
                 if cve in ["cafl", "dafl", "muoafl"]:
-                    actual_tag = "v1" if cve in ["dafl", "cafl"] else (tag_value if tag_value else "latest")
+                    actual_tag = "v1" if cve in ["dafl", "cafl"] else "latest"
                     image_name = f"{cve}:{actual_tag}"
                 else:
                     print(f"Error: IMAGE_NAME not found in bench/{cve}/.env")
@@ -128,7 +136,7 @@ def run_slurm_copy(root_dir, cve_list, num_trials, trial_name_arg):
 
 def main():
     root_dir = os.path.dirname(os.path.abspath(__file__))
-    command, target_cve, num_trials, trial_name_arg, run_all, yes, tag_value, registry_value, extra_args = manage.parse_arguments(root_dir)
+    command, target_cve, num_trials, trial_name_arg, run_all, yes, tags_value, registry_value, extra_args = manage.parse_arguments(root_dir)
     
     if command is None:
         manage.print_usage()
@@ -153,7 +161,7 @@ def main():
             num_trials = 5
             
     if command in ["up", "down", "build"]:
-        run_slurm_command(root_dir, command, cve_list, num_trials, run_all, yes, tag_value, registry_value, extra_args, trial_name_arg)
+        run_slurm_command(root_dir, command, cve_list, num_trials, run_all, yes, tags_value, registry_value, extra_args, trial_name_arg)
     elif command == "stop":
         run_slurm_command(root_dir, "down", cve_list, num_trials, run_all, yes, tag_value, registry_value, extra_args, trial_name_arg)
     elif command == "status":

@@ -37,9 +37,9 @@ sudo systemctl restart systemd-logind
 ./manage.sh build muoafl --tag v2
 ./manage.sh build muoafl --tag v3
 
-./manage.sh build --tag v1
-./manage.sh build --tag v2
-./manage.sh build --tag v3
+./manage.sh build
+./manage.sh build
+./manage.sh build
 ```
 
 ## run benchmarks

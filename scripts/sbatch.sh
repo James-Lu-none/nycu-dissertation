@@ -25,18 +25,21 @@ TRIAL_NAME=${TRIAL_NAME:-"bench"}
 ROOT_DIR="${HOME}/workspace/nycu-dissertation"
 RUN_ALL=${RUN_ALL:-0}
 
-if [ "$RUN_ALL" = "1" ]; then
-  ACTIVE_METHODS=("base" "cd" "dd" "muoafl")
-  MOD=4
+if [ -n "$ACTIVE_METHODS" ]; then
+  IFS=':' read -r -a ACTIVE_METHODS_ARRAY <<< "$ACTIVE_METHODS"
 else
-  ACTIVE_METHODS=("dd" "muoafl")
-  MOD=2
+  if [ "$RUN_ALL" = "1" ]; then
+    ACTIVE_METHODS_ARRAY=("base" "cd" "dd" "muoafl-v1")
+  else
+    ACTIVE_METHODS_ARRAY=("dd" "muoafl-v1")
+  fi
 fi
 
+MOD=${#ACTIVE_METHODS_ARRAY[@]}
 IDX=$((SLURM_ARRAY_TASK_ID - 1))
 TRIAL_NUM=$(( (IDX / MOD) + 1 ))
 METHOD_IDX=$(( IDX % MOD ))
-METHOD_NAME=${ACTIVE_METHODS[$METHOD_IDX]}
+METHOD_NAME=${ACTIVE_METHODS_ARRAY[$METHOD_IDX]}
 
 case $METHOD_NAME in
   "base")
@@ -48,8 +51,11 @@ case $METHOD_NAME in
   "dd")
     TARGET=$TARGET_BIN_SOLO_DD;  FUZZER="afl-fuzz-solo-dd";   NAME="dd"
     ;;
-  "muoafl")
-    TARGET=$TARGET_BIN_MUOAFL; FUZZER="afl-fuzz-dd-muoafl"; NAME="muoafl"
+  muoafl-*)
+    TAG=${METHOD_NAME#muoafl-}
+    TARGET="${TARGET_BIN_BASE}-dd-muoafl-${TAG}"
+    FUZZER="afl-fuzz-dd-muoafl-${TAG}"
+    NAME="${METHOD_NAME}"
     ;;
 esac
 
