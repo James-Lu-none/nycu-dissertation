@@ -146,7 +146,7 @@ FUZZER_PID=$!
 # Background polling for live triage
 (
   while true; do
-    sleep 60
+    sleep 150
     echo "[*] [$(date)] Running live triage..." >> "$DEST_DIR/triage.log"
     python3 -u "${ROOT_DIR}/scripts/live_triage.py" --cve "$CVE" --image "$SANDBOX_DIR" --local-out "$LOCAL_OUT" $TARGET $TARGET_ARGS >> "$DEST_DIR/triage.log" 2>&1
     

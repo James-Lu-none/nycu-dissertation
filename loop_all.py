@@ -146,7 +146,7 @@ def main():
             subprocess.run([python_bin, manage_script, "up", cve, str(trials), "-y", "--tags", args.tags, "--registry", args.registry])
             
             # Step C: Wait for the duration with 5-minute success rate checks
-            tiers = list(range(300, cve_duration, 300))
+            tiers = list(range(150, cve_duration, 150))
             if not tiers or tiers[-1] != cve_duration:
                 tiers.append(cve_duration)
             
@@ -161,7 +161,7 @@ def main():
                 print(f"  -> Monitoring fuzzers for {sleep_time_for_tier} seconds to reach next tier ({tier_limit}s)...")
                 
                 sub_elapsed = 0
-                sub_interval = 300
+                sub_interval = 150
                 if sleep_time_for_tier < 60:
                     sub_interval = 10
                 elif sleep_time_for_tier < 10:
@@ -173,7 +173,7 @@ def main():
                     time.sleep(st)
                     sub_elapsed += st
                     # print periodic progress
-                    if (elapsed + sub_elapsed) % 300 == 0 or (elapsed + sub_elapsed) == tier_limit:
+                    if (elapsed + sub_elapsed) % 150 == 0 or (elapsed + sub_elapsed) == tier_limit:
                         print(f"     -> Elapsed: {elapsed + sub_elapsed}/{cve_duration} seconds...")
                         
                 elapsed = tier_limit
