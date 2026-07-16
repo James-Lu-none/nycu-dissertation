@@ -6,11 +6,12 @@ import time
 import datetime
 import argparse
 
-def get_latest_success_rate(cve, root_dir, expected_total=0, target_method="muoafl"):
+def check_all_methods_success(cve, root_dir, expected_total=0):
     import re
+    import math
     artifact_cve_dir = os.path.join(root_dir, "artifact", cve)
     if not os.path.isdir(artifact_cve_dir):
-        return 0.0, 0, expected_total if expected_total > 0 else 0
+        return False, "No artifact directory"
         
     sessions = []
     for d in os.listdir(artifact_cve_dir):
@@ -18,7 +19,7 @@ def get_latest_success_rate(cve, root_dir, expected_total=0, target_method="muoa
             sessions.append(d)
             
     if not sessions:
-        return 0.0, 0, expected_total if expected_total > 0 else 0
+        return False, "No sessions found"
         
     def sort_session_key(x):
         ts_match = re.search(r'_(\d{8}_\d{6})$', x)
@@ -26,34 +27,52 @@ def get_latest_success_rate(cve, root_dir, expected_total=0, target_method="muoa
         
     sessions.sort(key=sort_session_key)
     latest_session = sessions[-1]
+    session_path = os.path.join(artifact_cve_dir, latest_session)
     
-    # Target only the specific method directory
-    target_method_dir = os.path.join(artifact_cve_dir, latest_session, target_method)
-    if not os.path.exists(target_method_dir):
-        return 0.0, 0, expected_total if expected_total > 0 else 0
-        
-    total_trials = 0
-    reached_trials = 0
+    if not os.path.exists(session_path):
+        return False, "Session path missing"
+
+    methods = [d for d in os.listdir(session_path) if os.path.isdir(os.path.join(session_path, d))]
     
-    for root, dirs, files in os.walk(target_method_dir):
-        if "dgf_target_exposure.txt" in files:
-            total_trials += 1
-            file_path = os.path.join(root, "dgf_target_exposure.txt")
-            try:
-                with open(file_path, "r") as f:
-                    first_line = f.readline().strip()
-                    if first_line == "Target reached!":
-                        reached_trials += 1
-            except Exception:
-                pass
-                
-    if expected_total > 0:
-        total_trials = expected_total
+    if not methods:
+        return False, "No methods found"
+
+    all_passed = True
+    details_lines = []
+    
+    for m in methods:
+        method_dir = os.path.join(session_path, m)
+        total_trials = 0
+        reached_trials = 0
+        ttes = []
         
-    if total_trials == 0:
-        return 0.0, 0, 0
+        for root_walk, dirs, files in os.walk(method_dir):
+            if "dgf_target_exposure.txt" in files:
+                total_trials += 1
+                file_path = os.path.join(root_walk, "dgf_target_exposure.txt")
+                try:
+                    with open(file_path, "r") as f:
+                        content = f.read()
+                        if "Target reached!" in content:
+                            reached_trials += 1
+                            match = re.search(r'Elapsed:\s+([\d\.]+)\s+seconds', content)
+                            if match:
+                                ttes.append(float(match.group(1)))
+                except Exception:
+                    pass
+                    
+        if expected_total > 0:
+            total_trials = expected_total
+            
+        rate = reached_trials / total_trials if total_trials > 0 else 0.0
+        geo_mean = math.exp(sum(math.log(t) for t in ttes) / len(ttes)) if ttes else 0.0
         
-    return reached_trials / total_trials, reached_trials, total_trials
+        details_lines.append(f"    - {m}: {rate:.1%} ({reached_trials}/{total_trials}) | GeoMean TTE: {geo_mean:.1f}s")
+        
+        if rate < 0.50:
+            all_passed = False
+            
+    return all_passed, "\n".join(details_lines)
 
 def main():
     root_dir = os.path.abspath(os.path.dirname(__file__))
@@ -170,11 +189,11 @@ def main():
                 
                 # Calculate rate
                 expected_total = trials
-                rate, reached, total = get_latest_success_rate(cve, root_dir, expected_total)
-                print(f"\033[1;32m[Tier Evaluation] Success rate at {elapsed}s: {rate:.1%} ({reached}/{total} trials reached)\033[0m")
+                all_passed, details = check_all_methods_success(cve, root_dir, expected_total)
+                print(f"\033[1;32m[Tier Evaluation] Success rates at {elapsed}s:\n{details}\033[0m")
                 
-                if rate >= 0.50:
-                    print(f"\033[1;32m[Early Stop] Success rate is {rate:.1%} (>= 50%). Stopping campaign for {cve} early!\033[0m")
+                if all_passed:
+                    print(f"\033[1;32m[Early Stop] All methods have reached >= 50% success rate. Stopping campaign for {cve} early!\033[0m")
                     break
                     
             # Step D: Gracefully stop containers
