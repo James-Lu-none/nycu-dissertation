@@ -21,7 +21,7 @@ def get_env_dict(cve_bench_dir):
                         env_dict[k.strip()] = v.strip().strip('"').strip("'")
     return env_dict
 
-def run_slurm_command(root_dir, command, cve_list, num_trials, run_all, yes, extra_args, trial_name_arg=None):
+def run_slurm_command(root_dir, command, cve_list, num_trials, run_all, yes, tag_value, registry_value, extra_args, trial_name_arg=None):
     for cve in cve_list:
         cve_bench_dir = os.path.join(root_dir, "bench", cve)
         if not os.path.isdir(cve_bench_dir):
@@ -30,6 +30,9 @@ def run_slurm_command(root_dir, command, cve_list, num_trials, run_all, yes, ext
             
         current_session_file = os.path.join(cve_bench_dir, ".current_session")
         env_dict = get_env_dict(cve_bench_dir)
+        if "IMAGE_NAME" in env_dict and tag_value:
+            base_name = env_dict["IMAGE_NAME"].split(':')[0]
+            env_dict["IMAGE_NAME"] = f"{base_name}:{tag_value}"
         
         if command == "up":
             active_trial_name = trial_name_arg if trial_name_arg else f"trial_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
@@ -74,8 +77,9 @@ def run_slurm_command(root_dir, command, cve_list, num_trials, run_all, yes, ext
             print(f"\n\033[1;34m[Build Fuzzer (Slurm/Apptainer)]\033[0m \033[1;35m{cve}\033[0m")
             image_name = env_dict.get("IMAGE_NAME")
             if not image_name:
-                if cve in ["cafl", "dafl"]:
-                    image_name = f"{cve}:latest"
+                if cve in ["cafl", "dafl", "muoafl"]:
+                    actual_tag = "v1" if cve in ["dafl", "cafl"] else (tag_value if tag_value else "latest")
+                    image_name = f"{cve}:{actual_tag}"
                 else:
                     print(f"Error: IMAGE_NAME not found in bench/{cve}/.env")
                     continue
@@ -87,7 +91,7 @@ def run_slurm_command(root_dir, command, cve_list, num_trials, run_all, yes, ext
                 os.remove(sif_path)
             
             print(f"Pulling Apptainer image for {image_name}...")
-            docker_uri = f"docker://registry.optixbase.com:30000/{image_name}"
+            docker_uri = f"docker://{registry_value}/{image_name}"
             apptainer_cmd = ["apptainer", "pull", sif_path, docker_uri]
             
             apptainer_res = subprocess.run(apptainer_cmd, cwd=cve_bench_dir)
@@ -124,7 +128,7 @@ def run_slurm_copy(root_dir, cve_list, num_trials, trial_name_arg):
 
 def main():
     root_dir = os.path.dirname(os.path.abspath(__file__))
-    command, target_cve, num_trials, trial_name_arg, run_all, yes, extra_args = manage.parse_arguments(root_dir)
+    command, target_cve, num_trials, trial_name_arg, run_all, yes, tag_value, registry_value, extra_args = manage.parse_arguments(root_dir)
     
     if command is None:
         manage.print_usage()
@@ -149,9 +153,9 @@ def main():
             num_trials = 5
             
     if command in ["up", "down", "build"]:
-        run_slurm_command(root_dir, command, cve_list, num_trials, run_all, yes, extra_args, trial_name_arg)
+        run_slurm_command(root_dir, command, cve_list, num_trials, run_all, yes, tag_value, registry_value, extra_args, trial_name_arg)
     elif command == "stop":
-        run_slurm_command(root_dir, "down", cve_list, num_trials, run_all, yes, extra_args, trial_name_arg)
+        run_slurm_command(root_dir, "down", cve_list, num_trials, run_all, yes, tag_value, registry_value, extra_args, trial_name_arg)
     elif command == "status":
         run_slurm_status(root_dir, cve_list)
     elif command == "copy":

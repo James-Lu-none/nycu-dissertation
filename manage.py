@@ -94,7 +94,7 @@ def get_active_trial_name(root_dir, cve):
     return "trial_default"
 
 def print_usage():
-    print("Usage: python3 manage.py {up|down|stop|build|status|log|clean|copy|stat_plot|tte_check|tte_plot|ttr|arm_plot|summary} [cve_name|dafl|cafl] [trials] [trial_name] [--all] [-y]")
+    print("Usage: python3 manage.py {up|down|stop|build|status|log|clean|copy|stat_plot|tte_check|tte_plot|ttr|arm_plot|summary} [cve_name|dafl|cafl|muoafl] [trials] [trial_name] [--all] [-y] [--tag tag_name] [--registry registry_url]")
     print("\nCommands:")
     print("  up        : Start docker containers for CVE trials")
     print("  down      : Stop docker containers and remove named volumes (-v)")
@@ -111,7 +111,7 @@ def print_usage():
     print("  arm_plot  : Run ARM_plot.py on active CVEs (visualizes ARM rules)")
     print("  summary   : Aggregate TTE dd_dual summary tables and DGF compile info across benchmarks")
 
-def build_fuzzer_image(root_dir, target, extra_args=None):
+def build_fuzzer_image(root_dir, target, tag_value, registry_value, extra_args=None):
     if extra_args is None:
         extra_args = []
     afl_dir = os.path.join(root_dir, "AFLplusplus")
@@ -119,14 +119,17 @@ def build_fuzzer_image(root_dir, target, extra_args=None):
         print(f"Error: AFLplusplus directory not found at {afl_dir}")
         sys.exit(1)
         
-    print(f"\n\033[1;34m[Build Fuzzer]\033[0m Checking out git branch \033[1;35m{target}\033[0m in AFLplusplus...")
-    res = subprocess.run(["git", "checkout", target], cwd=afl_dir)
+    checkout_branch = f"{target}-v1" if target in ["dafl", "cafl"] else f"{target}-{tag_value}"
+        
+    print(f"\n\033[1;34m[Build Fuzzer]\033[0m Checking out git branch \033[1;35m{checkout_branch}\033[0m in AFLplusplus...")
+    res = subprocess.run(["git", "checkout", checkout_branch], cwd=afl_dir)
     if res.returncode != 0:
-        print(f"Error: Failed to checkout branch '{target}' in {afl_dir}")
+        print(f"Error: Failed to checkout branch '{checkout_branch}' in {afl_dir}")
         sys.exit(1)
         
-    image_tag = f"location0717/{target}:latest"
-    registry_tag = f"registry.optixbase.com:30000/{target}:latest"
+    actual_tag = "v1" if target in ["dafl", "cafl"] else tag_value
+    image_tag = f"{target}:{actual_tag}"
+    registry_tag = f"{registry_value}/{target}:{actual_tag}"
     print(f"\n\033[1;34m[Build Docker]\033[0m Building docker image \033[1;35m{image_tag}\033[0m and \033[1;35m{registry_tag}\033[0m...")
     
     cmd = ["docker", "build"]
@@ -159,12 +162,25 @@ def parse_arguments(root_dir):
     trial_name = None
     run_all = False
     yes = False
+    tag_value = None
+    registry_value = "registry.optixbase.com:30000"
     extra_args = []
     
     valid_commands = ["up", "down", "stop", "build", "status", "log", "clean", "copy", "stat_plot", "tte_check", "tte_plot", "ttr", "arm_plot", "summary"]
     
-    for arg in args:
+    i = 0
+    while i < len(args):
+        arg = args[i]
         arg_lower = arg.lower()
+        if arg == "--tag" and i + 1 < len(args):
+            tag_value = args[i+1]
+            i += 2
+            continue
+        if arg == "--registry" and i + 1 < len(args):
+            registry_value = args[i+1]
+            i += 2
+            continue
+
         if arg_lower == "--all":
             run_all = True
         elif arg_lower in ["-y", "--yes", "--non-interactive"]:
@@ -180,12 +196,14 @@ def parse_arguments(root_dir):
             num_trials = int(arg)
         elif is_cve(root_dir, arg):
             target_cve = arg
-        elif arg_lower in ["dafl", "cafl"]:
+        elif arg_lower in ["dafl", "cafl", "muoafl"]:
             target_cve = arg_lower
         else:
             trial_name = arg
             
-    return command, target_cve, num_trials, trial_name, run_all, yes, extra_args
+        i += 1
+            
+    return command, target_cve, num_trials, trial_name, run_all, yes, tag_value, registry_value, extra_args
 
 def select_cve_interactively(root_dir, action, yes):
     all_cves = get_cves(root_dir)
@@ -247,7 +265,7 @@ def run_clean():
     subprocess.run(["docker", "ps", "-a"])
     print("\n\033[1;32mDone.\033[0m")
 
-def run_docker_compose_command(root_dir, command, cve_list, num_trials, run_all, yes, extra_args, trial_name_arg=None):
+def run_docker_compose_command(root_dir, command, cve_list, num_trials, run_all, yes, tag_value, registry_value, extra_args, trial_name_arg=None):
     python_bin = sys.executable
     gen_cmd = [python_bin, os.path.join(root_dir, "scripts/generate_master_compose.py"), str(num_trials)]
     subprocess.run(gen_cmd)
@@ -288,6 +306,29 @@ def run_docker_compose_command(root_dir, command, cve_list, num_trials, run_all,
             env_dict["SESSION_ID"] = session_id
             env_dict["TRIAL_NAME"] = trial_name
             
+        # Read IMAGE_NAME from .env and update dynamically
+        env_file = os.path.join(cve_bench_dir, ".env")
+        parsed_image_name = None
+        if os.path.isfile(env_file):
+            with open(env_file, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#') and '=' in line:
+                        k, v = line.split('=', 1)
+                        if k.strip() == "IMAGE_NAME":
+                            parsed_image_name = v.strip().strip('"').strip("'")
+                            break
+                            
+        if parsed_image_name and tag_value:
+            base_image_name = parsed_image_name.split(':')[0]
+            env_dict["IMAGE_NAME"] = f"{base_image_name}:{tag_value}"
+        elif parsed_image_name:
+            env_dict["IMAGE_NAME"] = parsed_image_name
+        
+        if tag_value:
+            env_dict["MUOAFL_TAG"] = tag_value
+        env_dict["REGISTRY"] = registry_value
+            
         compose_yaml_path = os.path.join(cve_bench_dir, "compose.yaml")
         if not os.path.isfile(compose_yaml_path):
             print(f"Warning: compose.yaml not found in bench/{cve}. Skipping.")
@@ -313,19 +354,11 @@ def run_docker_compose_command(root_dir, command, cve_list, num_trials, run_all,
             
         build_res = subprocess.run(cmd_args, cwd=cve_bench_dir, env=env_dict)
         if command == "build" and build_res.returncode == 0:
-            image_name = None
-            env_file = os.path.join(cve_bench_dir, ".env")
-            if os.path.isfile(env_file):
-                with open(env_file, 'r') as f:
-                    for line in f:
-                        line = line.strip()
-                        if line and not line.startswith('#') and '=' in line:
-                            k, v = line.split('=', 1)
-                            if k.strip() == "IMAGE_NAME":
-                                image_name = v.strip().strip('"').strip("'")
-                                break
+            image_name = env_dict.get("IMAGE_NAME")
+            if not image_name and parsed_image_name:
+                image_name = parsed_image_name
             if image_name:
-                registry_tag = f"registry.optixbase.com:30000/{image_name}"
+                registry_tag = f"{registry_value}/{image_name}"
                 print(f"\n\033[1;34m[Docker Tag & Push]\033[0m Tagging \033[1;35m{image_name}\033[0m as \033[1;35m{registry_tag}\033[0m...")
                 tag_res = subprocess.run(["docker", "tag", image_name, registry_tag])
                 if tag_res.returncode == 0:
@@ -1113,15 +1146,19 @@ def main():
     venv_python = os.path.abspath(os.path.join(root_dir, "../.venv/bin/python3"))
     if os.path.isfile(venv_python) and os.path.abspath(sys.executable) != venv_python:
         os.execv(venv_python, [venv_python] + sys.argv)
-    command, target_cve, num_trials, trial_name_arg, run_all, yes, extra_args = parse_arguments(root_dir)
+    command, target_cve, num_trials, trial_name_arg, run_all, yes, tag_value, registry_value, extra_args = parse_arguments(root_dir)
     
     if not command:
         print("Error: Command (up, down, build, status, log, clean, copy, stat_plot, tte_check, tte_plot, ttr, summary) is required.")
         print_usage()
         sys.exit(1)
 
-    if command == "build" and target_cve in ["dafl", "cafl"]:
-        build_fuzzer_image(root_dir, target_cve, extra_args)
+    if command in ["up", "build"] and tag_value is None:
+        print("Error: --tag is a required parameter for 'build' and 'up' commands.")
+        sys.exit(1)
+
+    if command == "build" and target_cve in ["dafl", "cafl", "muoafl"]:
+        build_fuzzer_image(root_dir, target_cve, tag_value, registry_value, extra_args)
         sys.exit(0)
         
     cve_list = []
@@ -1165,7 +1202,7 @@ def main():
 
     # Execute commands
     if command in ["up", "down", "build"]:
-        run_docker_compose_command(root_dir, command, cve_list, num_trials, run_all, yes, extra_args, trial_name_arg)
+        run_docker_compose_command(root_dir, command, cve_list, num_trials, run_all, yes, tag_value, registry_value, extra_args, trial_name_arg)
     elif command == "stop":
         run_stop(cve_list)
     elif command == "copy":

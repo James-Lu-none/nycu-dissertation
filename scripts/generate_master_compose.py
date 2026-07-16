@@ -11,7 +11,10 @@ def generate_compose(num_trials):
         if i == 1:
             build_str = """    build:
       context: "./${CVE}"
-      dockerfile: Dockerfile\n"""
+      dockerfile: Dockerfile
+      args:
+        - MUOAFL_TAG=${MUOAFL_TAG:-latest}
+        - REGISTRY=${REGISTRY:-registry.optixbase.com:30000}\n"""
             
         # Base
         services_lines.append(f"""  afl-base-{i}:
