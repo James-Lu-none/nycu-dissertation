@@ -53,7 +53,7 @@ case $METHOD_NAME in
     ;;
   muoafl-*)
     TAG=${METHOD_NAME#muoafl-}
-    TARGET="${TARGET_BIN_BASE}-dd-muoafl-${TAG}"
+    TARGET="${TARGET_BIN_BASE%-base}-dd-muoafl-${TAG}"
     FUZZER="afl-fuzz-dd-muoafl-${TAG}"
     NAME="${METHOD_NAME}"
     ;;
