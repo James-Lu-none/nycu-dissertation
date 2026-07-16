@@ -51,22 +51,11 @@ def main():
         print(f"Error: Triage function {triage_func_name} not found.")
         sys.exit(1)
     
-    # Check both main and slave crashes directories
     crashes_dirs = []
-    main_crashes = os.path.join(local_out, "main/crashes")
-    if os.path.exists(main_crashes):
-        crashes_dirs.append(main_crashes)
-    slave_crashes = os.path.join(local_out, "slave/crashes")
-    if os.path.exists(slave_crashes):
-        crashes_dirs.append(slave_crashes)
-    
-    # dual method might use dd/crashes and cd/crashes
-    dd_crashes = os.path.join(local_out, "dd/crashes")
-    if os.path.exists(dd_crashes):
-        crashes_dirs.append(dd_crashes)
-    cd_crashes = os.path.join(local_out, "cd/crashes")
-    if os.path.exists(cd_crashes):
-        crashes_dirs.append(cd_crashes)
+    for d in ["main/crashes", "slave/crashes"]:
+        path = os.path.join(local_out, d)
+        if os.path.isdir(path):
+            crashes_dirs.append(path)
 
     if not crashes_dirs:
         print("No crashes directories found yet.")

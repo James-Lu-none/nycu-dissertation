@@ -39,22 +39,25 @@ METHOD_NAME=${ACTIVE_METHODS[$METHOD_IDX]}
 
 case $METHOD_NAME in
   "base")
-    M_TARGET=$TARGET_BIN_BASE;     M_FUZZER="afl-fuzz";         M_NAME="main"
-    S_TARGET=$TARGET_BIN_BASE;     S_FUZZER="afl-fuzz";         S_NAME="slave"
+    M_TARGET=$TARGET_BIN_BASE;     M_FUZZER="afl-fuzz"
+    S_TARGET=$TARGET_BIN_BASE;     S_FUZZER="afl-fuzz"
     ;;
   "cd")
-    M_TARGET=$TARGET_BIN_CD;       M_FUZZER="afl-fuzz-cd";      M_NAME="main"
-    S_TARGET=$TARGET_BIN_CD;       S_FUZZER="afl-fuzz-cd";      S_NAME="slave"
+    M_TARGET=$TARGET_BIN_CD;       M_FUZZER="afl-fuzz-cd"
+    S_TARGET=$TARGET_BIN_CD;       S_FUZZER="afl-fuzz-cd"
     ;;
   "dd")
-    M_TARGET=$TARGET_BIN_SOLO_DD;  M_FUZZER="afl-fuzz-solo-dd"; M_NAME="main"
-    S_TARGET=$TARGET_BIN_SOLO_DD;  S_FUZZER="afl-fuzz-solo-dd"; S_NAME="slave"
+    M_TARGET=$TARGET_BIN_SOLO_DD;  M_FUZZER="afl-fuzz-solo-dd"
+    S_TARGET=$TARGET_BIN_SOLO_DD;  S_FUZZER="afl-fuzz-solo-dd"
     ;;
   "dual")
-    M_TARGET=$TARGET_BIN_DUAL_DD;  M_FUZZER="afl-fuzz-dual-dd"; M_NAME="dd"
-    S_TARGET=$TARGET_BIN_DUAL_CD;  S_FUZZER="afl-fuzz-dual-cd"; S_NAME="cd"
+    M_TARGET=$TARGET_BIN_DUAL_DD;  M_FUZZER="afl-fuzz-dual-dd"
+    S_TARGET=$TARGET_BIN_DUAL_CD;  S_FUZZER="afl-fuzz-dual-cd"
     ;;
 esac
+
+M_NAME="main"
+S_NAME="slave"
 
 DEST_DIR="${ROOT_DIR}/artifact/${CVE}/${TRIAL_NAME}/${METHOD_NAME}/trial${TRIAL_NUM}"
 LOCAL_OUT="/dev/shm/fuzz_${SLURM_JOB_ID}_${SLURM_ARRAY_TASK_ID}/out"

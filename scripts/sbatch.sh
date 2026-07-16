@@ -43,21 +43,22 @@ METHOD_NAME=${ACTIVE_METHODS_ARRAY[$METHOD_IDX]}
 
 case $METHOD_NAME in
   "base")
-    TARGET=$TARGET_BIN_BASE;     FUZZER="afl-fuzz";           NAME="base"
+    TARGET=$TARGET_BIN_BASE;     FUZZER="afl-fuzz"
     ;;
   "cd")
-    TARGET=$TARGET_BIN_CD;       FUZZER="afl-fuzz-cd";        NAME="cd"
+    TARGET=$TARGET_BIN_CD;       FUZZER="afl-fuzz-cd"
     ;;
   "dd")
-    TARGET=$TARGET_BIN_SOLO_DD;  FUZZER="afl-fuzz-solo-dd";   NAME="dd"
+    TARGET=$TARGET_BIN_SOLO_DD;  FUZZER="afl-fuzz-solo-dd"
     ;;
   muoafl-*)
     TAG=${METHOD_NAME#muoafl-}
     TARGET="${TARGET_BIN_BASE%-base}-dd-muoafl-${TAG}"
     FUZZER="afl-fuzz-dd-muoafl-${TAG}"
-    NAME="${METHOD_NAME}"
     ;;
 esac
+
+NAME="main"
 
 DEST_DIR="${ROOT_DIR}/artifact/${CVE}/${TRIAL_NAME}/${METHOD_NAME}/trial${TRIAL_NUM}"
 LOCAL_OUT="/dev/shm/fuzz_${SLURM_JOB_ID}_${SLURM_ARRAY_TASK_ID}/out"

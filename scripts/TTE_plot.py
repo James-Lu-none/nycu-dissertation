@@ -355,10 +355,11 @@ def analyze_and_write_lineage(artifact_dir, session_dir, method, trial, plot_dir
     crash_file_info = match.group(1).strip()
     
     # Extract fuzzer name (CD vs DD vs main)
+    # Extract fuzzer name (main vs slave)
     if "dual-cd" in method:
-        fuzzer_name = "cd"
+        fuzzer_name = "slave"
     elif "dual-dd" in method:
-        fuzzer_name = "dd"
+        fuzzer_name = "main"
     else:
         fuzzer_name = "main"
         

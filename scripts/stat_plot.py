@@ -121,15 +121,7 @@ def parse_corpus_imported(file_path):
         print(f"Error parsing corpus_imported in {file_path}: {e}")
     return None
 
-def get_fuzzer_name(method):
-    m_low = method.lower()
-    if "dual-cd" in m_low:
-        return "cd"
-    elif "dual-dd" in m_low:
-        return "dd"
-    elif "muoafl" in m_low:
-        return "dd"
-    return "main"
+
 
 def get_method_info(method):
     m_low = method.lower()
@@ -319,9 +311,8 @@ def main():
         trial_method_data = {}
         
         for method in valid_methods:
-            fuzzer_name = get_fuzzer_name(method)
             dir_method = "dual" if method.startswith("dual-") else method
-            plot_file = os.path.join(root, item["session_dir"], dir_method, item["trial"], f"out/{fuzzer_name}/plot_data")
+            plot_file = os.path.join(root, item["session_dir"], dir_method, item["trial"], f"out/main/plot_data")
             times, edges, execs = parse_plot_data(plot_file)
             trial_method_data[method] = (times, edges, execs)
             
@@ -458,10 +449,9 @@ def main():
         colors = []
         for method in dual_methods:
             values = []
-            fuzzer_name = get_fuzzer_name(method)
             dir_method = "dual" if method.startswith("dual-") else method
             for item in trial_items:
-                stats_file = os.path.join(root, item["session_dir"], dir_method, item["trial"], f"out/{fuzzer_name}/fuzzer_stats")
+                stats_file = os.path.join(root, item["session_dir"], dir_method, item["trial"], f"out/main/fuzzer_stats")
                 val = parse_corpus_imported(stats_file)
                 if val is not None:
                     values.append(val)
