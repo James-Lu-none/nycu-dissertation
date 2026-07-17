@@ -379,8 +379,10 @@ def run_docker_compose_command(root_dir, command, cve_list, num_trials, run_all,
                 print(f"\033[1;31mError: IMAGE_NAME not found in {env_file}\033[0m")
 
     if command == "build":
-        max_workers = min(len(cve_list), 4)
-        print(f"\n\033[1;34m[Parallel Build]\033[0m Compiling {len(cve_list)} CVE images in parallel with max_workers={max_workers}...")
+        system_cores = os.cpu_count() or 4
+        # Calculate max_workers using system cores. We limit it to avoid OOM, e.g. using all cores.
+        max_workers = min(len(cve_list), system_cores, 16)
+        print(f"\n\033[1;34m[Parallel Build]\033[0m Compiling {len(cve_list)} CVE images in parallel with max_workers={max_workers} (Detected Cores: {system_cores})...")
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             try:
                 for _ in executor.map(process_cve, cve_list):
