@@ -91,6 +91,7 @@ def main():
     parser.add_argument("--max-time", type=int, default=43200, help="Maximum fuzzing time in seconds per iteration (default: 43200)")
     parser.add_argument("--tags", type=str, default="v1", help="Target image tags, comma separated (e.g. v1,v2) (Default: v1)")
     parser.add_argument("--registry", type=str, default="registry.optixbase.com:30000", help="Docker registry URL")
+    parser.add_argument("--build", action="store_true", help="Build docker images before running (Step A)")
     args = parser.parse_args()
     
     iterations = args.iterations
@@ -137,9 +138,12 @@ def main():
             cve_now_str = datetime.datetime.now().strftime("%H:%M:%S")
             print(f"\n\033[1;35m--- [Iteration {iteration}/{iterations}] Running CVE: {cve} (Time: {cve_now_str}) ---\033[0m")
             
-            # Step A: Compile docker images
-            print("\n\033[1;33m[Step 1/5] Compiling docker images...\033[0m")
-            subprocess.run([python_bin, manage_script, "build", cve, str(trials), "--tags", args.tags, "--registry", args.registry])
+            # Step A: Compile docker images (only if --build is provided)
+            if args.build:
+                print("\n\033[1;33m[Step 1/5] Compiling docker images...\033[0m")
+                subprocess.run([python_bin, manage_script, "build", cve, str(trials), "--tags", args.tags, "--registry", args.registry])
+            else:
+                print("\n\033[1;33m[Step 1/5] Skipping compilation (--build not specified)...\033[0m")
 
             # Step B: Start containers
             print("\n\033[1;33m[Step 2/5] Starting containers...\033[0m")
