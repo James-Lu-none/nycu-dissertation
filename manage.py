@@ -434,7 +434,7 @@ def copy_all_txt_files(container_name, target_dir, is_slave=False):
             
         subprocess.run(["docker", "cp", f"{container_name}:/workspace/{f_name}", dest_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-def run_copy(root_dir, cve_list, num_trials, trial_name_arg):
+def run_copy(root_dir, cve_list, num_trials, trial_name_arg, only_crashes=False):
     trials = list(range(1, num_trials + 1))
     
     for cve in cve_list:
