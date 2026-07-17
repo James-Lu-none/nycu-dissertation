@@ -22,11 +22,13 @@ def main():
         sys.exit(1)
         
     cve = sys.argv[1]
+    print(f"[*] Target CVE: {cve}")
     root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     cve_dir = os.path.join(root_dir, "artifact", cve)
     
+    print(f"[*] Checking directory: {cve_dir}")
     if not os.path.exists(cve_dir):
-        print(f"Artifact directory for {cve} not found.")
+        print(f"[-] Artifact directory for {cve} not found.")
         sys.exit(1)
         
     sessions = []
@@ -35,8 +37,10 @@ def main():
             sessions.append(d)
             
     if not sessions:
-        print("No sessions found.")
+        print("[-] No sessions found.")
         sys.exit(1)
+        
+    print(f"[*] Found {len(sessions)} sessions: {sessions}")
         
     def sort_session_key(x):
         ts_match = re.search(r'_(\d{8}_\d{6})$', x)
@@ -44,12 +48,15 @@ def main():
         
     sessions.sort(key=sort_session_key)
     latest_session = sessions[-1]
+    print(f"[*] Selected latest session: {latest_session}")
     session_dir = os.path.join(cve_dir, latest_session)
     
     plot_dir = os.path.join(session_dir, "plot")
     os.makedirs(plot_dir, exist_ok=True)
+    print(f"[*] Output plot directory: {plot_dir}")
     
     methods = [d for d in os.listdir(session_dir) if os.path.isdir(os.path.join(session_dir, d)) and d not in ["plot", "TTE_check"]]
+    print(f"[*] Methods found: {methods}")
     
     matrix_files = [
         "mut_prob_matrix_600s.txt",
@@ -59,9 +66,11 @@ def main():
     ]
     
     for filename in matrix_files:
+        print(f"\n[+] Processing matrix file target: {filename}")
         method_averages = {}
         
         for method in methods:
+            print(f"  -> Processing method: {method}")
             method_dir = os.path.join(session_dir, method)
             matrices = []
             
@@ -70,15 +79,27 @@ def main():
                 if not os.path.isdir(trial_dir):
                     continue
                 filepath = os.path.join(trial_dir, filename)
-                mat = parse_matrix(filepath)
-                if mat is not None:
-                    matrices.append(mat)
+                
+                if os.path.exists(filepath):
+                    print(f"    -> Loading trial: {trial} ({filepath})")
+                    mat = parse_matrix(filepath)
+                    if mat is not None:
+                        matrices.append(mat)
+                        print(f"      -> Successfully parsed matrix of shape {mat.shape}")
+                    else:
+                        print(f"      -> Failed to parse matrix.")
+                else:
+                    print(f"    -> File not found for trial {trial}: {filepath}")
             
             if matrices:
                 avg_mat = np.mean(matrices, axis=0)
                 method_averages[method] = avg_mat
+                print(f"  -> Method {method} averaged over {len(matrices)} valid matrices.")
+            else:
+                print(f"  -> No valid matrices found for method {method}.")
         
         if method_averages:
+            print(f"[*] Generating plot for {filename}...")
             plt.figure(figsize=(10, 8))
             
             num_methods = len(method_averages)
@@ -97,7 +118,9 @@ def main():
             plt.savefig(out_path)
             plt.close(fig)
             plt.close('all')
-            print(f"Saved plot: {out_path}")
+            print(f"[*] Saved plot: {out_path}")
+        else:
+            print(f"[-] Skipping plot for {filename} as no data was collected across any method.")
 
 if __name__ == "__main__":
     main()

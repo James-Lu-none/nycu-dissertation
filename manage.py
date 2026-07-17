@@ -991,6 +991,14 @@ def parse_dgf_compile_info(file_path):
         print(f"Error parsing compile info file {file_path}: {e}")
     return info
 
+def run_matrix_plot(root_dir, cve_list):
+    import sys
+    import subprocess
+    python_bin = sys.executable
+    for cve in cve_list:
+        plot_cmd = [python_bin, "scripts/matrix_plot.py", cve]
+        subprocess.run(plot_cmd)
+
 def run_summary(root_dir):
     import csv
     import os
@@ -1001,12 +1009,6 @@ def run_summary(root_dir):
         print(f"Error: Artifact directory {artifact_root} not found.")
         return
 
-def run_matrix_plot(root_dir, cve_list):
-    python_bin = sys.executable
-    for cve in cve_list:
-        plot_cmd = [python_bin, "scripts/matrix_plot.py", cve]
-        subprocess.run(plot_cmd)
-        
     benchmarks = []
     for item in sorted(os.listdir(artifact_root)):
         item_path = os.path.join(artifact_root, item)
