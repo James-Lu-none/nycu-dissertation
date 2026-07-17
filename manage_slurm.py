@@ -97,9 +97,11 @@ def run_slurm_command(root_dir, command, cve_list, num_trials, run_all, yes, tag
             
             print(f"Pulling Apptainer image for {image_name}...")
             docker_uri = f"docker://{registry_value}/{image_name}"
-            apptainer_cmd = ["apptainer", "pull", sif_path, docker_uri]
+            apptainer_cmd = ["apptainer", "pull", "--disable-cache", "--force", sif_path, docker_uri]
             
-            apptainer_res = subprocess.run(apptainer_cmd, cwd=cve_bench_dir)
+            env = os.environ.copy()
+            env["APPTAINER_DISABLE_CACHE"] = "1"
+            apptainer_res = subprocess.run(apptainer_cmd, cwd=cve_bench_dir, env=env)
             if apptainer_res.returncode == 0:
                 print(f"\033[1;32mSuccessfully pulled Apptainer image: {sif_path}\033[0m")
             else:
