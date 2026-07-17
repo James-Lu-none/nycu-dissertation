@@ -10,6 +10,7 @@
 
 export APPTAINERENV_AFL_NO_UI=1
 export APPTAINERENV_AFL_NO_AFFINITY=1
+export APPTAINERENV_AFL_SEMANTIC_MAP="/workspace/semantic_map.csv"
 
 # Use RAM disk for Apptainer cache to avoid hammering the NFS /home directory
 export APPTAINER_CACHEDIR="/dev/shm/${USER}_apptainer_cache"
