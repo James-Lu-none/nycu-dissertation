@@ -232,6 +232,9 @@ def main():
         print(f"\n\033[1;35m[Post-processing] Running arm_plot for {cve}...\033[0m")
         subprocess.run([python_bin, manage_py, "arm_plot", cve])
         
+        print(f"\n\033[1;35m[Post-processing] Running matrix_plot for {cve}...\033[0m")
+        subprocess.run([python_bin, manage_py, "matrix_plot", cve])
+        
         print(f"\n\033[1;32m[CVE {cve}] All {iterations} iterations completed.\033[0m")
         if idx < len(cve_list):
             print("\033[1;32mResting 10 seconds before starting next CVE...\033[0m")

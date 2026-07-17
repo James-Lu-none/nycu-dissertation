@@ -998,6 +998,12 @@ def run_summary(root_dir):
     if not os.path.isdir(artifact_root):
         print(f"Error: Artifact directory {artifact_root} not found.")
         return
+
+def run_matrix_plot(root_dir, cve_list):
+    python_bin = sys.executable
+    for cve in cve_list:
+        plot_cmd = [python_bin, "scripts/matrix_plot.py", cve]
+        subprocess.run(plot_cmd)
         
     benchmarks = []
     for item in sorted(os.listdir(artifact_root)):
@@ -1239,6 +1245,8 @@ def main():
         run_ttr(root_dir, cve_list, num_trials, trial_name_arg)
     elif command == "arm_plot":
         run_arm_plot(root_dir, cve_list, trial_name_arg)
+    elif command == "matrix_plot":
+        run_matrix_plot(root_dir, cve_list)
 
 if __name__ == "__main__":
     main()
