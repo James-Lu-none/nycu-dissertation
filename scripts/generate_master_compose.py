@@ -112,6 +112,7 @@ def generate_compose(num_trials, tags_list):
       - FUZZER_ROLE=M
       - FUZZER_NAME=main
       - MUOAFL_TAG={tag}
+      - AFL_SEMANTIC_MAP=/workspace/semantic_map.csv
       - SESSION_ID=${{SESSION_ID}}
       - TRIAL_NAME=${{TRIAL_NAME}}
     volumes:
