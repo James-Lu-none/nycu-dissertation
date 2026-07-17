@@ -320,7 +320,10 @@ def run_docker_compose_command(root_dir, command, cve_list, num_trials, run_all,
                             break
                             
         if parsed_image_name:
-            env_dict["IMAGE_NAME"] = parsed_image_name
+            if command != "build" and registry_value:
+                env_dict["IMAGE_NAME"] = f"{registry_value}/{parsed_image_name}"
+            else:
+                env_dict["IMAGE_NAME"] = parsed_image_name
         
         env_dict["MUOAFL_TAGS"] = tags_value if tags_value is not None else ""
         env_dict["REGISTRY"] = registry_value
