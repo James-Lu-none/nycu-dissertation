@@ -1,4 +1,5 @@
 import argparse
+import os
 
 def generate_compose(num_trials, tags_list):
     services_lines = ["services:"]
