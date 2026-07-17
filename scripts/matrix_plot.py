@@ -78,10 +78,18 @@ def main():
                 trial_dir = os.path.join(method_dir, trial)
                 if not os.path.isdir(trial_dir):
                     continue
-                filepath = os.path.join(trial_dir, filename)
                 
-                if os.path.exists(filepath):
+                found_filepaths = []
+                for root, _, files in os.walk(trial_dir):
+                    if filename in files:
+                        found_filepaths.append(os.path.join(root, filename))
+                
+                if found_filepaths:
+                    filepath = found_filepaths[0]
                     print(f"    -> Loading trial: {trial} ({filepath})")
+                    if len(found_filepaths) > 1:
+                        print(f"      [!] Warning: Multiple {filename} found in {trial_dir}, using {filepath}")
+                    
                     mat = parse_matrix(filepath)
                     if mat is not None:
                         matrices.append(mat)
@@ -89,7 +97,7 @@ def main():
                     else:
                         print(f"      -> Failed to parse matrix.")
                 else:
-                    print(f"    -> File not found for trial {trial}: {filepath}")
+                    print(f"    -> File not found for trial {trial}: {filename} (searched recursively in {trial_dir})")
             
             if matrices:
                 avg_mat = np.mean(matrices, axis=0)
