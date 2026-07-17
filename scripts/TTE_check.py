@@ -79,7 +79,7 @@ def check_image_exists(image_name, cve_name=None):
         sif_path = os.path.join(bench_dir, f"{env_image_name}.sif")
         return os.path.exists(sif_path)
 
-def triage_crashes_in_container(image_name, binary, flags, local_crashes_dir, target_trace, cve_name, dest_logs_dir=None):
+def triage_crashes_in_container(image_name, binary, flags, local_crashes_dir, target_trace, cve_name, dest_logs_dir=None, force=False):
     local_crashes_dir = os.path.abspath(local_crashes_dir)
     
     trace_path = os.path.join(local_crashes_dir, ".target_trace")
@@ -111,7 +111,7 @@ def triage_crashes_in_container(image_name, binary, flags, local_crashes_dir, ta
         os.remove(result_path)
         
     triaged_record_path = os.path.join(local_crashes_dir, ".triaged_crashes")
-    if os.path.exists(triaged_record_path):
+    if force and os.path.exists(triaged_record_path):
         os.remove(triaged_record_path)
 
     if shutil.which("docker"):
@@ -275,6 +275,7 @@ def main():
     parser.add_argument("--build", action="store_true", help="Force rebuild of Docker images")
     parser.add_argument("--update-reached", action="store_true", help="Deprecated/Compatibility flag")
     parser.add_argument("--trial-name", type=str, help="Specific trial run name to check. If not specified, the latest one will be used.")
+    parser.add_argument("--force", action="store_true", help="Force re-triaging of all crashes even if tte.txt has a match or is cached")
     args = parser.parse_args()
 
     # Locate artifact directory
@@ -419,6 +420,13 @@ def main():
             os.makedirs(local_trial_dir, exist_ok=True)
             exposure_file_path = os.path.join(local_trial_dir, "tte.txt")
             
+            if not args.force and os.path.exists(exposure_file_path):
+                with open(exposure_file_path, "r") as f:
+                    content = f.read().strip()
+                if content:
+                    print(f"  [+] Trial {item['label']} target already reached in tte.txt! Fast-skipping. (Crash: {content})")
+                    continue
+            
             # Locate all sub-crashes directories
             crashes_dirs = []
             master_crashes_dir = os.path.join(local_trial_dir, "out/main/crashes")
@@ -473,7 +481,8 @@ def main():
                     local_crashes_dir=local_crashes_dir,
                     target_trace=target_trace,
                     cve_name=args.bench,
-                    dest_logs_dir=dest_logs_dir
+                    dest_logs_dir=dest_logs_dir,
+                    force=args.force
                 )
                 
                 if tte_ms is not None:
