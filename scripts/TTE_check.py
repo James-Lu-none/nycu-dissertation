@@ -276,6 +276,7 @@ def main():
     parser.add_argument("--update-reached", action="store_true", help="Deprecated/Compatibility flag")
     parser.add_argument("--trial-name", type=str, help="Specific trial run name to check. If not specified, the latest one will be used.")
     parser.add_argument("--force", action="store_true", help="Force re-triaging of all crashes even if tte.txt has a match or is cached")
+    parser.add_argument("--registry", type=str, help="Docker registry to prefix to the image name")
     args = parser.parse_args()
 
     # Locate artifact directory
@@ -395,6 +396,9 @@ def main():
         if not orig_image_name:
             print(f"Error: Could not find Docker image name for method {method} in compose files. Skipping.")
             continue
+            
+        if args.registry:
+            orig_image_name = f"{args.registry}/{orig_image_name}"
             
         image_name = orig_image_name.replace("-dd", "-multistage")
         if not image_name.endswith("-multistage:latest") and not image_name.endswith("-multistage"):

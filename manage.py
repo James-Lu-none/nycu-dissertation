@@ -750,7 +750,7 @@ def run_stat_plot(root_dir, cve_list, trial_name_arg, yes):
         
     print("\n\033[1;32mDone.\033[0m")
 
-def run_tte_check(root_dir, cve_list, trial_name_arg, yes):
+def run_tte_check(root_dir, cve_list, trial_name_arg, yes, registry_value=None):
     venv_activate = os.path.join(root_dir, "../.venv/bin/activate")
     python_bin = sys.executable
     if os.path.isfile(venv_activate):
@@ -761,6 +761,8 @@ def run_tte_check(root_dir, cve_list, trial_name_arg, yes):
             trial_name = trial_name_arg if trial_name_arg else select_trial_interactively(root_dir, cve, yes)
             print(f"Running TTE_check.py for {cve} with trial: \033[1;35m{trial_name}\033[0m")
             cmd = [python_bin, "scripts/TTE_check.py", "--bench", cve, "--trial-name", trial_name]
+            if registry_value:
+                cmd.extend(["--registry", registry_value])
             subprocess.run(cmd)
     else:
         cve, trial_name = select_cve_and_trial_interactively(root_dir, cve_list)
@@ -768,6 +770,8 @@ def run_tte_check(root_dir, cve_list, trial_name_arg, yes):
             sys.exit(0)
         print(f"Running TTE_check.py for {cve} with trial: \033[1;35m{trial_name}\033[0m")
         cmd = [python_bin, "scripts/TTE_check.py", "--bench", cve, "--trial-name", trial_name]
+        if registry_value:
+            cmd.extend(["--registry", registry_value])
         subprocess.run(cmd)
         
     print("\n\033[1;32mDone.\033[0m")
@@ -1223,7 +1227,7 @@ def main():
     elif command == "stat_plot":
         run_stat_plot(root_dir, cve_list, trial_name_arg, yes)
     elif command == "tte_check":
-        run_tte_check(root_dir, cve_list, trial_name_arg, yes)
+        run_tte_check(root_dir, cve_list, trial_name_arg, yes, registry_value)
     elif command == "tte_plot":
         run_tte_plot(root_dir, cve_list, trial_name_arg)
     elif command == "ttr":

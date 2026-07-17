@@ -170,7 +170,7 @@ def main():
         if command == "stat_plot":
             manage.run_stat_plot(root_dir, cve_list, trial_name_arg, yes)
         elif command == "tte_check":
-            manage.run_tte_check(root_dir, cve_list, trial_name_arg, yes)
+            manage.run_tte_check(root_dir, cve_list, trial_name_arg, yes, registry_value)
         elif command == "tte_plot":
             manage.run_tte_plot(root_dir, cve_list, trial_name_arg)
         elif command == "ttr":

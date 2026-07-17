@@ -187,7 +187,7 @@ def main():
                 else:
                     subprocess.run([python_bin, manage_script, "copy", cve, str(trials)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                     # Run tte_check locally for non-SLURM
-                    subprocess.run([python_bin, manage_py, "tte_check", cve, "-y"])
+                    subprocess.run([python_bin, manage_py, "tte_check", cve, "-y", "--registry", args.registry])
                 
                 # Calculate rate
                 expected_total = trials
@@ -213,7 +213,7 @@ def main():
             
             # Extra: Run TTE check
             print("\n\033[1;35m[Post-processing] Running TTE check...\033[0m")
-            subprocess.run([python_bin, manage_py, "tte_check", cve, "-y"])
+            subprocess.run([python_bin, manage_py, "tte_check", cve, "-y", "--registry", args.registry])
             
             print(f"\n\033[1;32m[CVE {cve}] Iteration {iteration}/{iterations} completed. Resting 5 seconds...\033[0m")
             time.sleep(5)
