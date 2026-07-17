@@ -60,6 +60,10 @@ esac
 
 NAME="main"
 
+SAFE_IMAGE_NAME=$(echo "$IMAGE_NAME" | tr ':' '_')
+SHARED_SANDBOX="/dev/shm/apptainer_sandbox_${CVE}_${SAFE_IMAGE_NAME}"
+LOCKFILE="${SHARED_SANDBOX}.lock"
+
 DEST_DIR="${ROOT_DIR}/artifact/${CVE}/${TRIAL_NAME}/${METHOD_NAME}/trial${TRIAL_NUM}"
 LOCAL_OUT="/dev/shm/fuzz_${SLURM_JOB_ID}_${SLURM_ARRAY_TASK_ID}/out"
 
@@ -81,12 +85,29 @@ sync_data() {
   fi
 }
 
+cleanup_sandbox() {
+  if [ -n "$SHARED_SANDBOX" ] && [ -n "$LOCKFILE" ]; then
+    (
+      flock 8
+      if [ -f "${SHARED_SANDBOX}.refs" ]; then
+        sed -i "/^${SLURM_JOB_ID}_${SLURM_ARRAY_TASK_ID}$/d" "${SHARED_SANDBOX}.refs"
+        if [ ! -s "${SHARED_SANDBOX}.refs" ]; then
+          echo "[*] Last task for this sandbox on this node. Cleaning up sandbox ($SHARED_SANDBOX)..."
+          rm -rf "$SHARED_SANDBOX" "${SHARED_SANDBOX}.refs" "${SHARED_SANDBOX}.tmp" 2>/dev/null
+          rm -f "$LOCKFILE" 2>/dev/null
+        fi
+      fi
+    ) 8>> "$LOCKFILE"
+  fi
+}
+
 cleanup_fast() {
   echo "[*] Abort signal received (scancel/timeout). Performing fast sync..."
   rm -rf "$LOCAL_OUT/${NAME}/queue" "$LOCAL_OUT/${NAME}/hangs" 2>/dev/null
   sync_data
   echo "[*] Cleaning up local RAM disk storage..."
   rm -rf "/dev/shm/fuzz_${SLURM_JOB_ID}_${SLURM_ARRAY_TASK_ID}"
+  cleanup_sandbox
   exit 0
 }
 
@@ -95,6 +116,7 @@ cleanup_normal() {
   sync_data
   echo "[*] Cleaning up local RAM disk storage..."
   rm -rf "/dev/shm/fuzz_${SLURM_JOB_ID}_${SLURM_ARRAY_TASK_ID}"
+  cleanup_sandbox
 }
 
 trap cleanup_fast SIGINT SIGTERM
@@ -102,21 +124,22 @@ trap cleanup_normal EXIT
 
 # use a shared sandbox per compute node for the same CVE and IMAGE to drastically save RAM,
 # prevent "Too many open files in system", and avoid extracting hundreds of thousands of files multiple times.
-SAFE_IMAGE_NAME=$(echo "$IMAGE_NAME" | tr ':' '_')
-SHARED_SANDBOX="/dev/shm/apptainer_sandbox_${CVE}_${SAFE_IMAGE_NAME}"
-LOCKFILE="${SHARED_SANDBOX}.lock"
 
 # Use flock to ensure only the first job on the node builds the sandbox
 exec 9> "$LOCKFILE"
 flock 9
-if [ ! -d "$SHARED_SANDBOX" ]; then
-    echo "[*] Building Shared Apptainer Sandbox in RAM ($SHARED_SANDBOX)..."
+SIF_PATH="${ROOT_DIR}/bench/${CVE}/${IMAGE_NAME}.sif"
+if [ ! -d "$SHARED_SANDBOX" ] || [ "$SIF_PATH" -nt "$SHARED_SANDBOX" ]; then
+    echo "[*] Building (or Rebuilding) Shared Apptainer Sandbox in RAM ($SHARED_SANDBOX)..."
+    rm -rf "$SHARED_SANDBOX" "${SHARED_SANDBOX}.tmp" "${SHARED_SANDBOX}.refs" 2>/dev/null
     ulimit -n 1048576 2>/dev/null || ulimit -n 65536 2>/dev/null || true
-    apptainer build --sandbox "${SHARED_SANDBOX}.tmp" "${ROOT_DIR}/bench/${CVE}/${IMAGE_NAME}.sif"
+    apptainer build --sandbox "${SHARED_SANDBOX}.tmp" "$SIF_PATH"
     mv "${SHARED_SANDBOX}.tmp" "$SHARED_SANDBOX"
+    touch "$SHARED_SANDBOX"
 else
-    echo "[*] Shared Sandbox already exists. Reusing it to save time and RAM!"
+    echo "[*] Shared Sandbox already exists and is up to date. Reusing it to save time and RAM!"
 fi
+echo "${SLURM_JOB_ID}_${SLURM_ARRAY_TASK_ID}" >> "${SHARED_SANDBOX}.refs"
 flock -u 9
 
 SANDBOX_DIR="$SHARED_SANDBOX"
