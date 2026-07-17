@@ -106,9 +106,9 @@ def generate_compose(num_trials, tags_list):
     working_dir: /workspace
     pid: "host"
     environment:
-      - TARGET_BIN=${{TARGET_BIN_MUOAFL}}
+      - TARGET_BIN=${{TARGET_BIN_MUOAFL}}-{tag}
       - TARGET_ARGS=${{TARGET_ARGS}}
-      - FUZZER_BIN=afl-fuzz-dd-muoafl
+      - FUZZER_BIN=afl-fuzz-dd-muoafl-{tag}
       - FUZZER_ROLE=M
       - FUZZER_NAME=muoafl-{tag}
       - MUOAFL_TAG={tag}
