@@ -433,12 +433,12 @@ def main():
             
             # Locate all sub-crashes directories
             crashes_dirs = []
-            master_crashes_dir = os.path.join(local_trial_dir, "out/main/crashes")
-            if os.path.exists(master_crashes_dir):
-                crashes_dirs.append(("main", master_crashes_dir))
-            slave_crashes_dir = os.path.join(local_trial_dir, "out/slave/crashes")
-            if os.path.exists(slave_crashes_dir):
-                crashes_dirs.append(("slave", slave_crashes_dir))
+            out_dir = os.path.join(local_trial_dir, "out")
+            if os.path.exists(out_dir):
+                for node_name in os.listdir(out_dir):
+                    node_crashes_dir = os.path.join(out_dir, node_name, "crashes")
+                    if os.path.isdir(node_crashes_dir):
+                        crashes_dirs.append((node_name, node_crashes_dir))
                     
             best_tte_ms = None
             best_matching_crash = None
