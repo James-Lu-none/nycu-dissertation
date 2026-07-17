@@ -341,7 +341,7 @@ def run_docker_compose_command(root_dir, command, cve_list, num_trials, run_all,
             
         cmd_args = ["docker", "compose"]
         if command == "up":
-            cmd_args += ["up", "-d", "--build"] + extra_args
+            cmd_args += ["up", "-d", "--build", "--pull", "always"] + extra_args
             services = []
             for i in range(1, num_trials + 1):
                 if run_all:
@@ -357,7 +357,7 @@ def run_docker_compose_command(root_dir, command, cve_list, num_trials, run_all,
             else:
                 cmd_args += extra_args
         elif command == "build":
-            cmd_args += ["build"] + extra_args
+            cmd_args += ["build", "--pull"] + extra_args
             
         build_res = subprocess.run(cmd_args, cwd=cve_bench_dir, env=env_dict)
         if command == "build" and build_res.returncode == 0:
