@@ -267,7 +267,10 @@ def run_clean():
 
 def run_docker_compose_command(root_dir, command, cve_list, num_trials, run_all, yes, tags_value, registry_value, extra_args, trial_name_arg=None):
     python_bin = sys.executable
-    gen_cmd = [python_bin, os.path.join(root_dir, "scripts/generate_master_compose.py"), str(num_trials)]
+    tags_list = [t.strip() for t in (tags_value or "v1").split(",") if t.strip()]
+    if not tags_list:
+        tags_list = ["v1"]
+    gen_cmd = [python_bin, os.path.join(root_dir, "scripts/generate_master_compose.py"), str(num_trials), "--tags", ",".join(tags_list)]
     subprocess.run(gen_cmd)
     
     def process_cve(cve):
@@ -340,7 +343,9 @@ def run_docker_compose_command(root_dir, command, cve_list, num_trials, run_all,
             for i in range(1, num_trials + 1):
                 if run_all:
                     services += [f"afl-base-{i}", f"afl-cd-{i}"]
-                services += [f"afl-dd-{i}", f"afl-muoafl-{i}"]
+                services += [f"afl-dd-{i}"]
+                for t in tags_list:
+                    services += [f"afl-muoafl-{t}-{i}"]
             cmd_args += services
         elif command == "down":
             cmd_args += ["down"]
@@ -427,28 +432,29 @@ def copy_all_txt_files(container_name, target_dir, is_slave=False):
         subprocess.run(["docker", "cp", f"{container_name}:/workspace/{f_name}", dest_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 def run_copy(root_dir, cve_list, num_trials, trial_name_arg):
-    methods = ["base", "cd", "dd", "muoafl"]
-    suffixes = ["afl-base", "afl-cd", "afl-dd", "afl-muoafl"]
     trials = list(range(1, num_trials + 1))
     
     for cve in cve_list:
-        container_name = f"{cve}-afl-base-1"
-        res = subprocess.run(["docker", "ps", "-a", "-q", "-f", f"name=^/{container_name}$"], capture_output=True, text=True)
-        if not res.stdout.strip():
-            container_name = f"{cve}-afl-dd-1"
+        # We need to find the session_id and trial_name from any container of this cve
+        res = subprocess.run(["docker", "ps", "-a", "--format", "{{.Names}}", "-f", f"name=^{cve}-afl-"], capture_output=True, text=True)
+        containers = [c.strip() for c in res.stdout.splitlines() if c.strip()]
+        if not containers:
+            print(f"Warning: No containers found for {cve}.")
+            continue
+            
+        # Extract from the first container we find
+        container_name = containers[0]
             
         session_id = ""
         trial_name = ""
         
-        res = subprocess.run(["docker", "ps", "-a", "-q", "-f", f"name=^/{container_name}$"], capture_output=True, text=True)
-        if res.stdout.strip():
-            inspect_res = subprocess.run(["docker", "inspect", "--format", "{{range .Config.Env}}{{println .}}{{end}}", container_name], capture_output=True, text=True)
-            if inspect_res.returncode == 0:
-                for line in inspect_res.stdout.splitlines():
-                    if line.startswith("SESSION_ID="):
-                        session_id = line.split("=", 1)[1].strip()
-                    elif line.startswith("TRIAL_NAME="):
-                        trial_name = line.split("=", 1)[1].strip()
+        inspect_res = subprocess.run(["docker", "inspect", "--format", "{{range .Config.Env}}{{println .}}{{end}}", container_name], capture_output=True, text=True)
+        if inspect_res.returncode == 0:
+            for line in inspect_res.stdout.splitlines():
+                if line.startswith("SESSION_ID="):
+                    session_id = line.split("=", 1)[1].strip()
+                elif line.startswith("TRIAL_NAME="):
+                    trial_name = line.split("=", 1)[1].strip()
                         
         if not session_id or not trial_name:
             curr_session_path = os.path.join(root_dir, "bench", cve, ".current_session")
@@ -482,42 +488,46 @@ def run_copy(root_dir, cve_list, num_trials, trial_name_arg):
         with open(os.path.join(artifact_trial_dir, ".session_id"), "w") as f:
             f.write(session_id)
             
-        for idx, method in enumerate(methods):
-            suffix = suffixes[idx]
-            for i in trials:
-                c_name = f"{cve}-{suffix}-{i}"
-                res = subprocess.run(["docker", "ps", "-a", "-q", "-f", f"name=^/{c_name}$"], capture_output=True, text=True)
-                if not res.stdout.strip():
-                    continue
+        for i in trials:
+            # Re-fetch all containers just for this trial `i` and excluding slaves
+            res = subprocess.run(["docker", "ps", "-a", "--format", "{{.Names}}", "-f", f"name=^{cve}-afl-.*-{i}$"], capture_output=True, text=True)
+            trial_containers = [c.strip() for c in res.stdout.splitlines() if c.strip() and "-slave-" not in c]
+            
+            for c_name in trial_containers:
+                prefix = f"{cve}-afl-"
+                suffix = f"-{i}"
+                if c_name.startswith(prefix) and c_name.endswith(suffix):
+                    method = c_name[len(prefix):-len(suffix)]
                     
-                target_dir = os.path.join(artifact_trial_dir, method, f"trial{i}")
-                os.makedirs(target_dir, exist_ok=True)
-                print(f"Copying results from {c_name:<55}... ", end="", flush=True)
-                
-                copy_all_txt_files(c_name, target_dir)
-                if suffix in ["afl-base", "afl-cd", "afl-dd"]:
-                    slave_c_name = f"{cve}-{suffix}-slave-{i}"
+                    target_dir = os.path.join(artifact_trial_dir, method, f"trial{i}")
+                    os.makedirs(target_dir, exist_ok=True)
+                    print(f"Copying results from {c_name:<55}... ", end="", flush=True)
+                    
+                    copy_all_txt_files(c_name, target_dir)
+                    
+                    # Copy from slave if it exists
+                    slave_c_name = f"{cve}-afl-{method}-slave-{i}"
                     res_slave = subprocess.run(["docker", "ps", "-a", "-q", "-f", f"name=^/{slave_c_name}$"], capture_output=True, text=True)
                     if res_slave.stdout.strip():
-                        copy_all_txt_files(slave_c_name, target_dir, is_slave=True)
-                
-                res_run = subprocess.run(["docker", "inspect", "-f", "{{.State.Running}}", c_name], capture_output=True, text=True)
-                running = res_run.stdout.strip() == "true"
-                
-                success = False
-                if running:
-                    tar_cmd = f"docker exec {c_name} tar -cf - -C /workspace out --exclude=.cur_input --exclude=*.pyc --exclude=__pycache__"
-                    try:
-                        p1 = subprocess.Popen(tar_cmd.split(), stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-                        p2 = subprocess.Popen(["tar", "-xf", "-", "-C", target_dir], stdin=p1.stdout, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                        p1.stdout.close()
-                        p2.communicate()
-                        success = p2.returncode == 0
-                    except Exception:
-                        pass
-                else:
-                    res_cp = subprocess.run(["docker", "cp", f"{c_name}:/workspace/out", target_dir], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                    success = res_cp.returncode == 0
+                        copy_all_txt_files(slave_c_name, target_dir)
+                        
+                    res_run = subprocess.run(["docker", "inspect", "-f", "{{.State.Running}}", c_name], capture_output=True, text=True)
+                    running = res_run.stdout.strip() == "true"
+                    
+                    success = False
+                    if running:
+                        tar_cmd = f"docker exec {c_name} tar -cf - -C /workspace out --exclude=.cur_input --exclude=*.pyc --exclude=__pycache__"
+                        try:
+                            p1 = subprocess.Popen(tar_cmd.split(), stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+                            p2 = subprocess.Popen(["tar", "-xf", "-", "-C", target_dir], stdin=p1.stdout, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                            p1.stdout.close()
+                            p2.communicate()
+                            success = p2.returncode == 0
+                        except Exception:
+                            pass
+                    else:
+                        res_cp = subprocess.run(["docker", "cp", f"{c_name}:/workspace/out", target_dir], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                        success = res_cp.returncode == 0
                     
                 for root, dirs, files in os.walk(target_dir):
                     for file in files:

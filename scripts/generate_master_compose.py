@@ -1,7 +1,6 @@
-import sys
-import os
+import argparse
 
-def generate_compose(num_trials):
+def generate_compose(num_trials, tags_list):
     services_lines = ["services:"]
     volumes_lines = ["volumes:"]
     
@@ -98,8 +97,9 @@ def generate_compose(num_trials):
 """)
 
         # MUOAFL
-        services_lines.append(f"""  afl-muoafl-{i}:
-    container_name: "${{CVE}}-afl-muoafl-{i}"
+        for tag in tags_list:
+            services_lines.append(f"""  afl-muoafl-{tag}-{i}:
+    container_name: "${{CVE}}-afl-muoafl-{tag}-{i}"
     image: "${{IMAGE_NAME}}"
     command: bash -c "bash script.sh && sleep infinity"
     working_dir: /workspace
@@ -109,19 +109,20 @@ def generate_compose(num_trials):
       - TARGET_ARGS=${{TARGET_ARGS}}
       - FUZZER_BIN=afl-fuzz-dd-muoafl
       - FUZZER_ROLE=M
-      - FUZZER_NAME=muoafl
+      - FUZZER_NAME=muoafl-{tag}
+      - MUOAFL_TAG={tag}
       - SESSION_ID=${{SESSION_ID}}
       - TRIAL_NAME=${{TRIAL_NAME}}
     volumes:
-      - "afl-out-muoafl-{i}:/workspace/out"
+      - "afl-out-muoafl-{tag}-{i}:/workspace/out"
       - "./script.sh:/workspace/script.sh:ro"
     deploy:
       resources:
         limits:
           memory: 1.5G
 """)
-        volumes_lines.append(f"""  afl-out-muoafl-{i}:
-    name: "${{CVE}}-afl-out-muoafl-{i}"
+            volumes_lines.append(f"""  afl-out-muoafl-{tag}-{i}:
+    name: "${{CVE}}-afl-out-muoafl-{tag}-{i}"
 """)
 
     full_content = "\n".join(services_lines) + "\n" + "\n".join(volumes_lines)
@@ -137,11 +138,12 @@ def generate_compose(num_trials):
     print(f"Successfully generated docker-compose.master.yml for {num_trials} trials.")
 
 if __name__ == "__main__":
-    trials = 5
-    if len(sys.argv) > 1:
-        try:
-            trials = int(sys.argv[1])
-        except ValueError:
-            pass
-    generate_compose(trials)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("trials", type=int, nargs="?", default=5)
+    parser.add_argument("--tags", type=str, default="v1")
+    args = parser.parse_args()
+    tags_list = [t.strip() for t in args.tags.split(",") if t.strip()]
+    if not tags_list:
+        tags_list = ["v1"]
+    generate_compose(args.trials, tags_list)
 
