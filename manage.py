@@ -167,7 +167,7 @@ def parse_arguments(root_dir):
     only_crashes = False
     extra_args = []
     
-    valid_commands = ["up", "down", "stop", "build", "status", "log", "clean", "copy", "stat_plot", "tte_check", "tte_plot", "ttr", "arm_plot", "summary"]
+    valid_commands = ["up", "down", "stop", "build", "status", "log", "clean", "copy", "stat_plot", "tte_check", "tte_plot", "ttr", "arm_plot", "summary", "matrix_plot"]
     
     i = 0
     while i < len(args):
@@ -1179,7 +1179,7 @@ def main():
     command, target_cve, num_trials, trial_name_arg, run_all, yes, tags_value, registry_value, only_crashes, extra_args = parse_arguments(root_dir)
     
     if not command:
-        print("Error: Command (up, down, build, status, log, clean, copy, stat_plot, tte_check, tte_plot, ttr, summary) is required.")
+        print("Error: Command (up, down, build, status, log, clean, copy, stat_plot, tte_check, tte_plot, ttr, summary, matrix_plot) is required.")
         print_usage()
         sys.exit(1)
 
