@@ -133,7 +133,7 @@ def run_slurm_copy(root_dir, cve_list, num_trials, trial_name_arg):
 
 def main():
     root_dir = os.path.dirname(os.path.abspath(__file__))
-    command, target_cve, num_trials, trial_name_arg, run_all, yes, tags_value, registry_value, extra_args = manage.parse_arguments(root_dir)
+    command, target_cve, num_trials, trial_name_arg, run_all, yes, tags_value, registry_value, only_crashes, extra_args = manage.parse_arguments(root_dir)
     
     if command is None:
         manage.print_usage()
