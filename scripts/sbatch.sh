@@ -80,6 +80,10 @@ sync_data() {
   mkdir -p "$DEST_DIR/out"
   cp -a "$LOCAL_OUT/"* "$DEST_DIR/out/" 2>/dev/null || true
   
+  if [ -s "$DEST_DIR/out/tte.txt" ]; then
+    cp "$DEST_DIR/out/tte.txt" "$DEST_DIR/tte.txt" 2>/dev/null || true
+  fi
+  
   if [ -d "$DEST_DIR/out/.txt_sync" ]; then
     mv "$DEST_DIR/out/.txt_sync"/*.txt "$DEST_DIR/" 2>/dev/null || true
     rm -rf "$DEST_DIR/out/.txt_sync"
