@@ -59,7 +59,7 @@ def check_all_methods_success(cve, root_dir, expected_total=0):
                             reached_trials += 1
                             match = re.search(r'time:(\d+)', content)
                             if match:
-                                ttes.append(float(match.group(1)))
+                                ttes.append(float(match.group(1)) / 1000.0)  # Convert ms to seconds
                 except Exception:
                     pass
                     

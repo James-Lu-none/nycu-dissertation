@@ -28,7 +28,7 @@ def generate_compose(num_trials, tags_list):
       - TARGET_ARGS=${{TARGET_ARGS}}
       - FUZZER_BIN=afl-fuzz
       - FUZZER_ROLE=M
-      - FUZZER_NAME=base
+      - FUZZER_NAME=main
       - SESSION_ID=${{SESSION_ID}}
       - TRIAL_NAME=${{TRIAL_NAME}}
     volumes:
@@ -55,7 +55,7 @@ def generate_compose(num_trials, tags_list):
       - TARGET_ARGS=${{TARGET_ARGS}}
       - FUZZER_BIN=afl-fuzz-cd
       - FUZZER_ROLE=M
-      - FUZZER_NAME=cd
+      - FUZZER_NAME=main
       - SESSION_ID=${{SESSION_ID}}
       - TRIAL_NAME=${{TRIAL_NAME}}
     volumes:
@@ -82,7 +82,7 @@ def generate_compose(num_trials, tags_list):
       - TARGET_ARGS=${{TARGET_ARGS}}
       - FUZZER_BIN=afl-fuzz-solo-dd
       - FUZZER_ROLE=M
-      - FUZZER_NAME=dd
+      - FUZZER_NAME=main
       - SESSION_ID=${{SESSION_ID}}
       - TRIAL_NAME=${{TRIAL_NAME}}
     volumes:
@@ -110,7 +110,7 @@ def generate_compose(num_trials, tags_list):
       - TARGET_ARGS=${{TARGET_ARGS}}
       - FUZZER_BIN=afl-fuzz-dd-muoafl-{tag}
       - FUZZER_ROLE=M
-      - FUZZER_NAME=muoafl-{tag}
+      - FUZZER_NAME=main
       - MUOAFL_TAG={tag}
       - SESSION_ID=${{SESSION_ID}}
       - TRIAL_NAME=${{TRIAL_NAME}}
