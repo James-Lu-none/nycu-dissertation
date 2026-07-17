@@ -121,15 +121,6 @@ flock -u 9
 
 SANDBOX_DIR="$SHARED_SANDBOX"
 
-cat << 'EOF' > "$LOCAL_OUT/sync_txt.sh"
-#!/bin/bash
-mkdir -p out/.txt_sync
-while true; do
-  find . -maxdepth 1 -name '*.txt' -exec cp {} out/.txt_sync/ \; 2>/dev/null
-  sleep 60
-done
-EOF
-chmod +x "$LOCAL_OUT/sync_txt.sh"
 
 echo "[*] Starting Fuzzer ($NAME)..."
 apptainer exec \
@@ -140,7 +131,7 @@ apptainer exec \
   --no-home \
   --bind ${LOCAL_OUT}:/workspace/out \
   "$SANDBOX_DIR" \
-  bash -c "cd /workspace || exit 1; /workspace/out/sync_txt.sh & exec ${FUZZER} -i /workspace/in -o /workspace/out -M ${NAME} -- ${TARGET} ${TARGET_ARGS}" &
+  bash -c "cd /workspace || exit 1; cp *.txt *.csv out/ 2>/dev/null || true; exec ${FUZZER} -i /workspace/in -o /workspace/out -M ${NAME} -- ${TARGET} ${TARGET_ARGS}" &
 FUZZER_PID=$!
 
 # Background polling for live triage

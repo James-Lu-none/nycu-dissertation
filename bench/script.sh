@@ -19,6 +19,10 @@ while true; do
   log_msg "[*] Starting fuzzer inside tmux..."
   tmux kill-session -t "$SESSION_NAME" 2>/dev/null
   rm -rf out/$NAME
+  
+  # Copy compile-time metadata to the out/ directory so it gets synced to the host automatically
+  cp /workspace/*.txt /workspace/*.csv out/ 2>/dev/null || true
+  
   # Use exec to replace tmux shell process with fuzzer process.
   # TARGET_ARGS is unquoted to allow multiple arguments expansion or empty value.
   tmux new-session -d -s "$SESSION_NAME" -n "main" "exec $FUZZER -i in -o out -$ROLE $NAME -- $TARGET $TARGET_ARGS"
