@@ -32,7 +32,7 @@ def check_all_methods_success(cve, root_dir, expected_total=0):
     if not os.path.exists(session_path):
         return False, "Session path missing"
 
-    methods = [d for d in os.listdir(session_path) if os.path.isdir(os.path.join(session_path, d))]
+    methods = [d for d in os.listdir(session_path) if os.path.isdir(os.path.join(session_path, d)) and d not in ["plot", "TTE_check"]]
     
     if not methods:
         return False, "No methods found"
