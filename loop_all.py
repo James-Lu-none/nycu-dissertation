@@ -189,7 +189,7 @@ def main():
                     # In SLURM mode, compute nodes self-triage and sync results automatically
                     print(f"     -> [SLURM] Reading live triage results from NFS...")
                 else:
-                    subprocess.run([python_bin, manage_script, "copy", cve, str(trials)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    subprocess.run([python_bin, manage_script, "copy", cve, str(trials), "--only-crashes"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                     # Run tte_check locally for non-SLURM
                     subprocess.run([python_bin, manage_py, "tte_check", cve, "-y", "--registry", args.registry])
                 

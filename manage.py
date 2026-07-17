@@ -164,6 +164,7 @@ def parse_arguments(root_dir):
     yes = False
     registry_value = "registry.optixbase.com:30000"
     tags_value = None
+    only_crashes = False
     extra_args = []
     
     valid_commands = ["up", "down", "stop", "build", "status", "log", "clean", "copy", "stat_plot", "tte_check", "tte_plot", "ttr", "arm_plot", "summary"]
@@ -188,6 +189,8 @@ def parse_arguments(root_dir):
         elif arg_lower in ["-h", "--help"]:
             print_usage()
             sys.exit(0)
+        elif arg_lower == "--only-crashes":
+            only_crashes = True
         elif arg.startswith("-"):
             extra_args.append(arg)
         elif command is None and arg_lower in valid_commands:
@@ -203,7 +206,7 @@ def parse_arguments(root_dir):
             
         i += 1
             
-    return command, target_cve, num_trials, trial_name, run_all, yes, tags_value, registry_value, extra_args
+    return command, target_cve, num_trials, trial_name, run_all, yes, tags_value, registry_value, only_crashes, extra_args
 
 def select_cve_interactively(root_dir, action, yes):
     all_cves = get_cves(root_dir)
@@ -517,6 +520,8 @@ def run_copy(root_dir, cve_list, num_trials, trial_name_arg):
                     success = False
                     if running:
                         tar_cmd = f"docker exec {c_name} tar -cf - -C /workspace out --exclude=.cur_input --exclude=*.pyc --exclude=__pycache__"
+                        if only_crashes:
+                            tar_cmd += " --exclude=queue --exclude=hangs"
                         try:
                             p1 = subprocess.Popen(tar_cmd.split(), stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
                             p2 = subprocess.Popen(["tar", "-xf", "-", "-C", target_dir], stdin=p1.stdout, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -1163,7 +1168,7 @@ def main():
     venv_python = os.path.abspath(os.path.join(root_dir, "../.venv/bin/python3"))
     if os.path.isfile(venv_python) and os.path.abspath(sys.executable) != venv_python:
         os.execv(venv_python, [venv_python] + sys.argv)
-    command, target_cve, num_trials, trial_name_arg, run_all, yes, tags_value, registry_value, extra_args = parse_arguments(root_dir)
+    command, target_cve, num_trials, trial_name_arg, run_all, yes, tags_value, registry_value, only_crashes, extra_args = parse_arguments(root_dir)
     
     if not command:
         print("Error: Command (up, down, build, status, log, clean, copy, stat_plot, tte_check, tte_plot, ttr, summary) is required.")
@@ -1219,7 +1224,7 @@ def main():
     elif command == "stop":
         run_stop(cve_list)
     elif command == "copy":
-        run_copy(root_dir, cve_list, num_trials, trial_name_arg)
+        run_copy(root_dir, cve_list, num_trials, trial_name_arg, only_crashes=only_crashes)
     elif command == "status":
         run_status(cve_list)
     elif command == "log":
