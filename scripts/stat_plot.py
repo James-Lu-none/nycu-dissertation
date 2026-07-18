@@ -142,6 +142,8 @@ def get_method_info(method):
             return method, "#8c564b" # brown
         elif "v3" in m_low:
             return method, "#e377c2" # pink
+        elif "v4" in m_low:
+            return method, "#bcbd22" # olive
         return method, "#ff7f0e"
     return method, "#7f7f7f"
 
