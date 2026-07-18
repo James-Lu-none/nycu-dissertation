@@ -334,8 +334,14 @@ def parse_exposure_file(file_path):
     return None
 
 def analyze_and_write_lineage(artifact_dir, session_dir, method, trial, plot_dir):
-    exposure_file_path = os.path.join(artifact_dir, session_dir, method, trial, "tte.txt")
-    if not os.path.exists(exposure_file_path):
+    exposure_file_path = None
+    trial_dir = os.path.join(artifact_dir, session_dir, method, trial)
+    for root_walk, _, files in os.walk(trial_dir):
+        if "tte.txt" in files:
+            exposure_file_path = os.path.join(root_walk, "tte.txt")
+            break
+            
+    if not exposure_file_path or not os.path.exists(exposure_file_path):
         return
         
     try:
@@ -541,7 +547,16 @@ def main():
     for method in methods:
         method_ttes[method] = []
         for item in trial_items:
-            exposure_file_path = os.path.join(artifact_dir, item["session_dir"], method, item["trial"], "tte.txt")
+            trial_dir = os.path.join(artifact_dir, item["session_dir"], method, item["trial"])
+            exposure_file_path = None
+            for root_walk, _, files in os.walk(trial_dir):
+                if "tte.txt" in files:
+                    exposure_file_path = os.path.join(root_walk, "tte.txt")
+                    break
+            
+            if not exposure_file_path or not os.path.exists(exposure_file_path):
+                continue
+                
             tte = parse_exposure_file(exposure_file_path)
             method_ttes[method].append(tte)
             try:

@@ -46,9 +46,18 @@ def check_all_methods_success(cve, root_dir, expected_total=0):
         reached_trials = 0
         ttes = []
         
-        for root_walk, dirs, files in os.walk(method_dir):
-            if "tte.txt" in files:
-                file_path = os.path.join(root_walk, "tte.txt")
+        for trial in os.listdir(method_dir):
+            trial_dir = os.path.join(method_dir, trial)
+            if not os.path.isdir(trial_dir):
+                continue
+                
+            file_path = None
+            for root_walk, _, files in os.walk(trial_dir):
+                if "tte.txt" in files:
+                    file_path = os.path.join(root_walk, "tte.txt")
+                    break
+                    
+            if file_path and os.path.exists(file_path):
                 try:
                     with open(file_path, "r") as f:
                         content = f.read().strip()
@@ -59,7 +68,7 @@ def check_all_methods_success(cve, root_dir, expected_total=0):
                             reached_trials += 1
                             match = re.search(r'time:(\d+)', content)
                             if match:
-                                ttes.append(float(match.group(1)) / 1000.0)  # Convert ms to seconds
+                                ttes.append(int(match.group(1)) / 1000.0)  # Convert ms to seconds
                 except Exception:
                     pass
                     

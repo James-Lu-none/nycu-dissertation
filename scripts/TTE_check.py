@@ -422,7 +422,14 @@ def main():
         for item in trial_items:
             local_trial_dir = os.path.join(artifact_dir, item["session_dir"], method, item["trial"])
             os.makedirs(local_trial_dir, exist_ok=True)
-            exposure_file_path = os.path.join(local_trial_dir, "tte.txt")
+            exposure_file_path = None
+            for root_walk, _, files in os.walk(local_trial_dir):
+                if "tte.txt" in files:
+                    exposure_file_path = os.path.join(root_walk, "tte.txt")
+                    break
+                    
+            if not exposure_file_path:
+                exposure_file_path = os.path.join(local_trial_dir, "tte.txt") # Default fallback if missing
             
             if not args.force and os.path.exists(exposure_file_path):
                 with open(exposure_file_path, "r") as f:
