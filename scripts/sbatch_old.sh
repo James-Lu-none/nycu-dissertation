@@ -157,7 +157,7 @@ SLAVE_PID=$!
   while true; do
     sleep 60
     echo "[*] [$(date)] Running live triage..." >> "$DEST_DIR/triage.log"
-    python3 -u "${ROOT_DIR}/scripts/live_triage.py" --cve "$CVE" --image "$SANDBOX_DIR" --local-out "$LOCAL_OUT" $M_TARGET $TARGET_ARGS >> "$DEST_DIR/triage.log" 2>&1
+    python3 -u "${ROOT_DIR}/scripts/live_triage.py" --cve "$CVE" --image "$SANDBOX_DIR" --local-out "$LOCAL_OUT" $TARGET_BIN_ASAN $TARGET_ARGS >> "$DEST_DIR/triage.log" 2>&1
     
     # Sync triage stats back to NFS
     mkdir -p "$DEST_DIR/out/${M_NAME}/crashes" "$DEST_DIR/out/${S_NAME}/crashes"

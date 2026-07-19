@@ -155,7 +155,7 @@ apptainer exec \
   --no-home \
   --bind ${LOCAL_OUT}:/workspace/out \
   "$SANDBOX_DIR" \
-  bash -c "cd /workspace || exit 1; cp *.txt *.csv out/ 2>/dev/null || true; exec ${FUZZER} -i /workspace/in -o /workspace/out -M ${NAME} -- ${TARGET} ${TARGET_ARGS}" &
+  bash -c "cd /workspace || exit 1; if [ -z \"${TARGET_BIN_ASAN}\" ] || [ ! -f \"${TARGET_BIN_ASAN}\" ]; then echo \"[-] Error: SAND ASAN binary (${TARGET_BIN_ASAN}) not found or unset!\" >&2; exit 1; fi; cp *.txt *.csv out/ 2>/dev/null || true; exec ${FUZZER} -i /workspace/in -o /workspace/out -M ${NAME} -w ${TARGET_BIN_ASAN} -- ${TARGET} ${TARGET_ARGS}" &
 FUZZER_PID=$!
 
 # Background polling for live triage

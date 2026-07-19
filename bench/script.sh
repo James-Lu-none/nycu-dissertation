@@ -15,6 +15,17 @@ log_msg() {
   echo "$(date '+%Y-%m-%d %H:%M:%S') [$NAME] $msg" | tee -a "$LOG_FILE"
 }
 
+if [ -z "$TARGET_BIN_ASAN" ]; then
+  log_msg "[-] Error: TARGET_BIN_ASAN is not set!"
+  exit 1
+fi
+
+if [ ! -f "$TARGET_BIN_ASAN" ]; then
+  log_msg "[-] Error: SAND ASAN binary ($TARGET_BIN_ASAN) not found!"
+  exit 1
+fi
+SAND_ARGS="-w $TARGET_BIN_ASAN"
+
 while true; do
   log_msg "[*] Starting fuzzer inside tmux..."
   tmux kill-session -t "$SESSION_NAME" 2>/dev/null
@@ -25,7 +36,7 @@ while true; do
   
   # Use exec to replace tmux shell process with fuzzer process.
   # TARGET_ARGS is unquoted to allow multiple arguments expansion or empty value.
-  tmux new-session -d -s "$SESSION_NAME" -n "main" "exec $FUZZER -i in -o out -$ROLE $NAME -- $TARGET $TARGET_ARGS"
+  tmux new-session -d -s "$SESSION_NAME" -n "main" "exec $FUZZER -i in -o out -$ROLE $NAME $SAND_ARGS -- $TARGET $TARGET_ARGS"
   sleep 2.5
   
   MY_PID=$(tmux list-panes -t "$SESSION_NAME" -F "#{pane_pid}" 2>/dev/null)

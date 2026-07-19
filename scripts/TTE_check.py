@@ -38,10 +38,11 @@ def parse_fuzzer_command(benchmark_dir):
     if not target_bin:
         target_bin = env_vars.get("TARGET_BIN")
     target_args = env_vars.get("TARGET_ARGS", "")
+    target_asan = env_vars.get("TARGET_BIN_ASAN")
     
     if target_bin:
-        return f"{target_bin} {target_args}".strip()
-    return None
+        return f"{target_bin} {target_args}".strip(), target_asan
+    return None, None
 
 def get_docker_image_name(benchmark_dir, method):
     env_path = os.path.join(benchmark_dir, ".env")
@@ -378,7 +379,7 @@ def main():
     print(f"Target stack trace to match: {target_trace}")
         
     # 3. Parse fuzzer command from .env
-    cmd_str = parse_fuzzer_command(bench_dir)
+    cmd_str, target_asan = parse_fuzzer_command(bench_dir)
     if not cmd_str:
         print(f"Error: Could not find fuzzer execution command in {bench_dir}/.env. Exiting.")
         sys.exit(1)
@@ -471,11 +472,10 @@ def main():
                 
                 print(f"Trial {item['label']} ({name}): Triaging {len(crash_files)} crash files in a single container run...")
                 
-                # Strip leading paths if necessary, but actually the .env specifies the path like ./cxxfilt-base
-                # We need the ASAN version.
-                asan_binary = re.sub(r'-(base|cd|solo-dd|dual-dd|dual-cd|dd-muoafl.*)$', '', binary)
-                if not asan_binary.endswith("-asan"):
-                    asan_binary = f"{asan_binary}-asan"
+                asan_binary = target_asan
+                if not asan_binary:
+                    print(f"Error: TARGET_BIN_ASAN not set in .env")
+                    sys.exit(1)
                     
                 # Fix for paths: if it starts with ./, it's relative to /workspace inside the container.
                 # The container execution already binds and works in the right context or uses the absolute path if provided.

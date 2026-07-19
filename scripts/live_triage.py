@@ -26,10 +26,7 @@ def main():
     flags = args.cmd[1:]
     
     # We MUST use the ASAN-instrumented binary for triage!
-    import re
-    binary = re.sub(r'-(base|cd|solo-dd|dual-dd|dual-cd|dd-muoafl.*)$', '', binary)
-    if not binary.endswith("-asan"):
-        binary = f"{binary}-asan"
+    # The caller now directly passes the TARGET_BIN_ASAN as the binary.
     
     # Import triage to get target trace
     scripts_dir = os.path.dirname(os.path.realpath(__file__))

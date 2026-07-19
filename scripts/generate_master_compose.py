@@ -26,6 +26,7 @@ def generate_compose(num_trials, tags_list):
     environment:
       - TARGET_BIN=${{TARGET_BIN_BASE}}
       - TARGET_ARGS=${{TARGET_ARGS}}
+      - TARGET_BIN_ASAN=${{TARGET_BIN_ASAN}}
       - FUZZER_BIN=afl-fuzz
       - FUZZER_ROLE=M
       - FUZZER_NAME=main
@@ -53,6 +54,7 @@ def generate_compose(num_trials, tags_list):
     environment:
       - TARGET_BIN=${{TARGET_BIN_CD}}
       - TARGET_ARGS=${{TARGET_ARGS}}
+      - TARGET_BIN_ASAN=${{TARGET_BIN_ASAN}}
       - FUZZER_BIN=afl-fuzz-cd
       - FUZZER_ROLE=M
       - FUZZER_NAME=main
@@ -80,6 +82,7 @@ def generate_compose(num_trials, tags_list):
     environment:
       - TARGET_BIN=${{TARGET_BIN_SOLO_DD}}
       - TARGET_ARGS=${{TARGET_ARGS}}
+      - TARGET_BIN_ASAN=${{TARGET_BIN_ASAN}}
       - FUZZER_BIN=afl-fuzz-solo-dd
       - FUZZER_ROLE=M
       - FUZZER_NAME=main
@@ -108,6 +111,7 @@ def generate_compose(num_trials, tags_list):
     environment:
       - TARGET_BIN=${{TARGET_BIN_MUOAFL}}-{tag}
       - TARGET_ARGS=${{TARGET_ARGS}}
+      - TARGET_BIN_ASAN=${{TARGET_BIN_ASAN}}
       - FUZZER_BIN=afl-fuzz-dd-muoafl-{tag}
       - FUZZER_ROLE=M
       - FUZZER_NAME=main
