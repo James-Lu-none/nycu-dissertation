@@ -179,10 +179,21 @@ FUZZER_PID=$!
 ) &
 TRIAGE_PID=$!
 
+# Background polling for hourly full sync
+(
+  while true; do
+    sleep 3600
+    echo "[*] [$(date)] Performing hourly full sync..." >> "$DEST_DIR/triage.log"
+    sync_data
+  done
+) &
+SYNC_PID=$!
+
 wait $FUZZER_PID
 FUZZER_EXIT=$?
 
 kill $TRIAGE_PID 2>/dev/null
+kill $SYNC_PID 2>/dev/null
 
 if [ $FUZZER_EXIT -ne 0 ]; then
     echo "[-] Error: The fuzzer crashed! Exit code: $FUZZER_EXIT"
