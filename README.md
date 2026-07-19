@@ -29,7 +29,7 @@ sudo systemctl restart systemd-logind
 
 ## build images
 
-```
+```bash
 ./manage.sh build dafl --tags v1
 ./manage.sh build cafl --tags v1
 
@@ -38,6 +38,16 @@ sudo systemctl restart systemd-logind
 ./manage.sh build muoafl --tags v3
 
 ./manage.sh build
+
+# to docker registry
+./manage.sh build dafl --tags v1 --registry docker.io/location0717
+./manage.sh build cafl --tags v1 --registry docker.io/location0717
+
+./manage.sh build muoafl --tags v1 --registry docker.io/location0717
+./manage.sh build muoafl --tags v2 --registry docker.io/location0717
+./manage.sh build muoafl --tags v3 --registry docker.io/location0717
+
+./manage.sh build --registry docker.io/location0717
 ```
 
 ## run benchmarks
