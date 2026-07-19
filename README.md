@@ -46,6 +46,7 @@ sudo systemctl restart systemd-logind
 ./manage.sh build muoafl --tags v1 --registry docker.io/location0717
 ./manage.sh build muoafl --tags v2 --registry docker.io/location0717
 ./manage.sh build muoafl --tags v3 --registry docker.io/location0717
+./manage.sh build muoafl --tags v4 --registry docker.io/location0717
 
 ./manage.sh build --registry docker.io/location0717
 ```
@@ -63,6 +64,9 @@ sudo systemctl restart systemd-logind
 ./loop.sh --tags v3 --trials 30
 
 ./loop_all.sh --tags="v1,v2,v3" --trials 30
+
+# from docker registry
+./loop_all.sh --tags="v1,v2,v3" --trials 30 --registry docker.io/location0717
 ```
 
 ### slurm cluster (apptainer)
@@ -76,6 +80,9 @@ sudo systemctl restart systemd-logind
 ./loop_all.sh --tag v3 --slurm --trials 30
 
 ./loop_all.sh --tags="v1,v2,v3" --trials 30 --slurm
+
+# from docker registry
+./loop_all.sh --tags="v1,v2,v3" --trials 30 --slurm --registry docker.io/location0717
 ```
 
 
