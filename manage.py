@@ -1227,6 +1227,9 @@ def main():
         if num_trials is None:
             print("Error: Could not detect number of trials. Use --trials N to specify.")
             sys.exit(1)
+            
+    if num_trials is None and command == "build":
+        num_trials = 1
 
     # Execute commands
     if command in ["up", "down", "build"]:
