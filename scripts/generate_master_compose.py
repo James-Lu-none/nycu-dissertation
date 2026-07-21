@@ -32,9 +32,11 @@ def generate_compose(num_trials, tags_list):
       - FUZZER_NAME=main
       - SESSION_ID=${{SESSION_ID}}
       - TRIAL_NAME=${{TRIAL_NAME}}
+      - CONTAINER_NAME=${{CVE}}-afl-base-{i}
     volumes:
       - "afl-out-base-{i}:/workspace/out"
       - "./script.sh:/workspace/script.sh:ro"
+      - "../../artifact/${{CVE}}/${{TRIAL_NAME}}/logs:/workspace/logs"
     deploy:
       resources:
         limits:
@@ -60,9 +62,11 @@ def generate_compose(num_trials, tags_list):
       - FUZZER_NAME=main
       - SESSION_ID=${{SESSION_ID}}
       - TRIAL_NAME=${{TRIAL_NAME}}
+      - CONTAINER_NAME=${{CVE}}-afl-cd-{i}
     volumes:
       - "afl-out-cd-{i}:/workspace/out"
       - "./script.sh:/workspace/script.sh:ro"
+      - "../../artifact/${{CVE}}/${{TRIAL_NAME}}/logs:/workspace/logs"
     deploy:
       resources:
         limits:
@@ -88,9 +92,11 @@ def generate_compose(num_trials, tags_list):
       - FUZZER_NAME=main
       - SESSION_ID=${{SESSION_ID}}
       - TRIAL_NAME=${{TRIAL_NAME}}
+      - CONTAINER_NAME=${{CVE}}-afl-dd-{i}
     volumes:
       - "afl-out-dd-{i}:/workspace/out"
       - "./script.sh:/workspace/script.sh:ro"
+      - "../../artifact/${{CVE}}/${{TRIAL_NAME}}/logs:/workspace/logs"
     deploy:
       resources:
         limits:
@@ -119,9 +125,11 @@ def generate_compose(num_trials, tags_list):
       - AFL_SEMANTIC_MAP=/workspace/semantic_map.csv
       - SESSION_ID=${{SESSION_ID}}
       - TRIAL_NAME=${{TRIAL_NAME}}
+      - CONTAINER_NAME=${{CVE}}-afl-muoafl-{tag}-{i}
     volumes:
       - "afl-out-muoafl-{tag}-{i}:/workspace/out"
       - "./script.sh:/workspace/script.sh:ro"
+      - "../../artifact/${{CVE}}/${{TRIAL_NAME}}/logs:/workspace/logs"
     deploy:
       resources:
         limits:

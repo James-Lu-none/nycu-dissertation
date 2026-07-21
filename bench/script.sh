@@ -34,9 +34,11 @@ while true; do
   # Copy compile-time metadata to the out/ directory so it gets synced to the host automatically
   cp /workspace/*.txt /workspace/*.csv out/ 2>/dev/null || true
   
+  mkdir -p /workspace/logs
+  
   # Use exec to replace tmux shell process with fuzzer process.
   # TARGET_ARGS is unquoted to allow multiple arguments expansion or empty value.
-  tmux new-session -d -s "$SESSION_NAME" -n "main" "exec $FUZZER -i in -o out -$ROLE $NAME $SAND_ARGS -- $TARGET $TARGET_ARGS"
+  tmux new-session -d -s "$SESSION_NAME" -n "main" "AFL_NO_UI=1 exec $FUZZER -i in -o out -$ROLE $NAME $SAND_ARGS -- $TARGET $TARGET_ARGS > /workspace/logs/${CONTAINER_NAME}.log 2>&1"
   sleep 2.5
   
   MY_PID=$(tmux list-panes -t "$SESSION_NAME" -F "#{pane_pid}" 2>/dev/null)
