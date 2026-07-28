@@ -162,7 +162,7 @@ def parse_arguments(root_dir):
     trial_name = None
     run_all = False
     yes = False
-    registry_value = "registry.optixbase.com:30000"
+    registry_value = "docker.io/location0717"
     tags_value = None
     only_crashes = False
     extra_args = []

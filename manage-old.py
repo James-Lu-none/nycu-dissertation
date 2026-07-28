@@ -126,7 +126,7 @@ def build_fuzzer_image(root_dir, target, extra_args=None):
         sys.exit(1)
         
     image_tag = f"location0717/{target}:latest"
-    registry_tag = f"registry.optixbase.com:30000/{target}:latest"
+    registry_tag = f"docker.io/location0717/{target}:latest"
     print(f"\n\033[1;34m[Build Docker]\033[0m Building docker image \033[1;35m{image_tag}\033[0m and \033[1;35m{registry_tag}\033[0m...")
     
     cmd = ["docker", "build"]
@@ -325,7 +325,7 @@ def run_docker_compose_command(root_dir, command, cve_list, num_trials, run_all,
                                 image_name = v.strip().strip('"').strip("'")
                                 break
             if image_name:
-                registry_tag = f"registry.optixbase.com:30000/{image_name}"
+                registry_tag = f"docker.io/location0717/{image_name}"
                 print(f"\n\033[1;34m[Docker Tag & Push]\033[0m Tagging \033[1;35m{image_name}\033[0m as \033[1;35m{registry_tag}\033[0m...")
                 tag_res = subprocess.run(["docker", "tag", image_name, registry_tag])
                 if tag_res.returncode == 0:
