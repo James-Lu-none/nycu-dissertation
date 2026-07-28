@@ -360,6 +360,10 @@ def run_docker_compose_command(root_dir, command, cve_list, num_trials, run_all,
             cmd_args += ["build", "--pull"] + extra_args
             
         build_res = subprocess.run(cmd_args, cwd=cve_bench_dir, env=env_dict)
+        if command in ["build", "up"] and build_res.returncode != 0:
+            print(f"\033[1;31mError: Failed to run docker compose {command} for {cve}\033[0m")
+            sys.exit(1)
+            
         if command == "build" and build_res.returncode == 0:
             image_name = env_dict.get("IMAGE_NAME")
             if not image_name and parsed_image_name:

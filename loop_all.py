@@ -150,13 +150,19 @@ def main():
             # Step A: Compile docker images (only if --build is provided)
             if args.build:
                 print("\n\033[1;33m[Step 1/5] Compiling docker images...\033[0m")
-                subprocess.run([python_bin, manage_script, "build", cve, str(trials), "--tags", args.tags, "--registry", args.registry])
+                res_build = subprocess.run([python_bin, manage_script, "build", cve, str(trials), "--tags", args.tags, "--registry", args.registry])
+                if res_build.returncode != 0:
+                    print(f"\033[1;31m[Error] Failed to build docker images for {cve}. Skipping this CVE.\033[0m")
+                    break
             else:
                 print("\n\033[1;33m[Step 1/5] Skipping compilation (--build not specified)...\033[0m")
 
             # Step B: Start containers
             print("\n\033[1;33m[Step 2/5] Starting containers...\033[0m")
-            subprocess.run([python_bin, manage_script, "up", cve, str(trials), "-y", "--tags", args.tags, "--registry", args.registry])
+            res_up = subprocess.run([python_bin, manage_script, "up", cve, str(trials), "-y", "--tags", args.tags, "--registry", args.registry])
+            if res_up.returncode != 0:
+                print(f"\033[1;31m[Error] Failed to start containers for {cve}. Skipping this CVE.\033[0m")
+                break
             
             # Step C: Wait for the duration with 5-minute success rate checks
             tiers = list(range(150, cve_duration, 150))

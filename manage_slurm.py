@@ -72,7 +72,10 @@ def run_slurm_command(root_dir, command, cve_list, num_trials, run_all, yes, tag
                 
             sbatch_cmd.append(os.path.join(root_dir, "scripts/sbatch.sh"))
             print(f"Executing: {' '.join(sbatch_cmd)}")
-            subprocess.run(sbatch_cmd)
+            res = subprocess.run(sbatch_cmd)
+            if res.returncode != 0:
+                print(f"\033[1;31mError: Failed to submit Slurm job for {cve}\033[0m")
+                sys.exit(1)
             
         elif command == "down":
             print(f"Stopping Slurm jobs for \033[1;35m{cve}\033[0m")
