@@ -3,28 +3,15 @@ import sys
 import argparse
 import tempfile
 import subprocess
-import shutil
+import joblib
 import numpy as np
 import torch
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-from transformers import AutoTokenizer, AutoModel
-from sklearn.decomposition import PCA
-from sklearn.cluster import KMeans
-from sklearn.metrics import silhouette_score
 import umap
+from sklearn.cluster import KMeans, HDBSCAN
+from transformers import AutoTokenizer, AutoModel
 import tree_sitter_c
 import tree_sitter_cpp
 from tree_sitter import Language, Parser
-
-def get_parser(filename):
-    parser = Parser()
-    if filename.endswith(".c") or filename.endswith(".h"):
-        parser.language = Language(tree_sitter_c.language())
-    else:
-        parser.language = Language(tree_sitter_cpp.language())
-    return parser
 
 def get_parser(filename):
     parser = Parser()
@@ -41,22 +28,14 @@ class TempSourceDir:
         
     def __enter__(self):
         cwd = self.temp_dir.name
-        
         try:
             if os.path.exists(self.download_sh_path):
-                print(f"Executing {self.download_sh_path} in temporary directory...")
-                # Execute the script in the temp directory
-                subprocess.check_call(["bash", os.path.abspath(self.download_sh_path)], cwd=cwd)
+                subprocess.check_call(["bash", os.path.abspath(self.download_sh_path)], cwd=cwd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             else:
-                print(f"Error: download script not found at {self.download_sh_path}")
-                sys.exit(1)
-                
+                pass
         except subprocess.CalledProcessError as e:
             print(f"Error executing download.sh: {e}")
-            sys.exit(1)
             
-        # The src is expected to be placed within the cwd by download.sh
-        # Check if there is a 'src' directory created, if not we just use cwd
         src_path = os.path.join(cwd, "src")
         if os.path.isdir(src_path):
             return src_path
@@ -64,7 +43,6 @@ class TempSourceDir:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.temp_dir.cleanup()
-
 
 def find_function_node(node, line_idx):
     if node.type in ["function_definition", "method_definition"]:
@@ -79,8 +57,6 @@ def find_function_node(node, line_idx):
 
 def extract_context(src_dir, targets):
     contexts = []
-    
-    # Pre-parse files
     file_cache = {}
     for t in targets:
         filename = t['filename']
@@ -93,7 +69,6 @@ def extract_context(src_dir, targets):
                     filepath = os.path.join(root, filename)
                     break
             if not filepath:
-                print(f"Warning: File {filename} not found in {src_dir}")
                 contexts.append(None)
                 continue
             
@@ -112,7 +87,6 @@ def extract_context(src_dir, targets):
         tree = cache_entry['tree']
         lines = cache_entry['lines']
         
-        # lineno is 1-indexed, tree-sitter uses 0-indexed for start_point[0]
         line_idx = lineno - 1
         if line_idx >= len(lines):
             contexts.append(None)
@@ -124,21 +98,16 @@ def extract_context(src_dir, targets):
             start_line = func_node.start_point[0]
             end_line = func_node.end_point[0]
         else:
-            # Fallback to simple window if not in a function
             start_line = max(0, line_idx - 50)
             end_line = min(len(lines) - 1, line_idx + 50)
             
-        # Truncate if > 1000 lines
         if end_line - start_line > 1000:
             start_line = max(0, line_idx - 500)
             end_line = min(len(lines) - 1, line_idx + 500)
             
-        # Extract code text
         extracted_lines = lines[start_line:end_line+1]
         context_code = b'\n'.join(extracted_lines).decode('utf-8', errors='ignore')
         
-        # Calculate offset in the extracted string for the target line
-        # The target line is at (line_idx - start_line) index in extracted_lines
         target_local_idx = line_idx - start_line
         
         pre_text = b'\n'.join(extracted_lines[:target_local_idx])
@@ -160,6 +129,8 @@ def extract_context(src_dir, targets):
         
     return contexts
 
+from tqdm import tqdm
+
 def get_target_embeddings(contexts, model_name="jinaai/jina-embeddings-v2-base-code"):
     tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
     model = AutoModel.from_pretrained(model_name, trust_remote_code=True)
@@ -171,7 +142,7 @@ def get_target_embeddings(contexts, model_name="jinaai/jina-embeddings-v2-base-c
     embeddings = []
     valid_contexts = []
     
-    for ctx in contexts:
+    for ctx in tqdm(contexts, desc="Computing Embeddings"):
         if not ctx:
             continue
             
@@ -194,19 +165,16 @@ def get_target_embeddings(contexts, model_name="jinaai/jina-embeddings-v2-base-c
         target_token_indices = []
         for idx, (start_c, end_c) in enumerate(offsets):
             if start_c == end_c == 0:
-                continue # special tokens
-            # If the token overlaps with the target line character range
+                continue
             if not (end_c <= start_char or start_c >= end_char):
                 target_token_indices.append(idx)
                 
         if not target_token_indices:
-            print(f"Warning: Could not align tokens for {ctx['orig_target']}")
             continue
             
         with torch.no_grad():
             outputs = model(input_ids=input_ids, attention_mask=attention_mask)
             
-        # shape: (1, seq_len, hidden_size)
         last_hidden_state = outputs.last_hidden_state[0]
         
         target_states = last_hidden_state[target_token_indices]
@@ -215,128 +183,25 @@ def get_target_embeddings(contexts, model_name="jinaai/jina-embeddings-v2-base-c
         target_info = ctx['orig_target'].copy()
         target_info['target_code'] = ctx['target_code']
         target_info['context_code'] = ctx['context_code']
-        target_info['context_lines'] = len(ctx['context_code'].split('\n'))
-        target_info['context_chars'] = len(ctx['context_code'])
         
         embeddings.append(mean_pooled)
         valid_contexts.append(target_info)
         
     return np.array(embeddings), valid_contexts
 
-def cluster_embeddings(embeddings, valid_targets, out_file):
-    # PCA to 32 dims for clustering
-    # UMAP to 10 dims for clustering (if enough samples)
-    if len(embeddings) > 10:
-        reducer_10d = umap.UMAP(n_components=10, random_state=42)
-        reduced = reducer_10d.fit_transform(embeddings)
-    else:
-        reduced = embeddings
-        
-    # UMAP to 2 dims for visualization
-    if len(embeddings) > 2:
-        reducer_2d = umap.UMAP(n_components=2, random_state=42)
-        reduced_2d = reducer_2d.fit_transform(embeddings)
-    else:
-        from sklearn.decomposition import PCA
-        pca_2d = PCA(n_components=2)
-        reduced_2d = pca_2d.fit_transform(embeddings)
-        
-    from sklearn.cluster import HDBSCAN
-    min_cluster_size = max(2, min(5, len(embeddings) // 10))
-    if len(embeddings) < 2:
-        labels = np.zeros(len(embeddings), dtype=int)
-    else:
-        hdbscan = HDBSCAN(min_cluster_size=min_cluster_size, metric='euclidean')
-        labels = hdbscan.fit_predict(reduced)
-        
-    # Shift labels: Noise (-1) becomes 0. Clusters (0,1..) become 1,2..
-    best_labels = [lbl + 1 for lbl in labels]
-    best_k = len(set(best_labels))
-    
-    log_file = out_file.replace('.txt', '.log')
-    with open(log_file, 'w') as lf:
-        def log_print(msg):
-            print(msg)
-            lf.write(msg + '\n')
+import multiprocessing
+import concurrent.futures
 
-        log_print("\n--- Clustering Evaluation ---")
-        log_print(f"Using HDBSCAN with min_cluster_size={min_cluster_size}")
-        log_print(f"Found {best_k} clusters (including noise as Cluster 0)")
+def process_benchmark(bench_name, bench_dir):
+    b_path = os.path.join(bench_dir, bench_name)
+    slice_file = os.path.join(b_path, "slice_dfg.txt")
+    download_sh = os.path.join(b_path, "download.sh")
+    
+    if not os.path.exists(slice_file) or not os.path.exists(download_sh):
+        return bench_name, None, None
         
-        log_print("\n--- Clustering Results ---")
-        csv_file = out_file.replace('cluster_map.txt', 'semantic_map.csv')
-        if csv_file == out_file: # Fallback if out_file is not cluster_map.txt
-            csv_file = out_file + ".csv"
-            
-        with open(out_file, 'w') as f, open(csv_file, 'w') as csvf:
-            for target, label in zip(valid_targets, best_labels):
-                log_print(f"Cluster {label:2d} | {target['filename']}:{target['lineno']} (L:{target.get('context_lines', 0)}, C:{target.get('context_chars', 0)}) | {target.get('target_code', '')}")
-                f.write(f"{label} {target['filename']}:{target['lineno']}\n")
-                
-                # Format: s_idx,score,targ_line,mapped,semantic_type
-                s_idx = target.get('s_idx', 0)
-                score = target.get('score', 0)
-                csvf.write(f"{s_idx},{score},{target['filename']}:{target['lineno']},mapped,{label}\n")
-                
-        log_print("\n--- Full Target Contexts ---")
-        for target, label in zip(valid_targets, best_labels):
-            lf.write(f"\n[{target['filename']}:{target['lineno']}] Cluster {label}\n")
-            lf.write("-" * 40 + "\n")
-            lf.write(target.get('context_code', '') + "\n")
-            lf.write("-" * 40 + "\n")
-            
-        log_print(f"\nCluster map written to {out_file}")
-        log_print(f"Semantic CSV written to {csv_file}")
-        log_print(f"Detailed logs written to {log_file}")
-
-    # Visualization
-    plt.figure(figsize=(10, 8))
-    scatter = plt.scatter(reduced_2d[:, 0], reduced_2d[:, 1], c=best_labels, cmap='tab20', alpha=0.7, edgecolors='k')
-    plt.colorbar(scatter, label='Cluster ID (0=Noise)')
-    plt.title('2D UMAP Visualization of Basic Block Embeddings')
-    plt.xlabel('UMAP Component 1')
-    plt.ylabel('UMAP Component 2')
-    
-    # Add parameters as text on the plot
-    param_text = (
-        f"Model: Jina-Embeddings-v2-Base-Code\n"
-        f"Algorithm: HDBSCAN\n"
-        f"Min Cluster Size: {min_cluster_size}\n"
-        f"Found Clusters: {best_k}\n"
-        f"Total Samples: {len(embeddings)}"
-    )
-    plt.text(0.05, 0.95, param_text, transform=plt.gca().transAxes, fontsize=10,
-             verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
-             
-    vis_file = out_file.replace('.txt', '_vis.png')
-    plt.savefig(vis_file, dpi=300, bbox_inches='tight')
-    plt.close()
-    print(f"Visualization saved to {vis_file}")
-
-def run_pipeline(args, src_dir, targets):
-    print("Extracting contexts...")
-    contexts = extract_context(src_dir, targets)
-    
-    print("Computing embeddings...")
-    embeddings, valid_targets = get_target_embeddings(contexts)
-    
-    if len(embeddings) == 0:
-        print("Error: No valid embeddings generated.")
-        return
-        
-    print(f"Generated embeddings for {len(embeddings)} targets. Starting clustering...")
-    cluster_embeddings(embeddings, valid_targets, args.out_file)
-
-def main():
-    parser = argparse.ArgumentParser(description="Semantic-Aware Block Classification")
-    parser.add_argument("--slice_file", required=True, help="Path to slice_dfg.txt")
-    parser.add_argument("--src_dir", required=False, help="Path to source directory (optional if download.sh is present)")
-    parser.add_argument("--out_file", default="cluster_map.txt", help="Output cluster map file")
-    
-    args = parser.parse_args()
-    
     targets = []
-    with open(args.slice_file, 'r') as f:
+    with open(slice_file, 'r') as f:
         for line in f:
             parts = line.strip().split()
             if len(parts) >= 2:
@@ -344,27 +209,141 @@ def main():
                 score = parts[0]
                 if ':' in file_line:
                     filename, lineno = file_line.split(':')
-                    targets.append({'filename': filename, 'lineno': int(lineno), 'score': score, 's_idx': len(targets)})
+                    targets.append({
+                        'project': bench_name,
+                        'filename': filename, 
+                        'lineno': int(lineno), 
+                        'score': score
+                    })
                     
-    print(f"Parsed {len(targets)} targets from {args.slice_file}")
+    if not targets:
+        return bench_name, None, None
+        
+    with TempSourceDir(download_sh) as temp_src_dir:
+        contexts = extract_context(temp_src_dir, targets)
+        
+    return bench_name, targets, contexts
+
+def main():
+    parser = argparse.ArgumentParser(description="Global Semantic-Aware Block Classification")
+    parser.add_argument("--bench_dir", required=True, help="Path to benchmarks directory")
+    # Leave these arguments so manage.py doesn't crash if they are provided, but we ignore them
+    parser.add_argument("--slice_file", required=False, help="Ignored")
+    parser.add_argument("--out_file", required=False, help="Ignored")
+    parser.add_argument("--src_dir", required=False, help="Ignored")
     
-    src_dir = args.src_dir
-    # Auto-detect download.sh file in the same directory as slice_file
-    download_sh = os.path.join(os.path.dirname(os.path.abspath(args.slice_file)), 'download.sh')
+    args = parser.parse_args()
     
-    # If src_dir is not provided or missing, fallback to dynamic fetching via download.sh
-    if not src_dir or not os.path.exists(src_dir):
-        if os.path.exists(download_sh):
-            print(f"Source directory not found. Dynamically fetching via {download_sh}...")
-            with TempSourceDir(download_sh) as temp_src_dir:
-                run_pipeline(args, temp_src_dir, targets)
-            return
-        else:
-            print(f"Error: valid src_dir not provided and {download_sh} not found.")
-            sys.exit(1)
+    bench_dir = os.path.abspath(args.bench_dir)
+    
+    max_workers = multiprocessing.cpu_count()
+    torch.set_num_threads(max_workers)
+    
+    # Step 1: Global Pooling
+    print(f"Step 1: Global Pooling across all benchmarks (utilizing {max_workers} cores)...")
+    if not os.path.isdir(bench_dir):
+        print(f"Error: {bench_dir} is not a directory.")
+        sys.exit(1)
+        
+    benchmark_dirs = sorted([d for d in os.listdir(bench_dir) if os.path.isdir(os.path.join(bench_dir, d))])
+    
+    all_embeddings = []
+    all_valid_contexts = []
+    
+    all_contexts = []
+    with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
+        futures = {executor.submit(process_benchmark, bench_name, bench_dir): bench_name for bench_name in benchmark_dirs}
+        
+        for future in tqdm(concurrent.futures.as_completed(futures), total=len(futures), desc="Extracting Contexts"):
+            bench_name = futures[future]
+            try:
+                name, targets, contexts = future.result()
+                if contexts:
+                    all_contexts.extend(contexts)
+                else:
+                    tqdm.write(f"Skipped {name} (no valid targets or files)")
+            except Exception as e:
+                tqdm.write(f"Error processing {bench_name}: {e}")
+                
+    if not all_contexts:
+        print("No contexts collected. Exiting.")
+        return
+        
+    print(f"\nComputing embeddings for {len(all_contexts)} total contexts...")
+    embeddings, v_ctxs = get_target_embeddings(all_contexts)
+    if len(embeddings) > 0:
+        all_embeddings.append(embeddings)
+        all_valid_contexts.extend(v_ctxs)
             
-    # Otherwise just use the provided src_dir
-    run_pipeline(args, src_dir, targets)
+    if not all_embeddings:
+        print("No embeddings collected. Exiting.")
+        return
+        
+    X = np.vstack(all_embeddings)
+    print(f"Total valid embeddings collected: {X.shape[0]} from {len(all_valid_contexts)} contexts.")
+    
+    # Step 2: Global Fitting & Labeling
+    print("Step 2: Global Fitting & Labeling...")
+    
+    # Pipeline A (K-Means)
+    print("  -> Pipeline A: UMAP(16d) + K-Means(16)")
+    n_components_kmeans = min(16, X.shape[0] - 1) if X.shape[0] > 16 else max(2, X.shape[0] - 1)
+    umap_kmeans = umap.UMAP(n_components=n_components_kmeans, random_state=42)
+    X_umap_kmeans = umap_kmeans.fit_transform(X)
+    
+    n_clusters = min(16, X.shape[0])
+    kmeans = KMeans(n_clusters=n_clusters, random_state=42)
+    labels_kmeans = kmeans.fit_predict(X_umap_kmeans)
+    
+    # Pipeline B (HDBSCAN)
+    print("  -> Pipeline B: UMAP(10d) + HDBSCAN")
+    n_components_hdbscan = min(10, X.shape[0] - 1) if X.shape[0] > 10 else max(2, X.shape[0] - 1)
+    umap_hdbscan = umap.UMAP(n_components=n_components_hdbscan, random_state=42)
+    X_umap_hdbscan = umap_hdbscan.fit_transform(X)
+    
+    min_cluster_size = max(2, min(5, X.shape[0] // 10))
+    hdbscan = HDBSCAN(min_cluster_size=min_cluster_size, metric='euclidean')
+    labels_hdbscan = hdbscan.fit_predict(X_umap_hdbscan)
+    
+    # Step 3: Model Serialization
+    print("Step 3: Model Serialization...")
+    models_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'models')
+    os.makedirs(models_dir, exist_ok=True)
+    
+    joblib.dump(umap_kmeans, os.path.join(models_dir, 'umap_kmeans.pkl'))
+    joblib.dump(kmeans, os.path.join(models_dir, 'kmeans.pkl'))
+    joblib.dump(umap_hdbscan, os.path.join(models_dir, 'umap_hdbscan.pkl'))
+    joblib.dump(hdbscan, os.path.join(models_dir, 'hdbscan.pkl'))
+    print(f"Models saved to {models_dir}")
+    
+    # Step 4: Split & Distribute
+    print("Step 4: Split & Distribute...")
+    project_groups = {}
+    for i, target in enumerate(all_valid_contexts):
+        proj = target['project']
+        if proj not in project_groups:
+            project_groups[proj] = []
+        project_groups[proj].append({
+            'filename': target['filename'],
+            'lineno': target['lineno'],
+            'kmeans_label': labels_kmeans[i],
+            'hdbscan_label': labels_hdbscan[i]
+        })
+        
+    for proj, items in project_groups.items():
+        proj_dir = os.path.join(bench_dir, proj)
+        
+        out_kmeans = os.path.join(proj_dir, 'cluster_map_kmeans.txt')
+        with open(out_kmeans, 'w') as f:
+            for item in items:
+                f.write(f"{item['kmeans_label']} {item['filename']}:{item['lineno']}\n")
+                
+        out_hdbscan = os.path.join(proj_dir, 'cluster_map_hdbscan.txt')
+        with open(out_hdbscan, 'w') as f:
+            for item in items:
+                f.write(f"{item['hdbscan_label']} {item['filename']}:{item['lineno']}\n")
+                
+    print("\nGlobal classification complete!")
 
 if __name__ == "__main__":
     main()

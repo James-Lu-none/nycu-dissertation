@@ -1182,19 +1182,11 @@ def run_classify(root_dir, cve_list):
     if os.path.isfile(venv_activate):
         python_bin = os.path.abspath(os.path.join(root_dir, "../.venv/bin/python3"))
         
-    for cve in cve_list:
-        bench_dir = os.path.join(root_dir, "bench", cve)
-        slice_file = os.path.join(bench_dir, "slice_dfg.txt")
-        out_file = os.path.join(bench_dir, "cluster_map.txt")
-        
-        if not os.path.isfile(slice_file):
-            print(f"Warning: {slice_file} not found. Skipping {cve}.")
-            continue
-            
-        print(f"\n\033[1;34m[Classify]\033[0m Running classification for \033[1;35m{cve}\033[0m...")
-        
-        cmd = [python_bin, "scripts/classify_block.py", "--slice_file", slice_file, "--out_file", out_file]
-        subprocess.run(cmd)
+    bench_dir = os.path.join(root_dir, "bench")
+    print(f"\n\033[1;34m[Classify]\033[0m Running global classification across all benchmarks...")
+    
+    cmd = [python_bin, "scripts/classify_block.py", "--bench_dir", bench_dir]
+    subprocess.run(cmd)
         
     print("\n\033[1;32mDone.\033[0m")
 
