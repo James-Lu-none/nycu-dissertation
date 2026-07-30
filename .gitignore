@@ -7,4 +7,3 @@ bench/docker-compose.master.yml
 logs
 *.sif
 **/src
-*.png
