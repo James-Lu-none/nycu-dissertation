@@ -13,6 +13,7 @@ from transformers import AutoTokenizer, AutoModel
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
+import umap
 import tree_sitter_c
 import tree_sitter_cpp
 from tree_sitter import Language, Parser
@@ -25,52 +26,40 @@ def get_parser(filename):
         parser.language = Language(tree_sitter_cpp.language())
     return parser
 
-def load_env_vars(env_path):
-    env_vars = {}
-    if os.path.exists(env_path):
-        with open(env_path, 'r') as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith('#'):
-                    continue
-                if '=' in line:
-                    key, val = line.split('=', 1)
-                    env_vars[key.strip()] = val.strip('\'"')
-    return env_vars
+def get_parser(filename):
+    parser = Parser()
+    if filename.endswith(".c") or filename.endswith(".h"):
+        parser.language = Language(tree_sitter_c.language())
+    else:
+        parser.language = Language(tree_sitter_cpp.language())
+    return parser
 
 class TempSourceDir:
-    def __init__(self, env_vars):
-        self.env_vars = env_vars
+    def __init__(self, download_sh_path):
+        self.download_sh_path = download_sh_path
         self.temp_dir = tempfile.TemporaryDirectory()
         
     def __enter__(self):
         cwd = self.temp_dir.name
-        tar_url = self.env_vars.get('SRC_TAR_URL')
-        git_repo = self.env_vars.get('GIT_REPO')
-        git_branch = self.env_vars.get('GIT_BRANCH')
-        patch_cmd = self.env_vars.get('SRC_PATCH_CMD')
         
         try:
-            if tar_url:
-                print(f"Downloading {tar_url} to temporary directory...")
-                tar_name = "src.tar.gz"
-                subprocess.check_call(["wget", "-q", "-O", tar_name, tar_url], cwd=cwd)
-                subprocess.check_call(["tar", "-xzf", tar_name], cwd=cwd)
-                os.remove(os.path.join(cwd, tar_name))
-            elif git_repo:
-                print(f"Cloning {git_repo} to temporary directory...")
-                subprocess.check_call(["git", "clone", git_repo, "src"], cwd=cwd)
-                if git_branch:
-                    subprocess.check_call(["git", "checkout", git_branch], cwd=os.path.join(cwd, "src"))
-            
-            if patch_cmd:
-                print(f"Applying patches: {patch_cmd}")
-                subprocess.check_call(patch_cmd, shell=True, cwd=cwd)
+            if os.path.exists(self.download_sh_path):
+                print(f"Executing {self.download_sh_path} in temporary directory...")
+                # Execute the script in the temp directory
+                subprocess.check_call(["bash", os.path.abspath(self.download_sh_path)], cwd=cwd)
+            else:
+                print(f"Error: download script not found at {self.download_sh_path}")
+                sys.exit(1)
                 
         except subprocess.CalledProcessError as e:
-            print(f"Error fetching source: {e}")
+            print(f"Error executing download.sh: {e}")
             sys.exit(1)
             
+        # The src is expected to be placed within the cwd by download.sh
+        # Check if there is a 'src' directory created, if not we just use cwd
+        src_path = os.path.join(cwd, "src")
+        if os.path.isdir(src_path):
+            return src_path
         return cwd
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -225,6 +214,9 @@ def get_target_embeddings(contexts, model_name="jinaai/jina-embeddings-v2-base-c
         
         target_info = ctx['orig_target'].copy()
         target_info['target_code'] = ctx['target_code']
+        target_info['context_code'] = ctx['context_code']
+        target_info['context_lines'] = len(ctx['context_code'].split('\n'))
+        target_info['context_chars'] = len(ctx['context_code'])
         
         embeddings.append(mean_pooled)
         valid_contexts.append(target_info)
@@ -239,9 +231,13 @@ def cluster_embeddings(embeddings, valid_targets, out_file):
     else:
         reduced = embeddings
         
-    # PCA to 2 dims for visualization
-    pca_2d = PCA(n_components=2)
-    reduced_2d = pca_2d.fit_transform(embeddings)
+    # UMAP to 2 dims for visualization
+    if len(embeddings) > 2:
+        reducer = umap.UMAP(n_components=2, random_state=42)
+        reduced_2d = reducer.fit_transform(embeddings)
+    else:
+        pca_2d = PCA(n_components=2)
+        reduced_2d = pca_2d.fit_transform(embeddings)
         
     best_k = -1
     best_score = -1
@@ -279,8 +275,16 @@ def cluster_embeddings(embeddings, valid_targets, out_file):
         log_print("\n--- Clustering Results ---")
         with open(out_file, 'w') as f:
             for target, label in zip(valid_targets, best_labels):
-                log_print(f"Cluster {label:2d} | {target['filename']}:{target['lineno']} | {target['target_code']}")
+                log_print(f"Cluster {label:2d} | {target['filename']}:{target['lineno']} (L:{target['context_lines']}, C:{target['context_chars']}) | {target['target_code']}")
                 f.write(f"{label} {target['filename']}:{target['lineno']}\n")
+        
+        log_print("\n--- Full Target Contexts ---")
+        for target, label in zip(valid_targets, best_labels):
+            lf.write(f"\n[{target['filename']}:{target['lineno']}] Cluster {label}\n")
+            lf.write("-" * 40 + "\n")
+            lf.write(target['context_code'] + "\n")
+            lf.write("-" * 40 + "\n")
+            
         log_print(f"\nCluster map written to {out_file}")
         log_print(f"Detailed logs written to {log_file}")
 
@@ -288,9 +292,9 @@ def cluster_embeddings(embeddings, valid_targets, out_file):
     plt.figure(figsize=(10, 8))
     scatter = plt.scatter(reduced_2d[:, 0], reduced_2d[:, 1], c=best_labels, cmap='tab20', alpha=0.7, edgecolors='k')
     plt.colorbar(scatter, label='Cluster ID')
-    plt.title('2D Visualization of Basic Block Embeddings')
-    plt.xlabel('PCA Component 1')
-    plt.ylabel('PCA Component 2')
+    plt.title('2D UMAP Visualization of Basic Block Embeddings')
+    plt.xlabel('UMAP Component 1')
+    plt.ylabel('UMAP Component 2')
     
     # Add parameters as text on the plot
     param_text = (
@@ -325,7 +329,7 @@ def run_pipeline(args, src_dir, targets):
 def main():
     parser = argparse.ArgumentParser(description="Semantic-Aware Block Classification")
     parser.add_argument("--slice_file", required=True, help="Path to slice_dfg.txt")
-    parser.add_argument("--src_dir", required=False, help="Path to source directory (optional if .env config is present)")
+    parser.add_argument("--src_dir", required=False, help="Path to source directory (optional if download.sh is present)")
     parser.add_argument("--out_file", default="cluster_map.txt", help="Output cluster map file")
     
     args = parser.parse_args()
@@ -343,19 +347,18 @@ def main():
     print(f"Parsed {len(targets)} targets from {args.slice_file}")
     
     src_dir = args.src_dir
-    # Auto-detect .env file in the same directory as slice_file
-    env_file = os.path.join(os.path.dirname(os.path.abspath(args.slice_file)), '.env')
-    env_vars = load_env_vars(env_file)
+    # Auto-detect download.sh file in the same directory as slice_file
+    download_sh = os.path.join(os.path.dirname(os.path.abspath(args.slice_file)), 'download.sh')
     
-    # If src_dir is not provided or missing, fallback to dynamic fetching via .env
+    # If src_dir is not provided or missing, fallback to dynamic fetching via download.sh
     if not src_dir or not os.path.exists(src_dir):
-        if 'SRC_TAR_URL' in env_vars or 'GIT_REPO' in env_vars:
-            print(f"Source directory not found. Dynamically fetching via .env configuration...")
-            with TempSourceDir(env_vars) as temp_src_dir:
+        if os.path.exists(download_sh):
+            print(f"Source directory not found. Dynamically fetching via {download_sh}...")
+            with TempSourceDir(download_sh) as temp_src_dir:
                 run_pipeline(args, temp_src_dir, targets)
             return
         else:
-            print("Error: valid src_dir not provided and no SRC_TAR_URL/GIT_REPO found in .env file.")
+            print(f"Error: valid src_dir not provided and {download_sh} not found.")
             sys.exit(1)
             
     # Otherwise just use the provided src_dir

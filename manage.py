@@ -110,6 +110,7 @@ def print_usage():
     print("  ttr       : Run TTR.py on active CVEs (copies TTR logs/stats and plots)")
     print("  arm_plot  : Run ARM_plot.py on active CVEs (visualizes ARM rules)")
     print("  summary   : Aggregate TTE dd_dual summary tables and DGF compile info across benchmarks")
+    print("  classify  : Run target block classification (clustering) on benchmarks using classify_block.py")
 
 def build_fuzzer_image(root_dir, target, tag_value, registry_value, extra_args=None):
     if extra_args is None:
@@ -167,7 +168,7 @@ def parse_arguments(root_dir):
     only_crashes = False
     extra_args = []
     
-    valid_commands = ["up", "down", "stop", "build", "status", "log", "clean", "copy", "stat_plot", "tte_check", "tte_plot", "ttr", "arm_plot", "summary", "matrix_plot"]
+    valid_commands = ["up", "down", "stop", "build", "status", "log", "clean", "copy", "stat_plot", "tte_check", "tte_plot", "ttr", "arm_plot", "summary", "matrix_plot", "classify"]
     
     i = 0
     while i < len(args):
@@ -1175,6 +1176,28 @@ def run_summary(root_dir):
     except Exception as e:
         print(f"Error generating PNG table: {e}")
 
+def run_classify(root_dir, cve_list):
+    venv_activate = os.path.join(root_dir, "../.venv/bin/activate")
+    python_bin = sys.executable
+    if os.path.isfile(venv_activate):
+        python_bin = os.path.abspath(os.path.join(root_dir, "../.venv/bin/python3"))
+        
+    for cve in cve_list:
+        bench_dir = os.path.join(root_dir, "bench", cve)
+        slice_file = os.path.join(bench_dir, "slice_dfg.txt")
+        out_file = os.path.join(bench_dir, "cluster_map.txt")
+        
+        if not os.path.isfile(slice_file):
+            print(f"Warning: {slice_file} not found. Skipping {cve}.")
+            continue
+            
+        print(f"\n\033[1;34m[Classify]\033[0m Running classification for \033[1;35m{cve}\033[0m...")
+        
+        cmd = [python_bin, "scripts/classify_block.py", "--slice_file", slice_file, "--out_file", out_file]
+        subprocess.run(cmd)
+        
+    print("\n\033[1;32mDone.\033[0m")
+
 def main():
     root_dir = os.path.abspath(os.path.dirname(__file__))
     
@@ -1258,6 +1281,8 @@ def main():
         run_arm_plot(root_dir, cve_list, trial_name_arg)
     elif command == "matrix_plot":
         run_matrix_plot(root_dir, cve_list)
+    elif command == "classify":
+        run_classify(root_dir, cve_list)
 
 if __name__ == "__main__":
     main()
