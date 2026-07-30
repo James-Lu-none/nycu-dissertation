@@ -225,27 +225,33 @@ def get_target_embeddings(contexts, model_name="jinaai/jina-embeddings-v2-base-c
 
 def cluster_embeddings(embeddings, valid_targets, out_file):
     # PCA to 32 dims for clustering
-    if len(embeddings) > 32:
-        pca = PCA(n_components=32)
-        reduced = pca.fit_transform(embeddings)
+    # UMAP to 10 dims for clustering (if enough samples)
+    if len(embeddings) > 10:
+        reducer_10d = umap.UMAP(n_components=10, random_state=42)
+        reduced = reducer_10d.fit_transform(embeddings)
     else:
         reduced = embeddings
         
     # UMAP to 2 dims for visualization
     if len(embeddings) > 2:
-        reducer = umap.UMAP(n_components=2, random_state=42)
-        reduced_2d = reducer.fit_transform(embeddings)
+        reducer_2d = umap.UMAP(n_components=2, random_state=42)
+        reduced_2d = reducer_2d.fit_transform(embeddings)
     else:
+        from sklearn.decomposition import PCA
         pca_2d = PCA(n_components=2)
         reduced_2d = pca_2d.fit_transform(embeddings)
         
-    best_k = -1
-    best_score = -1
-    best_labels = None
-    best_kmeans = None
-    
-    max_k = min(15, len(embeddings) - 1)
-    min_k = min(5, max_k)
+    from sklearn.cluster import HDBSCAN
+    min_cluster_size = max(2, min(5, len(embeddings) // 10))
+    if len(embeddings) < 2:
+        labels = np.zeros(len(embeddings), dtype=int)
+    else:
+        hdbscan = HDBSCAN(min_cluster_size=min_cluster_size, metric='euclidean')
+        labels = hdbscan.fit_predict(reduced)
+        
+    # Shift labels: Noise (-1) becomes 0. Clusters (0,1..) become 1,2..
+    best_labels = [lbl + 1 for lbl in labels]
+    best_k = len(set(best_labels))
     
     log_file = out_file.replace('.txt', '.log')
     with open(log_file, 'w') as lf:
@@ -253,45 +259,40 @@ def cluster_embeddings(embeddings, valid_targets, out_file):
             print(msg)
             lf.write(msg + '\n')
 
-        if min_k < 2:
-            best_k = 1
-            best_labels = np.zeros(len(embeddings), dtype=int)
-            log_print("Only 1 cluster due to small number of samples.")
-        else:
-            log_print("\n--- Clustering Evaluation ---")
-            for k in range(min_k, max_k + 1):
-                kmeans = KMeans(n_clusters=k, random_state=42, n_init=10)
-                labels = kmeans.fit_predict(reduced)
-                score = silhouette_score(reduced, labels)
-                log_print(f"K={k}, Silhouette Score={score:.4f}, Iterations={kmeans.n_iter_}")
-                if score > best_score:
-                    best_score = score
-                    best_k = k
-                    best_labels = labels
-                    best_kmeans = kmeans
-                
-        log_print(f"\nSelected best K={best_k} with Silhouette Score={best_score:.4f}")
+        log_print("\n--- Clustering Evaluation ---")
+        log_print(f"Using HDBSCAN with min_cluster_size={min_cluster_size}")
+        log_print(f"Found {best_k} clusters (including noise as Cluster 0)")
         
         log_print("\n--- Clustering Results ---")
-        with open(out_file, 'w') as f:
+        csv_file = out_file.replace('cluster_map.txt', 'semantic_map.csv')
+        if csv_file == out_file: # Fallback if out_file is not cluster_map.txt
+            csv_file = out_file + ".csv"
+            
+        with open(out_file, 'w') as f, open(csv_file, 'w') as csvf:
             for target, label in zip(valid_targets, best_labels):
-                log_print(f"Cluster {label:2d} | {target['filename']}:{target['lineno']} (L:{target['context_lines']}, C:{target['context_chars']}) | {target['target_code']}")
+                log_print(f"Cluster {label:2d} | {target['filename']}:{target['lineno']} (L:{target.get('context_lines', 0)}, C:{target.get('context_chars', 0)}) | {target.get('target_code', '')}")
                 f.write(f"{label} {target['filename']}:{target['lineno']}\n")
-        
+                
+                # Format: s_idx,score,targ_line,mapped,semantic_type
+                s_idx = target.get('s_idx', 0)
+                score = target.get('score', 0)
+                csvf.write(f"{s_idx},{score},{target['filename']}:{target['lineno']},mapped,{label}\n")
+                
         log_print("\n--- Full Target Contexts ---")
         for target, label in zip(valid_targets, best_labels):
             lf.write(f"\n[{target['filename']}:{target['lineno']}] Cluster {label}\n")
             lf.write("-" * 40 + "\n")
-            lf.write(target['context_code'] + "\n")
+            lf.write(target.get('context_code', '') + "\n")
             lf.write("-" * 40 + "\n")
             
         log_print(f"\nCluster map written to {out_file}")
+        log_print(f"Semantic CSV written to {csv_file}")
         log_print(f"Detailed logs written to {log_file}")
 
     # Visualization
     plt.figure(figsize=(10, 8))
     scatter = plt.scatter(reduced_2d[:, 0], reduced_2d[:, 1], c=best_labels, cmap='tab20', alpha=0.7, edgecolors='k')
-    plt.colorbar(scatter, label='Cluster ID')
+    plt.colorbar(scatter, label='Cluster ID (0=Noise)')
     plt.title('2D UMAP Visualization of Basic Block Embeddings')
     plt.xlabel('UMAP Component 1')
     plt.ylabel('UMAP Component 2')
@@ -299,9 +300,9 @@ def cluster_embeddings(embeddings, valid_targets, out_file):
     # Add parameters as text on the plot
     param_text = (
         f"Model: Jina-Embeddings-v2-Base-Code\n"
-        f"K-Means k: {best_k}\n"
-        f"Silhouette Score: {best_score:.4f}\n"
-        f"Iterations: {best_kmeans.n_iter_ if best_kmeans else 'N/A'}\n"
+        f"Algorithm: HDBSCAN\n"
+        f"Min Cluster Size: {min_cluster_size}\n"
+        f"Found Clusters: {best_k}\n"
         f"Total Samples: {len(embeddings)}"
     )
     plt.text(0.05, 0.95, param_text, transform=plt.gca().transAxes, fontsize=10,
@@ -340,9 +341,10 @@ def main():
             parts = line.strip().split()
             if len(parts) >= 2:
                 file_line = parts[1]
+                score = parts[0]
                 if ':' in file_line:
                     filename, lineno = file_line.split(':')
-                    targets.append({'filename': filename, 'lineno': int(lineno)})
+                    targets.append({'filename': filename, 'lineno': int(lineno), 'score': score, 's_idx': len(targets)})
                     
     print(f"Parsed {len(targets)} targets from {args.slice_file}")
     
