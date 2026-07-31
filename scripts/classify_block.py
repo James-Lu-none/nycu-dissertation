@@ -21,28 +21,31 @@ def get_parser(filename):
         parser.language = Language(tree_sitter_cpp.language())
     return parser
 
-class TempSourceDir:
-    def __init__(self, download_sh_path):
+class CachedSourceDir:
+    def __init__(self, download_sh_path, bench_dir, bench_name):
         self.download_sh_path = download_sh_path
-        self.temp_dir = tempfile.TemporaryDirectory()
+        # Navigate up from 'bench' directory to project root, then into 'tmp/bench_name'
+        base_dir = os.path.dirname(os.path.abspath(bench_dir))
+        self.src_cache_dir = os.path.join(base_dir, "tmp", bench_name)
         
     def __enter__(self):
-        cwd = self.temp_dir.name
-        try:
-            if os.path.exists(self.download_sh_path):
-                subprocess.check_call(["bash", os.path.abspath(self.download_sh_path)], cwd=cwd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            else:
-                pass
-        except subprocess.CalledProcessError as e:
-            print(f"Error executing download.sh: {e}")
-            
-        src_path = os.path.join(cwd, "src")
+        os.makedirs(self.src_cache_dir, exist_ok=True)
+        # Check if already downloaded (directory is empty)
+        if not os.listdir(self.src_cache_dir):
+            try:
+                if os.path.exists(self.download_sh_path):
+                    subprocess.check_call(["bash", os.path.abspath(self.download_sh_path)], cwd=self.src_cache_dir, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except subprocess.CalledProcessError as e:
+                print(f"Error executing download.sh: {e}")
+                
+        src_path = os.path.join(self.src_cache_dir, "src")
         if os.path.isdir(src_path):
             return src_path
-        return cwd
+        return self.src_cache_dir
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.temp_dir.cleanup()
+        # Do not delete the cache directory
+        pass
 
 def find_function_node(node, line_idx):
     if node.type in ["function_definition", "method_definition"]:
@@ -58,16 +61,20 @@ def find_function_node(node, line_idx):
 def extract_context(src_dir, targets):
     contexts = []
     file_cache = {}
+    
+    # Pre-build a map of all files to avoid traversing the disk for every target
+    file_map = {}
+    for root, _, files in os.walk(src_dir):
+        for f in files:
+            if f not in file_map:
+                file_map[f] = os.path.join(root, f)
+                
     for t in targets:
         filename = t['filename']
         lineno = t['lineno']
         
         if filename not in file_cache:
-            filepath = None
-            for root, _, files in os.walk(src_dir):
-                if filename in files:
-                    filepath = os.path.join(root, filename)
-                    break
+            filepath = file_map.get(filename)
             if not filepath:
                 contexts.append(None)
                 continue
@@ -131,62 +138,76 @@ def extract_context(src_dir, targets):
 
 from tqdm import tqdm
 
-def get_target_embeddings(contexts, model_name="jinaai/jina-embeddings-v2-base-code"):
+def get_target_embeddings(contexts, model_name="jinaai/jina-embeddings-v2-base-code", batch_size=4):
     tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
-    model = AutoModel.from_pretrained(model_name, trust_remote_code=True)
+    # Load model in bfloat16 for heavily optimized inference on RTX 6000 Ada/Blackwell
+    model = AutoModel.from_pretrained(model_name, trust_remote_code=True, torch_dtype=torch.bfloat16)
     
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # Force using only GPU 0 as requested by the professor
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model.to(device)
     model.eval()
     
     embeddings = []
     valid_contexts = []
     
-    for ctx in tqdm(contexts, desc="Computing Embeddings"):
-        if not ctx:
-            continue
-            
-        context_code = ctx['context_code']
-        start_char = ctx['start_char']
-        end_char = ctx['end_char']
+    # Pre-filter out None contexts
+    valid_ctxs = [ctx for ctx in contexts if ctx is not None]
+    if not valid_ctxs:
+        return np.array(embeddings), valid_contexts
         
+    # Process in batches
+    for i in tqdm(range(0, len(valid_ctxs), batch_size), desc="Computing Embeddings"):
+        batch_ctxs = valid_ctxs[i:i + batch_size]
+        batch_texts = [ctx['context_code'] for ctx in batch_ctxs]
+        
+        # Tokenize batch with padding
         encoded = tokenizer(
-            context_code,
+            batch_texts,
             return_tensors="pt",
             return_offsets_mapping=True,
             truncation=True,
+            padding=True,
             max_length=8192
         )
         
-        offsets = encoded['offset_mapping'][0].numpy()
         input_ids = encoded['input_ids'].to(device)
         attention_mask = encoded['attention_mask'].to(device)
         
-        target_token_indices = []
-        for idx, (start_c, end_c) in enumerate(offsets):
-            if start_c == end_c == 0:
-                continue
-            if not (end_c <= start_char or start_c >= end_char):
-                target_token_indices.append(idx)
-                
-        if not target_token_indices:
-            continue
-            
+        # Inference with Automatic Mixed Precision (AMP)
         with torch.no_grad():
-            outputs = model(input_ids=input_ids, attention_mask=attention_mask)
+            with torch.autocast(device_type='cuda', dtype=torch.bfloat16):
+                outputs = model(input_ids=input_ids, attention_mask=attention_mask)
             
-        last_hidden_state = outputs.last_hidden_state[0]
+        last_hidden_state = outputs.last_hidden_state
         
-        target_states = last_hidden_state[target_token_indices]
-        mean_pooled = target_states.mean(dim=0).cpu().numpy()
-        
-        target_info = ctx['orig_target'].copy()
-        target_info['target_code'] = ctx['target_code']
-        target_info['context_code'] = ctx['context_code']
-        
-        embeddings.append(mean_pooled)
-        valid_contexts.append(target_info)
-        
+        # Extract per-sample mean pooled embeddings
+        for b_idx, ctx in enumerate(batch_ctxs):
+            start_char = ctx['start_char']
+            end_char = ctx['end_char']
+            offsets = encoded['offset_mapping'][b_idx].numpy()
+            
+            target_token_indices = []
+            for idx, (start_c, end_c) in enumerate(offsets):
+                if start_c == end_c == 0:
+                    continue
+                if not (end_c <= start_char or start_c >= end_char):
+                    target_token_indices.append(idx)
+                    
+            if not target_token_indices:
+                continue
+                
+            target_states = last_hidden_state[b_idx, target_token_indices]
+            # Convert back to float32 for CPU downstream processing (clustering)
+            mean_pooled = target_states.mean(dim=0).cpu().to(torch.float32).numpy()
+            
+            target_info = ctx['orig_target'].copy()
+            target_info['target_code'] = ctx['target_code']
+            target_info['context_code'] = ctx['context_code']
+            
+            embeddings.append(mean_pooled)
+            valid_contexts.append(target_info)
+            
     return np.array(embeddings), valid_contexts
 
 import multiprocessing
@@ -219,7 +240,7 @@ def process_benchmark(bench_name, bench_dir):
     if not targets:
         return bench_name, None, None
         
-    with TempSourceDir(download_sh) as temp_src_dir:
+    with CachedSourceDir(download_sh, bench_dir, bench_name) as temp_src_dir:
         contexts = extract_context(temp_src_dir, targets)
         
     return bench_name, targets, contexts
@@ -239,48 +260,64 @@ def main():
     max_workers = multiprocessing.cpu_count()
     torch.set_num_threads(max_workers)
     
-    # Step 1: Global Pooling
-    print(f"Step 1: Global Pooling across all benchmarks (utilizing {max_workers} cores)...")
-    if not os.path.isdir(bench_dir):
-        print(f"Error: {bench_dir} is not a directory.")
-        sys.exit(1)
-        
-    benchmark_dirs = sorted([d for d in os.listdir(bench_dir) if os.path.isdir(os.path.join(bench_dir, d))])
+    # Set up models directory and cache file paths
+    models_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'models')
+    os.makedirs(models_dir, exist_ok=True)
+    embed_file = os.path.join(models_dir, 'raw_embeddings.npy')
+    ctx_file = os.path.join(models_dir, 'valid_contexts.pkl')
     
-    all_embeddings = []
-    all_valid_contexts = []
-    
-    all_contexts = []
-    with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
-        futures = {executor.submit(process_benchmark, bench_name, bench_dir): bench_name for bench_name in benchmark_dirs}
-        
-        for future in tqdm(concurrent.futures.as_completed(futures), total=len(futures), desc="Extracting Contexts"):
-            bench_name = futures[future]
-            try:
-                name, targets, contexts = future.result()
-                if contexts:
-                    all_contexts.extend(contexts)
-                else:
-                    tqdm.write(f"Skipped {name} (no valid targets or files)")
-            except Exception as e:
-                tqdm.write(f"Error processing {bench_name}: {e}")
-                
-    if not all_contexts:
-        print("No contexts collected. Exiting.")
-        return
-        
-    print(f"\nComputing embeddings for {len(all_contexts)} total contexts...")
-    embeddings, v_ctxs = get_target_embeddings(all_contexts)
-    if len(embeddings) > 0:
-        all_embeddings.append(embeddings)
-        all_valid_contexts.extend(v_ctxs)
+    if os.path.exists(embed_file) and os.path.exists(ctx_file):
+        print(f"Found cached embeddings in {models_dir}. Loading from disk...")
+        X = np.load(embed_file)
+        all_valid_contexts = joblib.load(ctx_file)
+        print(f"Loaded {X.shape[0]} embeddings.")
+    else:
+        # Step 1: Global Pooling
+        print(f"Step 1: Global Pooling across all benchmarks (utilizing {max_workers} cores)...")
+        if not os.path.isdir(bench_dir):
+            print(f"Error: {bench_dir} is not a directory.")
+            sys.exit(1)
             
-    if not all_embeddings:
-        print("No embeddings collected. Exiting.")
-        return
+        benchmark_dirs = sorted([d for d in os.listdir(bench_dir) if os.path.isdir(os.path.join(bench_dir, d))])
         
-    X = np.vstack(all_embeddings)
-    print(f"Total valid embeddings collected: {X.shape[0]} from {len(all_valid_contexts)} contexts.")
+        all_embeddings = []
+        all_valid_contexts = []
+        
+        all_contexts = []
+        with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
+            futures = {executor.submit(process_benchmark, bench_name, bench_dir): bench_name for bench_name in benchmark_dirs}
+            
+            for future in tqdm(concurrent.futures.as_completed(futures), total=len(futures), desc="Extracting Contexts"):
+                bench_name = futures[future]
+                try:
+                    name, targets, contexts = future.result()
+                    if contexts:
+                        all_contexts.extend(contexts)
+                    else:
+                        tqdm.write(f"Skipped {name} (no valid targets or files)")
+                except Exception as e:
+                    tqdm.write(f"Error processing {bench_name}: {e}")
+                    
+        if not all_contexts:
+            print("No contexts collected. Exiting.")
+            return
+            
+        print(f"\nComputing embeddings for {len(all_contexts)} total contexts...")
+        embeddings, v_ctxs = get_target_embeddings(all_contexts)
+        if len(embeddings) > 0:
+            all_embeddings.append(embeddings)
+            all_valid_contexts.extend(v_ctxs)
+                
+        if not all_embeddings:
+            print("No embeddings collected. Exiting.")
+            return
+            
+        X = np.vstack(all_embeddings)
+        print(f"Total valid embeddings collected: {X.shape[0]} from {len(all_valid_contexts)} contexts.")
+        
+        print("Saving raw embeddings and contexts to disk...")
+        np.save(embed_file, X)
+        joblib.dump(all_valid_contexts, ctx_file)
     
     # Step 2: Global Fitting & Labeling
     print("Step 2: Global Fitting & Labeling...")
@@ -307,8 +344,7 @@ def main():
     
     # Step 3: Model Serialization
     print("Step 3: Model Serialization...")
-    models_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'models')
-    os.makedirs(models_dir, exist_ok=True)
+    # models_dir is already created
     
     joblib.dump(umap_kmeans, os.path.join(models_dir, 'umap_kmeans.pkl'))
     joblib.dump(kmeans, os.path.join(models_dir, 'kmeans.pkl'))
