@@ -7,3 +7,6 @@ bench/docker-compose.master.yml
 logs
 *.sif
 **/src
+tmp
+visualizations
+models

@@ -8,6 +8,7 @@ import numpy as np
 import torch
 import umap
 from sklearn.cluster import KMeans, HDBSCAN
+from sklearn.metrics import silhouette_score
 from transformers import AutoTokenizer, AutoModel
 import tree_sitter_c
 import tree_sitter_cpp
@@ -325,22 +326,35 @@ def main():
     # Pipeline A (K-Means)
     print("  -> Pipeline A: UMAP(16d) + K-Means(16)")
     n_components_kmeans = min(16, X.shape[0] - 1) if X.shape[0] > 16 else max(2, X.shape[0] - 1)
-    umap_kmeans = umap.UMAP(n_components=n_components_kmeans, random_state=42)
+    umap_kmeans = umap.UMAP(n_components=n_components_kmeans, n_neighbors=50, min_dist=0.0, random_state=42)
     X_umap_kmeans = umap_kmeans.fit_transform(X)
     
     n_clusters = min(16, X.shape[0])
     kmeans = KMeans(n_clusters=n_clusters, random_state=42)
     labels_kmeans = kmeans.fit_predict(X_umap_kmeans)
     
+    if X_umap_kmeans.shape[0] > 1:
+        sample_size = 10000 if X_umap_kmeans.shape[0] > 10000 else X_umap_kmeans.shape[0]
+        score_kmeans = silhouette_score(X_umap_kmeans, labels_kmeans, sample_size=sample_size, random_state=42)
+        print(f"     [Metrics] KMeans Silhouette Score (16D): {score_kmeans:.4f}")
+    
     # Pipeline B (HDBSCAN)
     print("  -> Pipeline B: UMAP(10d) + HDBSCAN")
     n_components_hdbscan = min(10, X.shape[0] - 1) if X.shape[0] > 10 else max(2, X.shape[0] - 1)
-    umap_hdbscan = umap.UMAP(n_components=n_components_hdbscan, random_state=42)
+    umap_hdbscan = umap.UMAP(n_components=n_components_hdbscan, n_neighbors=50, min_dist=0.0, random_state=42)
     X_umap_hdbscan = umap_hdbscan.fit_transform(X)
     
-    min_cluster_size = max(2, min(5, X.shape[0] // 10))
-    hdbscan = HDBSCAN(min_cluster_size=min_cluster_size, metric='euclidean')
+    hdbscan = HDBSCAN(min_cluster_size=200, min_samples=30, metric='euclidean')
     labels_hdbscan = hdbscan.fit_predict(X_umap_hdbscan)
+    
+    core_mask = labels_hdbscan != -1
+    if np.sum(core_mask) > 1 and len(np.unique(labels_hdbscan[core_mask])) > 1:
+        X_core = X_umap_hdbscan[core_mask]
+        labels_core = labels_hdbscan[core_mask]
+        sample_size = 10000 if X_core.shape[0] > 10000 else X_core.shape[0]
+        score_hdbscan = silhouette_score(X_core, labels_core, sample_size=sample_size, random_state=42)
+        print(f"     [Metrics] HDBSCAN Silhouette Score (10D, Core Only): {score_hdbscan:.4f}")
+        print(f"     [Stats] HDBSCAN Core Points: {np.sum(core_mask)}/{X.shape[0]}, Clusters: {len(np.unique(labels_core))}")
     
     # Step 3: Model Serialization
     print("Step 3: Model Serialization...")

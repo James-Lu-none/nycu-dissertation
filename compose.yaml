@@ -1,0 +1,16 @@
+services:
+  dev-env:
+    build:
+      context: .
+      dockerfile: dockerfile
+    container_name: nycu-dissertation-dev
+    volumes:
+      - /home/khyehlab/314581029/nycu-dissertation:/workspace
+    working_dir: /workspace
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

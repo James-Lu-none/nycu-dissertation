@@ -111,6 +111,7 @@ def print_usage():
     print("  arm_plot  : Run ARM_plot.py on active CVEs (visualizes ARM rules)")
     print("  summary   : Aggregate TTE dd_dual summary tables and DGF compile info across benchmarks")
     print("  classify  : Run target block classification (clustering) on benchmarks using classify_block.py")
+    print("  classify_plot: Generate UMAP 2D visualization of the clusters and output to visualizations/")
 
 def build_fuzzer_image(root_dir, target, tag_value, registry_value, extra_args=None):
     if extra_args is None:
@@ -168,7 +169,7 @@ def parse_arguments(root_dir):
     only_crashes = False
     extra_args = []
     
-    valid_commands = ["up", "down", "stop", "build", "status", "log", "clean", "copy", "stat_plot", "tte_check", "tte_plot", "ttr", "arm_plot", "summary", "matrix_plot", "classify"]
+    valid_commands = ["up", "down", "stop", "build", "status", "log", "clean", "copy", "stat_plot", "tte_check", "tte_plot", "ttr", "arm_plot", "summary", "matrix_plot", "classify", "classify_plot"]
     
     i = 0
     while i < len(args):
@@ -1190,6 +1191,19 @@ def run_classify(root_dir, cve_list):
         
     print("\n\033[1;32mDone.\033[0m")
 
+def run_classify_plot(root_dir, cve_list):
+    venv_activate = os.path.join(root_dir, "../.venv/bin/activate")
+    python_bin = sys.executable
+    if os.path.isfile(venv_activate):
+        python_bin = os.path.abspath(os.path.join(root_dir, "../.venv/bin/python3"))
+        
+    print(f"\n\033[1;34m[Classify Plot]\033[0m Generating 2D visualization of global clusters...")
+    
+    cmd = [python_bin, "scripts/visualize_clusters.py"]
+    subprocess.run(cmd)
+        
+    print("\n\033[1;32mDone.\033[0m")
+
 def main():
     root_dir = os.path.abspath(os.path.dirname(__file__))
     
@@ -1275,6 +1289,8 @@ def main():
         run_matrix_plot(root_dir, cve_list)
     elif command == "classify":
         run_classify(root_dir, cve_list)
+    elif command == "classify_plot":
+        run_classify_plot(root_dir, cve_list)
 
 if __name__ == "__main__":
     main()
