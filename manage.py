@@ -134,23 +134,30 @@ def build_fuzzer_image(root_dir, target, tag_value, registry_value, extra_args=N
     registry_tag = f"{registry_value}/{target}:{actual_tag}"
     print(f"\n\033[1;34m[Build Docker]\033[0m Building docker image \033[1;35m{image_tag}\033[0m and \033[1;35m{registry_tag}\033[0m...")
     
-    cmd = ["docker", "build"]
+    cmd = ["docker", "build", "--progress=plain"]
     if target == "cafl":
         cmd += ["--build-arg", "CPPFLAGS=-Dcd"]
     if extra_args:
         cmd += extra_args
     cmd += ["-t", image_tag, "-t", registry_tag, "./AFLplusplus"]
     
-    print(f"Executing: {' '.join(cmd)}")
-    build_res = subprocess.run(cmd, cwd=root_dir)
+    log_dir = os.path.join(root_dir, "logs")
+    os.makedirs(log_dir, exist_ok=True)
+    log_file_path = os.path.join(log_dir, f"build_{target}_{actual_tag}.log")
+    
+    print(f"Executing: {' '.join(cmd)} > {log_file_path} 2>&1")
+    with open(log_file_path, "w") as log_f:
+        build_res = subprocess.run(cmd, cwd=root_dir, stdout=log_f, stderr=subprocess.STDOUT)
     if build_res.returncode != 0:
-        print(f"Error: Failed to build docker image {image_tag}")
+        print(f"Error: Failed to build docker image {image_tag}. See {log_file_path} for details.")
         sys.exit(1)
         
-    print(f"\n\033[1;34m[Docker Push]\033[0m Pushing image \033[1;35m{registry_tag}\033[0m to registry...")
-    push_res = subprocess.run(["docker", "push", registry_tag])
+    log_push_file_path = os.path.join(log_dir, f"push_{target}_{actual_tag}.log")
+    print(f"\n\033[1;34m[Docker Push]\033[0m Pushing image \033[1;35m{registry_tag}\033[0m to registry... (logs: {log_push_file_path})")
+    with open(log_push_file_path, "w") as log_f:
+        push_res = subprocess.run(["docker", "push", registry_tag], stdout=log_f, stderr=subprocess.STDOUT)
     if push_res.returncode != 0:
-        print(f"Error: Failed to push docker image {registry_tag}")
+        print(f"Error: Failed to push docker image {registry_tag}. See {log_push_file_path} for details.")
         sys.exit(1)
         
     print(f"\n\033[1;32mSuccessfully built and pushed {registry_tag}\033[0m")
@@ -341,7 +348,7 @@ def run_docker_compose_command(root_dir, command, cve_list, num_trials, run_all,
             print(f"Warning: compose.yaml not found in bench/{cve}. Skipping.")
             return
             
-        cmd_args = ["docker", "compose"]
+        cmd_args = ["docker", "compose", "--progress=plain"]
         if command == "up":
             cmd_args += ["up", "-d", "--build", "--pull", "always"] + extra_args
             services = []
@@ -361,9 +368,25 @@ def run_docker_compose_command(root_dir, command, cve_list, num_trials, run_all,
         elif command == "build":
             cmd_args += ["build", "--pull"] + extra_args
             
-        build_res = subprocess.run(cmd_args, cwd=cve_bench_dir, env=env_dict)
+        if command == "build":
+            log_dir = os.path.join(root_dir, "logs")
+            os.makedirs(log_dir, exist_ok=True)
+            log_file_path = os.path.join(log_dir, f"build_{cve}.log")
+            
+            print(f"Building {cve}, logs redirected to {log_file_path}")
+            with open(log_file_path, "w") as log_f:
+                build_res = subprocess.run(cmd_args, cwd=cve_bench_dir, env=env_dict, stdout=log_f, stderr=subprocess.STDOUT)
+                
+            if build_res.returncode == 0:
+                print(f"\033[1;32mSuccessfully built {cve}\033[0m")
+        else:
+            build_res = subprocess.run(cmd_args, cwd=cve_bench_dir, env=env_dict)
+            
         if command in ["build", "up"] and build_res.returncode != 0:
-            print(f"\033[1;31mError: Failed to run docker compose {command} for {cve}\033[0m")
+            if command == "build":
+                print(f"\033[1;31mError: Failed to run docker compose {command} for {cve}. See {log_file_path} for details.\033[0m")
+            else:
+                print(f"\033[1;31mError: Failed to run docker compose {command} for {cve}\033[0m")
             sys.exit(1)
             
         if command == "build" and build_res.returncode == 0:
@@ -372,13 +395,15 @@ def run_docker_compose_command(root_dir, command, cve_list, num_trials, run_all,
                 image_name = parsed_image_name
             if image_name:
                 registry_tag = f"{registry_value}/{image_name}"
+                log_push_file_path = os.path.join(log_dir, f"push_{cve}.log")
                 print(f"\n\033[1;34m[Docker Tag & Push]\033[0m Tagging \033[1;35m{image_name}\033[0m as \033[1;35m{registry_tag}\033[0m...")
                 tag_res = subprocess.run(["docker", "tag", image_name, registry_tag])
                 if tag_res.returncode == 0:
-                    print(f"\033[1;34m[Docker Tag & Push]\033[0m Pushing \033[1;35m{registry_tag}\033[0m to registry...")
-                    push_res = subprocess.run(["docker", "push", registry_tag])
+                    print(f"\033[1;34m[Docker Tag & Push]\033[0m Pushing \033[1;35m{registry_tag}\033[0m to registry... (logs: {log_push_file_path})")
+                    with open(log_push_file_path, "w") as log_f:
+                        push_res = subprocess.run(["docker", "push", registry_tag], stdout=log_f, stderr=subprocess.STDOUT)
                     if push_res.returncode != 0:
-                        print(f"\033[1;31mError: Failed to push docker image {registry_tag}\033[0m")
+                        print(f"\033[1;31mError: Failed to push docker image {registry_tag}. See {log_push_file_path} for details.\033[0m")
                 else:
                     print(f"\033[1;31mError: Failed to tag docker image {image_name} as {registry_tag}\033[0m")
             else:
@@ -386,8 +411,8 @@ def run_docker_compose_command(root_dir, command, cve_list, num_trials, run_all,
 
     if command == "build":
         system_cores = os.cpu_count() or 4
-        # Calculate max_workers using system cores. We limit it to avoid OOM, e.g. using all cores.
-        max_workers = min(len(cve_list), system_cores, 2)
+        # Calculate max_workers using system cores.
+        max_workers = min(len(cve_list), system_cores)
         print(f"\n\033[1;34m[Parallel Build]\033[0m Compiling {len(cve_list)} CVE images in parallel with max_workers={max_workers} (Detected Cores: {system_cores})...")
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             try:
