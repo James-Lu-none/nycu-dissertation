@@ -20,9 +20,8 @@ def get_cves(root_dir):
                 line = line.strip()
                 if not line or line.startswith('#'):
                     continue
-                if ',' in line:
-                    line = line.split(',', 1)[0].strip()
-                cve = line.replace('"', '').replace("'", '').replace(" ", "").replace("\r", "")
+                cve = line.split()[0]
+                cve = cve.replace('"', '').replace("'", '').replace(",", "").replace("\r", "")
                 if cve:
                     results.append(cve)
         return results
