@@ -85,7 +85,8 @@ def extract_context(src_dir, targets):
                 
             parser = get_parser(filename)
             tree = parser.parse(src_bytes)
-            file_cache[filename] = {'bytes': src_bytes, 'tree': tree, 'lines': src_bytes.split(b'\n')}
+            src_str = src_bytes.decode('utf-8', errors='ignore')
+            file_cache[filename] = {'bytes': src_bytes, 'tree': tree, 'lines': src_str.split('\n')}
             
         cache_entry = file_cache.get(filename)
         if not cache_entry:
@@ -114,25 +115,25 @@ def extract_context(src_dir, targets):
             end_line = min(len(lines) - 1, line_idx + 500)
             
         extracted_lines = lines[start_line:end_line+1]
-        context_code = b'\n'.join(extracted_lines).decode('utf-8', errors='ignore')
+        context_code = '\n'.join(extracted_lines)
         
         target_local_idx = line_idx - start_line
         
-        pre_text = b'\n'.join(extracted_lines[:target_local_idx])
+        pre_text = '\n'.join(extracted_lines[:target_local_idx])
         if pre_text:
-            pre_text += b'\n'
+            pre_text += '\n'
         
         target_line_text = extracted_lines[target_local_idx]
         
-        start_char_idx = len(pre_text.decode('utf-8', errors='ignore'))
-        end_char_idx = start_char_idx + len(target_line_text.decode('utf-8', errors='ignore'))
+        start_char_idx = len(pre_text)
+        end_char_idx = start_char_idx + len(target_line_text)
         
         contexts.append({
             'context_code': context_code,
             'start_char': start_char_idx,
             'end_char': end_char_idx,
             'orig_target': t,
-            'target_code': target_line_text.decode('utf-8', errors='ignore').strip()
+            'target_code': target_line_text.strip()
         })
         
     return contexts
@@ -376,6 +377,8 @@ def main():
         project_groups[proj].append({
             'filename': target['filename'],
             'lineno': target['lineno'],
+            'target_code': target.get('target_code', ''),
+            'context_code': target.get('context_code', ''),
             'kmeans_label': labels_kmeans[i],
             'hdbscan_label': labels_hdbscan[i]
         })
@@ -383,15 +386,33 @@ def main():
     for proj, items in project_groups.items():
         proj_dir = os.path.join(bench_dir, proj)
         
-        out_kmeans = os.path.join(proj_dir, 'cluster_map_kmeans.txt')
-        with open(out_kmeans, 'w') as f:
+        # Write KMeans outputs
+        out_kmeans_txt = os.path.join(proj_dir, 'cluster_map_kmeans.txt')
+        out_kmeans_log = os.path.join(proj_dir, 'cluster_map_kmeans.log')
+        with open(out_kmeans_txt, 'w') as f_txt, open(out_kmeans_log, 'w') as f_log:
+            f_log.write("--- KMeans Clustering Results ---\n")
             for item in items:
-                f.write(f"{item['kmeans_label']} {item['filename']}:{item['lineno']}\n")
+                f_txt.write(f"{item['kmeans_label']} {item['filename']}:{item['lineno']}\n")
                 
-        out_hdbscan = os.path.join(proj_dir, 'cluster_map_hdbscan.txt')
-        with open(out_hdbscan, 'w') as f:
+                ctx_lines = len(item['context_code'].split('\n')) if item['context_code'] else 0
+                ctx_chars = len(item['context_code'])
+                log_line = (f"Cluster {item['kmeans_label']:2d} | {item['filename']}:{item['lineno']} | "
+                            f"(Ctx Lines: {ctx_lines}, Chars: {ctx_chars}) | {item['target_code']}\n")
+                f_log.write(log_line)
+                
+        # Write HDBSCAN outputs
+        out_hdbscan_txt = os.path.join(proj_dir, 'cluster_map_hdbscan.txt')
+        out_hdbscan_log = os.path.join(proj_dir, 'cluster_map_hdbscan.log')
+        with open(out_hdbscan_txt, 'w') as f_txt, open(out_hdbscan_log, 'w') as f_log:
+            f_log.write("--- HDBSCAN Clustering Results ---\n")
             for item in items:
-                f.write(f"{item['hdbscan_label']} {item['filename']}:{item['lineno']}\n")
+                f_txt.write(f"{item['hdbscan_label']} {item['filename']}:{item['lineno']}\n")
+                
+                ctx_lines = len(item['context_code'].split('\n')) if item['context_code'] else 0
+                ctx_chars = len(item['context_code'])
+                log_line = (f"Cluster {item['hdbscan_label']:2d} | {item['filename']}:{item['lineno']} | "
+                            f"(Ctx Lines: {ctx_lines}, Chars: {ctx_chars}) | {item['target_code']}\n")
+                f_log.write(log_line)
                 
     print("\nGlobal classification complete!")
 
