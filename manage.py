@@ -1051,66 +1051,63 @@ def run_summary(root_dir):
         print("No TTE_summary_table_dd_muoafl.csv files found.")
         return
         
+    # Pass 1: Find all muoafl configurations
+    muoafl_configs = set()
+    for cve, csv_path in benchmarks:
+        try:
+            with open(csv_path, mode='r', encoding='utf-8') as f:
+                import csv
+                reader = csv.DictReader(f)
+                for row in reader:
+                    config = row.get("Configuration", "").strip()
+                    if "muoafl" in config.lower():
+                        muoafl_configs.add(config)
+        except Exception:
+            pass
+            
+    # Sort muoafl configs naturally
+    import re
+    def natural_sort_key(s):
+        return [int(c) if c.isdigit() else c for c in re.split(r'(\d+)', s.lower())]
+    muoafl_configs = sorted(list(muoafl_configs), key=natural_sort_key)
+    
     summary_data = []
     for cve, csv_path in benchmarks:
         try:
-            cve_dir = os.path.dirname(os.path.dirname(csv_path))
-            dd_func_slice_path = None
-            dd_dfg_slice_path = None
-            for r, dirs, files in os.walk(cve_dir):
-                for f in files:
-                    if f.startswith("slice_func-") and "dd" in f and f.endswith(".txt"):
-                        dd_func_slice_path = os.path.join(r, f)
-                    if f.startswith("slice_dfg-") and "dd" in f and f.endswith(".txt"):
-                        dd_dfg_slice_path = os.path.join(r, f)
-            
-            print(f"found func_slice: {dd_func_slice_path}")
-            print(f"found dfg_slice: {dd_dfg_slice_path}")
-            
-            dd_func_slice_count = "N.A."
-            if dd_func_slice_path and os.path.isfile(dd_func_slice_path):
-                with open(dd_func_slice_path, 'r', encoding='utf-8') as sf:
-                    dd_func_slice_count = str(sum(1 for line in sf if line.strip()))
-                    
-            dd_dfg_slice_count = "N.A."
-            if dd_dfg_slice_path and os.path.isfile(dd_dfg_slice_path):
-                with open(dd_dfg_slice_path, 'r', encoding='utf-8') as df:
-                    dd_dfg_slice_count = str(sum(1 for line in df if line.strip()))
-            
             dd_row = {}
-            muoafl_row = {}
+            muoafl_rows = {}
             with open(csv_path, mode='r', encoding='utf-8') as f:
                 reader = csv.DictReader(f)
                 for row in reader:
-                    config = row.get("Configuration", "").lower()
-                    if "dd" in config and "muoafl" not in config:
+                    config = row.get("Configuration", "").strip()
+                    config_low = config.lower()
+                    if "dd" in config_low and "muoafl" not in config_low:
                         dd_row = row
-                    elif "muoafl" in config:
-                        muoafl_row = row
+                    elif config in muoafl_configs:
+                        muoafl_rows[config] = row
+            
+            row_data = {"CVE": cve}
             
             dd_geo = dd_row.get("Geo Mean TTE", "N.A.")
             dd_success = dd_row.get("Success Rate", "N.A.")
-            muoafl_geo = muoafl_row.get("Geo Mean TTE", "N.A.")
-            muoafl_success = muoafl_row.get("Success Rate", "N.A.")
-            speedup = muoafl_row.get("Speedup", "N.A.")
-            p_val = muoafl_row.get("p-value", "N.A.")
-            
-            dd_max = dd_row.get("Max TTE", "N.A.")
-            muoafl_max = muoafl_row.get("Max TTE", "N.A.")
-            
-            summary_data.append({
-                "CVE": cve,
-                "DD # func slice": dd_func_slice_count,
-                "DD # dep": dd_dfg_slice_count,
-                "dd Geo TTE": dd_geo,
-                "dd Success": dd_success,
-                "dd Max TTE": dd_max,
-                "muoafl Geo TTE": muoafl_geo,
-                "muoafl Success": muoafl_success,
-                "muoafl Max TTE": muoafl_max,
-                "Speedup": speedup,
-                "p-value": p_val
-            })
+            if dd_geo != "N.A." and dd_success != "N.A.":
+                row_data["dd Result"] = f"{dd_geo}\n({dd_success})"
+            else:
+                row_data["dd Result"] = "N.A."
+                
+            for m in muoafl_configs:
+                mrow = muoafl_rows.get(m, {})
+                m_geo = mrow.get("Geo Mean TTE", "N.A.")
+                m_success = mrow.get("Success Rate", "N.A.")
+                if m_geo != "N.A." and m_success != "N.A.":
+                    row_data[f"{m} Result"] = f"{m_geo}\n({m_success})"
+                else:
+                    row_data[f"{m} Result"] = "N.A."
+                    
+                row_data[f"{m} Speedup"] = mrow.get("Speedup", "N.A.")
+                row_data[f"{m} p-value"] = mrow.get("p-value", "N.A.")
+                
+            summary_data.append(row_data)
         except Exception as e:
             print(f"Error parsing {csv_path}: {e}")
             
@@ -1120,13 +1117,10 @@ def run_summary(root_dir):
         
     # Write to a CSV file in artifact root
     output_csv = os.path.join(artifact_root, "TTE_overall_summary.csv")
-    headers = [
-        "CVE",
-        "DD # func slice", "DD # dep",
-        "dd Geo TTE", "dd Success", "dd Max TTE",
-        "muoafl Geo TTE", "muoafl Success", "muoafl Max TTE",
-        "Speedup", "p-value"
-    ]
+    headers = ["CVE", "dd Result"]
+    for m in muoafl_configs:
+        headers.extend([f"{m} Result", f"{m} Speedup", f"{m} p-value"])
+        
     try:
         with open(output_csv, mode='w', newline='', encoding='utf-8') as f:
             writer = csv.DictWriter(f, fieldnames=headers)
@@ -1140,21 +1134,14 @@ def run_summary(root_dir):
     output_png = os.path.join(artifact_root, "TTE_overall_summary.png")
     try:
         import matplotlib.pyplot as plt
-        cell_text = [[
-            row["CVE"],
-            row["DD # func slice"],
-            row["DD # dep"],
-            row["dd Geo TTE"],
-            row["dd Success"],
-            row["dd Max TTE"],
-            row["muoafl Geo TTE"],
-            row["muoafl Success"],
-            row["muoafl Max TTE"],
-            row["Speedup"],
-            row["p-value"]
-        ] for row in summary_data]
+        cell_text = []
+        for row in summary_data:
+            row_vals = [row["CVE"], row["dd Result"]]
+            for m in muoafl_configs:
+                row_vals.extend([row[f"{m} Result"], row[f"{m} Speedup"], row[f"{m} p-value"]])
+            cell_text.append(row_vals)
         
-        fig, ax = plt.subplots(figsize=(14.0, len(summary_data) * 0.4 + 0.8))
+        fig, ax = plt.subplots(figsize=(12.0 + len(muoafl_configs) * 2.0, len(summary_data) * 0.5 + 0.8))
         ax.axis('off')
         
         table = ax.table(
