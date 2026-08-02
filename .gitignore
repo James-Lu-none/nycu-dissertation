@@ -8,5 +8,5 @@ logs
 *.sif
 **/src
 tmp
-visualizations
+visualizations*
 models*
