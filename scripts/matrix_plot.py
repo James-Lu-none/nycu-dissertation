@@ -95,7 +95,7 @@ def main():
             
             for root, _, files in os.walk(trial_dir):
                 for f in files:
-                    m = re.match(r'(mut|semantic)_prob_matrix_(?:(\d+)m|600s)?\.txt', f)
+                    m = re.match(r'(mut|semantic)_prob_matrix(?:_(\d+)m|_600s)?\.txt', f)
                     if m:
                         mat_type = m.group(1)
                         mins_str = m.group(2)
@@ -104,7 +104,7 @@ def main():
                         elif mins_str is not None:
                             bucket = round(int(mins_str) / 10) * 10
                         else:
-                            bucket = 30
+                            bucket = "final" # 給沒有後綴的矩陣一個標示
                             
                         filepath = os.path.join(root, f)
                         mat = parse_matrix(filepath)
@@ -112,7 +112,10 @@ def main():
                             data[mat_type][bucket][method][trial] = mat
                             
     for mat_type in data:
-        for bucket in sorted(data[mat_type].keys()):
+        def sort_bucket(b):
+            return 999999 if b == "final" else int(b)
+            
+        for bucket in sorted(data[mat_type].keys(), key=sort_bucket):
             method_averages = {}
             method_stds = {}
             method_trials = {}
@@ -127,7 +130,10 @@ def main():
             if not method_averages:
                 continue
                 
-            filename = f"{mat_type}_prob_matrix_{bucket}m"
+            if bucket == "final":
+                filename = f"{mat_type}_prob_matrix_final"
+            else:
+                filename = f"{mat_type}_prob_matrix_{bucket}m"
             num_methods = len(method_averages)
             
             sample_mat = method_averages[list(method_averages.keys())[0]]
