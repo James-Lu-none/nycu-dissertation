@@ -514,7 +514,7 @@ def run_copy(root_dir, cve_list, num_trials, trial_name_arg, only_crashes=False)
             if os.path.isfile(session_id_file):
                 with open(session_id_file, 'r') as f:
                     exist_session_id = f.read().strip()
-            if exist_session_id != session_id:
+            if exist_session_id and exist_session_id != session_id:
                 trial_name = f"{trial_name}_{now_str}"
                 artifact_trial_dir = os.path.join(root_dir, "artifact", cve, trial_name)
                 

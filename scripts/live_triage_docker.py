@@ -82,10 +82,20 @@ def main():
         print(f"Checking live container: {c_name}...")
         env = get_container_env(c_name)
         trial_name = env.get("TRIAL_NAME")
+        session_id = env.get("SESSION_ID")
         
         if not trial_name:
             print(f"  [!] Missing TRIAL_NAME in {c_name}")
             continue
+            
+        # Write .session_id if missing so manage.py copy doesn't create duplicate trials
+        artifact_trial_dir = os.path.join(root_dir, "artifact", cve, trial_name)
+        os.makedirs(artifact_trial_dir, exist_ok=True)
+        if session_id:
+            session_id_file = os.path.join(artifact_trial_dir, ".session_id")
+            if not os.path.exists(session_id_file):
+                with open(session_id_file, "w") as f:
+                    f.write(session_id)
 
         # Extract method and trial_idx from container name
         # Format: {cve}-afl-{method}-{idx} or {cve}-afl-muoafl-{tag}-{idx}
