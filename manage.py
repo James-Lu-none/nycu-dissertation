@@ -1099,14 +1099,19 @@ def run_summary(root_dir):
                 mrow = muoafl_rows.get(m, {})
                 m_geo = mrow.get("Geo Mean TTE", "N.A.")
                 m_success = mrow.get("Success Rate", "N.A.")
-                if m_geo != "N.A." and m_success != "N.A.":
-                    row_data[f"{m} Result"] = f"{m_geo}\n({m_success})"
-                else:
-                    row_data[f"{m} Result"] = "N.A."
-                    
-                row_data[f"{m} Speedup"] = mrow.get("Speedup", "N.A.")
-                row_data[f"{m} p-value"] = mrow.get("p-value", "N.A.")
+                speedup = mrow.get("Speedup", "N.A.")
+                pval = mrow.get("p-value", "N.A.")
                 
+                if m_geo != "N.A." and m_success != "N.A.":
+                    base_str = f"{m_geo} ({m_success})"
+                else:
+                    base_str = "N.A."
+                    
+                if speedup != "N.A." and pval != "N.A.":
+                    row_data[f"{m} Result"] = f"{base_str}\n{speedup} (p={pval})"
+                else:
+                    row_data[f"{m} Result"] = base_str
+
             summary_data.append(row_data)
         except Exception as e:
             print(f"Error parsing {csv_path}: {e}")
@@ -1119,7 +1124,7 @@ def run_summary(root_dir):
     output_csv = os.path.join(artifact_root, "TTE_overall_summary.csv")
     headers = ["CVE", "dd Result"]
     for m in muoafl_configs:
-        headers.extend([f"{m} Result", f"{m} Speedup", f"{m} p-value"])
+        headers.extend([f"{m} Result"])
         
     try:
         with open(output_csv, mode='w', newline='', encoding='utf-8') as f:
@@ -1138,10 +1143,10 @@ def run_summary(root_dir):
         for row in summary_data:
             row_vals = [row["CVE"], row["dd Result"]]
             for m in muoafl_configs:
-                row_vals.extend([row[f"{m} Result"], row[f"{m} Speedup"], row[f"{m} p-value"]])
+                row_vals.extend([row[f"{m} Result"]])
             cell_text.append(row_vals)
         
-        fig, ax = plt.subplots(figsize=(12.0 + len(muoafl_configs) * 2.0, len(summary_data) * 0.5 + 0.8))
+        fig, ax = plt.subplots(figsize=(8.0 + len(muoafl_configs) * 2.5, len(summary_data) * 0.5 + 0.8))
         ax.axis('off')
         
         table = ax.table(
@@ -1165,6 +1170,18 @@ def run_summary(root_dir):
                 else:
                     cell.set_facecolor('white')
                 cell.set_edgecolor('#e0e0e0')
+                
+                # Check for speedup in text and make bold if > 1
+                text = cell.get_text().get_text()
+                if "x (p=" in text:
+                    try:
+                        speedup_line = [l for l in text.split('\n') if "x (p=" in l]
+                        if speedup_line:
+                            speedup_val = float(speedup_line[0].split('x')[0])
+                            if speedup_val > 1.0:
+                                cell.set_text_props(weight='bold')
+                    except Exception:
+                        pass
                 
         plt.tight_layout()
         plt.savefig(output_png, dpi=300, bbox_inches='tight')
