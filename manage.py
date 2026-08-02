@@ -1055,23 +1055,17 @@ def run_summary(root_dir):
     for cve, csv_path in benchmarks:
         try:
             cve_dir = os.path.dirname(os.path.dirname(csv_path))
-            compile_info_path = None
             dd_func_slice_path = None
             dd_dfg_slice_path = None
             for r, dirs, files in os.walk(cve_dir):
                 for f in files:
-                    if f in ["dgf_compile_info-cd.txt"]:
-                        compile_info_path = os.path.join(r, f)
                     if f.startswith("slice_func-") and "dd" in f and f.endswith(".txt"):
                         dd_func_slice_path = os.path.join(r, f)
                     if f.startswith("slice_dfg-") and "dd" in f and f.endswith(".txt"):
                         dd_dfg_slice_path = os.path.join(r, f)
             
-            print(f"found compile_info: {compile_info_path}")
             print(f"found func_slice: {dd_func_slice_path}")
             print(f"found dfg_slice: {dd_dfg_slice_path}")
-            
-            compile_info = parse_dgf_compile_info(compile_info_path) if compile_info_path else {}
             
             dd_func_slice_count = "N.A."
             if dd_func_slice_path and os.path.isfile(dd_func_slice_path):
@@ -1106,20 +1100,16 @@ def run_summary(root_dir):
             
             summary_data.append({
                 "CVE": cve,
-                "CD # control": compile_info.get("control", "N.A."),
-                "CD # caller": compile_info.get("caller", "N.A."),
-                "CD # edge cov": compile_info.get("edge_cov", "N.A."),
-                "CD # prune": compile_info.get("prune", "N.A."),
-                "DD # function slice": dd_func_slice_count,
+                "DD # func slice": dd_func_slice_count,
                 "DD # dep": dd_dfg_slice_count,
-                "dd Geo mean TTE": dd_geo,
-                "dd succes rate": dd_success,
-                "muoafl Geo mean TTE": muoafl_geo,
-                "muoafl succes rate": muoafl_success,
-                "speedup": speedup,
-                "p-value": p_val,
+                "dd Geo TTE": dd_geo,
+                "dd Success": dd_success,
                 "dd Max TTE": dd_max,
-                "muoafl Max TTE": muoafl_max
+                "muoafl Geo TTE": muoafl_geo,
+                "muoafl Success": muoafl_success,
+                "muoafl Max TTE": muoafl_max,
+                "Speedup": speedup,
+                "p-value": p_val
             })
         except Exception as e:
             print(f"Error parsing {csv_path}: {e}")
@@ -1131,10 +1121,11 @@ def run_summary(root_dir):
     # Write to a CSV file in artifact root
     output_csv = os.path.join(artifact_root, "TTE_overall_summary.csv")
     headers = [
-        "CVE", "CD # control", "CD # caller", "CD # edge cov", "CD # prune",
-        "DD # function slice", "DD # dep",
-        "dd Geo mean TTE", "dd succes rate", "muoafl Geo mean TTE", "muoafl succes rate",
-        "speedup", "p-value", "dd Max TTE", "muoafl Max TTE"
+        "CVE",
+        "DD # func slice", "DD # dep",
+        "dd Geo TTE", "dd Success", "dd Max TTE",
+        "muoafl Geo TTE", "muoafl Success", "muoafl Max TTE",
+        "Speedup", "p-value"
     ]
     try:
         with open(output_csv, mode='w', newline='', encoding='utf-8') as f:
@@ -1151,23 +1142,19 @@ def run_summary(root_dir):
         import matplotlib.pyplot as plt
         cell_text = [[
             row["CVE"],
-            row["CD # control"],
-            row["CD # caller"],
-            row["CD # edge cov"],
-            row["CD # prune"],
-            row["DD # function slice"],
+            row["DD # func slice"],
             row["DD # dep"],
-            row["dd Geo mean TTE"],
-            row["dd succes rate"],
-            row["muoafl Geo mean TTE"],
-            row["muoafl succes rate"],
-            row["speedup"],
-            row["p-value"],
+            row["dd Geo TTE"],
+            row["dd Success"],
             row["dd Max TTE"],
-            row["muoafl Max TTE"]
+            row["muoafl Geo TTE"],
+            row["muoafl Success"],
+            row["muoafl Max TTE"],
+            row["Speedup"],
+            row["p-value"]
         ] for row in summary_data]
         
-        fig, ax = plt.subplots(figsize=(16.0, len(summary_data) * 0.4 + 0.8))
+        fig, ax = plt.subplots(figsize=(14.0, len(summary_data) * 0.4 + 0.8))
         ax.axis('off')
         
         table = ax.table(
@@ -1177,8 +1164,8 @@ def run_summary(root_dir):
             cellLoc='center'
         )
         table.auto_set_font_size(False)
-        table.set_fontsize(8)
-        table.scale(1.2, 1.8)
+        table.set_fontsize(10)
+        table.scale(1.2, 2.0)
         
         for (r, col_idx), cell in table.get_celld().items():
             if r == 0:

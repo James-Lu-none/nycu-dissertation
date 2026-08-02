@@ -97,7 +97,7 @@ def main():
     parser.add_argument("--iterations", type=int, default=1, help="Number of iterations to run the full CVE loop (default: 1)")
     parser.add_argument("--trials", type=int, default=15, help="Number of trials per CVE (default: 15)")
     parser.add_argument("--slurm", action="store_true", help="Run in Slurm mode using manage_slurm.py")
-    parser.add_argument("--max-time", type=int, default=43200, help="Maximum fuzzing time in seconds per iteration (default: 43200)")
+    parser.add_argument("--max-time", type=int, default=21600, help="Maximum fuzzing time in seconds per iteration (default: 21600)")
     parser.add_argument("--tags", type=str, default="v1", help="Target image tags, comma separated (e.g. v1,v2) (Default: v1)")
     parser.add_argument("--registry", type=str, default="docker.io/location0717", help="Docker registry URL")
     parser.add_argument("--build", action="store_true", help="Build docker images before running (Step A)")
