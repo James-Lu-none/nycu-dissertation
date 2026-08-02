@@ -1091,7 +1091,7 @@ def run_summary(root_dir):
             dd_geo = dd_row.get("Geo Mean TTE", "N.A.")
             dd_success = dd_row.get("Success Rate", "N.A.")
             if dd_geo != "N.A." and dd_success != "N.A.":
-                row_data["dd Result"] = f"{dd_geo}\n({dd_success})"
+                row_data["dd Result"] = f"{dd_geo} ({dd_success})"
             else:
                 row_data["dd Result"] = "N.A."
                 
