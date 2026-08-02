@@ -85,6 +85,23 @@ sudo systemctl restart systemd-logind
 ./loop_all.sh --tags="v1,v2,v3" --trials 30 --slurm --registry docker.io/location0717
 ```
 
+## AFL++ Semantic Mutator Markov Chain Architecture
+
+To effectively leverage semantic clusters during the havoc mutation phase, the architecture implements a Markov Chain model. This separates the selection of the initial mutator from the sequence of subsequent mutators.
+
+### 1. Initial State (First Mutator Selection)
+When a mutation stack begins, there is no previous mutator (`prev_mutator == -1`). 
+- **Selection**: To ensure a fair ablation study and direct comparison with `muoafl-v1`, the first mutator is selected purely randomly from the default mutation array (`mutation_array[rand_below(afl, rand_max)]`).
+- **Reward**: Since the selection is purely random and unguided, we do not update any matrix for the first mutator. This strictly isolates our performance gains to the semantic transition matrix.
+
+### 2. Transition State (Subsequent Mutators)
+For the second mutator and onwards, the selection depends on the immediate predecessor, capturing mutator combinations (combos) specifically for the current cluster.
+- **Probability Matrix**: Uses a 3D tensor (`Semantic * Prev_Mutator * Next_Mutator`), defined as `prob_table_semantic_mut`.
+- **Logic**: Calls `sample_from_semantic_mut_distribution()` to select the next mutator based on both the semantic cluster and the `prev_mutator`.
+- **Reward**: Rewards for subsequent mutators are applied to `finds_per_semantic_mut[sem_type][prev_mutator][current_mutator]`. This learns effective mutation sequences (e.g., splicing followed by bit-flipping) tailored to specific semantic clusters.
+
+This design completely isolates the transition logic (Combos) from the initial selection, ensuring that any improvements observed in v3 over v1 are purely the result of the Semantic-Aware Transition Matrix.
+
 
 
 ## Future Optimization Directions for CAFL (ARM & Scheduling)
