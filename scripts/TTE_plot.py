@@ -35,15 +35,17 @@ def generate_tte_summary_plot(method_ttes, output_path, cve):
 
     def get_sort_key(m):
         m_low = m.lower()
+        import re
+        parts = [int(c) if c.isdigit() else c for c in re.split(r'(\d+)', m_low)]
         if "muoafl" in m_low:
-            return 3
+            return (3, parts)
         elif "cd" in m_low:
-            return 2
+            return (2, parts)
         elif "dd" in m_low:
-            return 1
+            return (1, parts)
         elif "base" in m_low:
-            return 0
-        return 5
+            return (0, parts)
+        return (5, parts)
         
     sorted_methods = sorted(method_ttes.keys(), key=get_sort_key)
 
@@ -197,15 +199,17 @@ def generate_tte_table_image(method_ttes, output_path, cve):
     
     def get_sort_key(m):
         m_low = m.lower()
+        import re
+        parts = [int(c) if c.isdigit() else c for c in re.split(r'(\d+)', m_low)]
         if "muoafl" in m_low:
-            return 3
+            return (3, parts)
         elif "cd" in m_low:
-            return 2
+            return (2, parts)
         elif "dd" in m_low:
-            return 1
+            return (1, parts)
         elif "base" in m_low:
-            return 0
-        return 5
+            return (0, parts)
+        return (5, parts)
     sorted_methods = sorted(method_ttes.keys(), key=get_sort_key)
     
     base_method = next((m for m in method_ttes.keys() if 'base' in m.lower()), None)
