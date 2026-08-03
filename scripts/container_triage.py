@@ -99,11 +99,11 @@ def main():
             if "@@" in flags:
                 run_args = [crash_path if arg == "@@" else arg for arg in flags]
                 cmd = [binary] + run_args
-                res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10, env=env)
+                res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
             else:
                 cmd = [binary] + flags
                 with open(crash_path, 'rb') as stdin_file:
-                    res = subprocess.run(cmd, stdin=stdin_file, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10, env=env)
+                    res = subprocess.run(cmd, stdin=stdin_file, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
             t_end = time.time()
             exec_time = t_end - t_start
             
@@ -114,9 +114,7 @@ def main():
                 print(f"DEBUG: Crash case '{crash_file}' did not trigger AddressSanitizer. Skipping.")
                 return {"match": False, "elapsed_ms": elapsed_ms, "exec_time": exec_time, "crash_file": crash_file, "full_log": full_log}
                 
-        except subprocess.TimeoutExpired:
-            print(f"DEBUG: {crash_file} execution timed out")
-            return {"timeout": True, "exec_time": 4.0, "crash_file": crash_file}
+
         except Exception as e:
             if isinstance(e, SystemExit):
                 raise e
@@ -151,10 +149,7 @@ def main():
                     f2.cancel()
                 sys.exit(1)
                 
-            if "timeout" in result:
-                triage_times.append(result["exec_time"])
-                continue
-                
+
             triage_times.append(result["exec_time"])
             if result.get("match"):
                 tte_ms = result["elapsed_ms"]

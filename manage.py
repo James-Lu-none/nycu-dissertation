@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 import sys
+
+ARTIFACT_DIR_NAME = "artifact"
 import os
 import subprocess
 import re
@@ -71,7 +73,7 @@ def get_active_trial_name(root_dir, cve):
         except Exception:
             pass
 
-    artifact_cve_dir = os.path.join(root_dir, "artifact", cve)
+    artifact_cve_dir = os.path.join(root_dir, ARTIFACT_DIR_NAME, cve)
     if os.path.isdir(artifact_cve_dir):
         try:
             candidates = []
@@ -93,7 +95,7 @@ def get_active_trial_name(root_dir, cve):
     return "trial_default"
 
 def print_usage():
-    print("Usage: python3 manage.py {up|down|stop|build|status|log|clean|copy|stat_plot|tte_check|tte_plot|ttr|arm_plot|summary} [cve_name|dafl|cafl|muoafl] [trials] [trial_name] [--all] [-y] [--tag tag_name] [--registry registry_url]")
+    print("Usage: python3 manage.py {up|down|stop|build|status|log|clean|copy|stat_plot|tte_check|tte_queue_check|tte_plot|ttr|arm_plot|summary} [cve_name|dafl|cafl|muoafl] [trials] [trial_name] [--all] [-y] [--tag tag_name] [--registry registry_url] [--artifact dir_name]")
     print("\nCommands:")
     print("  up        : Start docker containers for CVE trials")
     print("  down      : Stop docker containers and remove named volumes (-v)")
@@ -105,6 +107,7 @@ def print_usage():
     print("  copy      : Copy stats from docker containers (excluding .cur_input)")
     print("  stat_plot : Run stat_plot.py on active CVEs (plots already copied stats)")
     print("  tte_check : Run TTE_check.py on active CVEs")
+    print("  tte_queue_check : Run TTE_check_queue.py on active CVEs (checks queue for crashes)")
     print("  tte_plot  : Run TTE_plot.py on active CVEs")
     print("  ttr       : Run TTR.py on active CVEs (copies TTR logs/stats and plots)")
     print("  arm_plot  : Run ARM_plot.py on active CVEs (visualizes ARM rules)")
@@ -175,7 +178,7 @@ def parse_arguments(root_dir):
     only_crashes = False
     extra_args = []
     
-    valid_commands = ["up", "down", "stop", "build", "status", "log", "clean", "copy", "stat_plot", "tte_check", "tte_plot", "ttr", "arm_plot", "summary", "matrix_plot", "classify", "classify_plot"]
+    valid_commands = ["up", "down", "stop", "build", "status", "log", "clean", "copy", "stat_plot", "tte_check", "tte_queue_check", "tte_plot", "ttr", "arm_plot", "summary", "matrix_plot", "classify", "classify_plot"]
     
     i = 0
     while i < len(args):
@@ -187,6 +190,11 @@ def parse_arguments(root_dir):
             continue
         if arg == "--registry" and i + 1 < len(args):
             registry_value = args[i+1]
+            i += 2
+            continue
+        if arg == "--artifact" and i + 1 < len(args):
+            global ARTIFACT_DIR_NAME
+            ARTIFACT_DIR_NAME = args[i+1]
             i += 2
             continue
 
@@ -507,7 +515,7 @@ def run_copy(root_dir, cve_list, num_trials, trial_name_arg, only_crashes=False)
         if not session_id:
             session_id = f"session_{now_str}"
             
-        artifact_trial_dir = os.path.join(root_dir, "artifact", cve, trial_name)
+        artifact_trial_dir = os.path.join(root_dir, ARTIFACT_DIR_NAME, cve, trial_name)
         if os.path.isdir(artifact_trial_dir):
             exist_session_id = ""
             session_id_file = os.path.join(artifact_trial_dir, ".session_id")
@@ -516,7 +524,7 @@ def run_copy(root_dir, cve_list, num_trials, trial_name_arg, only_crashes=False)
                     exist_session_id = f.read().strip()
             if exist_session_id and exist_session_id != session_id:
                 trial_name = f"{trial_name}_{now_str}"
-                artifact_trial_dir = os.path.join(root_dir, "artifact", cve, trial_name)
+                artifact_trial_dir = os.path.join(root_dir, ARTIFACT_DIR_NAME, cve, trial_name)
                 
         print(f"Copying results for trial run: \033[1;35m{trial_name}\033[0m")
         os.makedirs(artifact_trial_dir, exist_ok=True)
@@ -690,7 +698,7 @@ def run_log(cve_list):
             subprocess.run(["docker", "exec", container, "cat", "/workspace/cpu_binding.log"])
 
 def select_trial_interactively(root_dir, cve, yes):
-    artifact_cve_dir = os.path.join(root_dir, "artifact", cve)
+    artifact_cve_dir = os.path.join(root_dir, ARTIFACT_DIR_NAME, cve)
     trials = []
     if os.path.isdir(artifact_cve_dir):
         for item in os.listdir(artifact_cve_dir):
@@ -732,7 +740,7 @@ def select_cve_and_trial_interactively(root_dir, cve_list):
     print("\nAvailable trials:")
     for cve in cve_list:
         print(f"\033[1;35m{cve}\033[0m")
-        artifact_cve_dir = os.path.join(root_dir, "artifact", cve)
+        artifact_cve_dir = os.path.join(root_dir, ARTIFACT_DIR_NAME, cve)
         trials = []
         if os.path.isdir(artifact_cve_dir):
             for item in os.listdir(artifact_cve_dir):
@@ -782,7 +790,7 @@ def run_stat_plot(root_dir, cve_list, trial_name_arg, yes):
     for cve in cve_list:
         trial_name = trial_name_arg if trial_name_arg else select_trial_interactively(root_dir, cve, yes)
         print(f"Running stat_plot.py on: \033[1;35m{cve}\033[0m with trial: \033[1;35m{trial_name}\033[0m")
-        cmd = [python_bin, "scripts/stat_plot.py", "--root", os.path.join(root_dir, "artifact", cve), "--methods", "base", "cd", "dd", "muoafl", "--cve", cve, "--trial-name", trial_name]
+        cmd = [python_bin, "scripts/stat_plot.py", "--root", os.path.join(root_dir, ARTIFACT_DIR_NAME, cve), "--methods", "base", "cd", "dd", "muoafl", "--cve", cve, "--trial-name", trial_name]
         subprocess.run(cmd)
         
     print("\n\033[1;32mDone.\033[0m")
@@ -797,7 +805,7 @@ def run_tte_check(root_dir, cve_list, trial_name_arg, yes, registry_value=None):
         for cve in cve_list:
             trial_name = trial_name_arg if trial_name_arg else select_trial_interactively(root_dir, cve, yes)
             print(f"Running TTE_check.py for {cve} with trial: \033[1;35m{trial_name}\033[0m")
-            cmd = [python_bin, "scripts/TTE_check.py", "--bench", cve, "--trial-name", trial_name]
+            cmd = [python_bin, "scripts/TTE_check.py", "--bench", cve, "--trial-name", trial_name, "--root", ARTIFACT_DIR_NAME]
             if registry_value:
                 cmd.extend(["--registry", registry_value])
             subprocess.run(cmd)
@@ -806,7 +814,33 @@ def run_tte_check(root_dir, cve_list, trial_name_arg, yes, registry_value=None):
         if not cve or not trial_name:
             sys.exit(0)
         print(f"Running TTE_check.py for {cve} with trial: \033[1;35m{trial_name}\033[0m")
-        cmd = [python_bin, "scripts/TTE_check.py", "--bench", cve, "--trial-name", trial_name]
+        cmd = [python_bin, "scripts/TTE_check.py", "--bench", cve, "--trial-name", trial_name, "--root", ARTIFACT_DIR_NAME]
+        if registry_value:
+            cmd.extend(["--registry", registry_value])
+        subprocess.run(cmd)
+        
+    print("\n\033[1;32mDone.\033[0m")
+
+def run_tte_queue_check(root_dir, cve_list, trial_name_arg, yes, registry_value=None):
+    venv_activate = os.path.join(root_dir, "../.venv/bin/activate")
+    python_bin = sys.executable
+    if os.path.isfile(venv_activate):
+        python_bin = os.path.abspath(os.path.join(root_dir, "../.venv/bin/python3"))
+        
+    if trial_name_arg or yes:
+        for cve in cve_list:
+            trial_name = trial_name_arg if trial_name_arg else select_trial_interactively(root_dir, cve, yes)
+            print(f"Running TTE_check_queue.py for {cve} with trial: \033[1;35m{trial_name}\033[0m")
+            cmd = [python_bin, "scripts/TTE_check_queue.py", "--bench", cve, "--trial-name", trial_name, "--root", ARTIFACT_DIR_NAME]
+            if registry_value:
+                cmd.extend(["--registry", registry_value])
+            subprocess.run(cmd)
+    else:
+        cve, trial_name = select_cve_and_trial_interactively(root_dir, cve_list)
+        if not cve or not trial_name:
+            sys.exit(0)
+        print(f"Running TTE_check_queue.py for {cve} with trial: \033[1;35m{trial_name}\033[0m")
+        cmd = [python_bin, "scripts/TTE_check_queue.py", "--bench", cve, "--trial-name", trial_name, "--root", ARTIFACT_DIR_NAME]
         if registry_value:
             cmd.extend(["--registry", registry_value])
         subprocess.run(cmd)
@@ -822,7 +856,7 @@ def run_tte_plot(root_dir, cve_list, trial_name_arg):
     for cve in cve_list:
         trial_name = trial_name_arg if trial_name_arg else "all"
         print(f"Running TTE_plot.py for {cve} with trial: \033[1;35m{trial_name}\033[0m")
-        cmd = [python_bin, "scripts/TTE_plot.py", "--bench", cve, "--trial-name", trial_name]
+        cmd = [python_bin, "scripts/TTE_plot.py", "--bench", cve, "--trial-name", trial_name, "--root", ARTIFACT_DIR_NAME]
         subprocess.run(cmd)
 
 def run_arm_plot(root_dir, cve_list, trial_name_arg):
@@ -832,7 +866,7 @@ def run_arm_plot(root_dir, cve_list, trial_name_arg):
         python_bin = os.path.abspath(os.path.join(root_dir, "../.venv/bin/python3"))
         
     for cve in cve_list:
-        artifact_cve_dir = os.path.join(root_dir, "artifact", cve)
+        artifact_cve_dir = os.path.join(root_dir, ARTIFACT_DIR_NAME, cve)
         if not os.path.isdir(artifact_cve_dir):
             print(f"Warning: Artifact directory not found for {cve}. Skipping.")
             continue
@@ -889,7 +923,7 @@ def run_ttr(root_dir, cve_list, num_trials, trial_name_arg):
         if not session_id:
             session_id = f"session_{now_str}"
             
-        artifact_trial_dir = os.path.join(root_dir, "artifact", cve, trial_name)
+        artifact_trial_dir = os.path.join(root_dir, ARTIFACT_DIR_NAME, cve, trial_name)
         if os.path.isdir(artifact_trial_dir):
             exist_session_id = ""
             session_id_file = os.path.join(artifact_trial_dir, ".session_id")
@@ -898,7 +932,7 @@ def run_ttr(root_dir, cve_list, num_trials, trial_name_arg):
                     exist_session_id = f.read().strip()
             if exist_session_id != session_id:
                 trial_name = f"{trial_name}_{now_str}"
-                artifact_trial_dir = os.path.join(root_dir, "artifact", cve, trial_name)
+                artifact_trial_dir = os.path.join(root_dir, ARTIFACT_DIR_NAME, cve, trial_name)
                 
         print(f"Copying TTR logs for trial run: \033[1;35m{trial_name}\033[0m")
         os.makedirs(artifact_trial_dir, exist_ok=True)
@@ -963,7 +997,7 @@ def run_ttr(root_dir, cve_list, num_trials, trial_name_arg):
                 else:
                     print("\033[1;31mFailed\033[0m")
                     
-        ttr_cmd = [python_bin, "scripts/TTR.py", "--root", os.path.join(root_dir, "artifact", cve), "--methods", "base", "cd", "dd", "muoafl", "--cve", cve, "--trial-name", trial_name_arg if trial_name_arg else trial_name]
+        ttr_cmd = [python_bin, "scripts/TTR.py", "--root", os.path.join(root_dir, ARTIFACT_DIR_NAME, cve), "--methods", "base", "cd", "dd", "muoafl", "--cve", cve, "--trial-name", trial_name_arg if trial_name_arg else trial_name]
         subprocess.run(ttr_cmd)
         
 def detect_num_trials(root_dir, cve_list):
@@ -1034,7 +1068,7 @@ def run_summary(root_dir):
     import os
     import subprocess
     
-    artifact_root = os.path.join(root_dir, "artifact")
+    artifact_root = os.path.join(root_dir, ARTIFACT_DIR_NAME)
     if not os.path.isdir(artifact_root):
         print(f"Error: Artifact directory {artifact_root} not found.")
         return
@@ -1242,7 +1276,7 @@ def main():
     command, target_cve, num_trials, trial_name_arg, run_all, yes, tags_value, registry_value, only_crashes, extra_args = parse_arguments(root_dir)
     
     if not command:
-        print("Error: Command (up, down, build, status, log, clean, copy, stat_plot, tte_check, tte_plot, ttr, summary, matrix_plot) is required.")
+        print("Error: Command (up, down, build, status, log, clean, copy, stat_plot, tte_check, tte_queue_check, tte_plot, ttr, summary, matrix_plot) is required.")
         print_usage()
         sys.exit(1)
 
@@ -1307,6 +1341,8 @@ def main():
         run_stat_plot(root_dir, cve_list, trial_name_arg, yes)
     elif command == "tte_check":
         run_tte_check(root_dir, cve_list, trial_name_arg, yes, registry_value)
+    elif command == "tte_queue_check":
+        run_tte_queue_check(root_dir, cve_list, trial_name_arg, yes, registry_value)
     elif command == "tte_plot":
         run_tte_plot(root_dir, cve_list, trial_name_arg)
     elif command == "ttr":
