@@ -1159,29 +1159,42 @@ def run_summary(root_dir):
         table.set_fontsize(10)
         table.scale(1.2, 2.0)
         
-        for (r, col_idx), cell in table.get_celld().items():
+        for r in range(len(summary_data) + 1):
             if r == 0:
-                cell.set_text_props(weight='bold', color='white')
-                cell.set_facecolor('#1f77b4')
-                cell.set_edgecolor('#1f77b4')
-            else:
+                for col_idx in range(len(headers)):
+                    cell = table.get_celld()[(r, col_idx)]
+                    cell.set_text_props(weight='bold', color='white')
+                    cell.set_facecolor('#1f77b4')
+                    cell.set_edgecolor('#1f77b4')
+                continue
+                
+            # First pass: find the best cell (minimum Geo TTE) in this row
+            min_tte = float('inf')
+            best_col = -1
+            for col_idx in range(1, len(headers)):
+                cell = table.get_celld()[(r, col_idx)]
+                text = cell.get_text().get_text()
+                if text != "N.A." and " s\n" in text:
+                    try:
+                        tte_val = float(text.split(' s\n')[0])
+                        if tte_val < min_tte:
+                            min_tte = tte_val
+                            best_col = col_idx
+                    except Exception:
+                        pass
+                        
+            # Second pass: apply styling
+            for col_idx in range(len(headers)):
+                cell = table.get_celld()[(r, col_idx)]
                 if r % 2 == 0:
                     cell.set_facecolor('#f2f2f2')
                 else:
                     cell.set_facecolor('white')
                 cell.set_edgecolor('#e0e0e0')
                 
-                # Check for speedup in text and make bold if > 1
-                text = cell.get_text().get_text()
-                if "x (p=" in text:
-                    try:
-                        speedup_line = [l for l in text.split('\n') if "x (p=" in l]
-                        if speedup_line:
-                            speedup_val = float(speedup_line[0].split('x')[0])
-                            if speedup_val > 1.0:
-                                cell.set_text_props(weight='bold')
-                    except Exception:
-                        pass
+                if col_idx == best_col:
+                    cell.set_text_props(weight='bold')
+                
                 
         plt.tight_layout()
         plt.savefig(output_png, dpi=300, bbox_inches='tight')
