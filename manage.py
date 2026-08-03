@@ -1174,9 +1174,9 @@ def run_summary(root_dir):
             for col_idx in range(1, len(headers)):
                 cell = table.get_celld()[(r, col_idx)]
                 text = cell.get_text().get_text()
-                if text != "N.A." and " s\n" in text:
+                if text != "N.A." and " s" in text:
                     try:
-                        tte_val = float(text.split(' s\n')[0])
+                        tte_val = float(text.split(' s')[0])
                         if tte_val < min_tte:
                             min_tte = tte_val
                             best_col = col_idx
