@@ -9,8 +9,6 @@ import torch
 import umap
 from sklearn.cluster import KMeans, HDBSCAN
 from sklearn.metrics import silhouette_score
-import itertools
-import matplotlib.pyplot as plt
 from transformers import AutoTokenizer, AutoModel
 import tree_sitter_c
 import tree_sitter_cpp
@@ -327,127 +325,50 @@ def main():
     print("Step 2: Global Fitting & Labeling...")
     
     # Pipeline A (K-Means)
-    # print("  -> Pipeline A: UMAP(16d) + K-Means(16)")
-    # n_components_kmeans = min(16, X.shape[0] - 1) if X.shape[0] > 16 else max(2, X.shape[0] - 1)
-    # umap_kmeans = umap.UMAP(n_components=n_components_kmeans, n_neighbors=50, min_dist=0.0, random_state=42)
-    # X_umap_kmeans = umap_kmeans.fit_transform(X)
-    # 
-    # n_clusters = min(16, X.shape[0])
-    # kmeans = KMeans(n_clusters=n_clusters, random_state=42)
-    # labels_kmeans = kmeans.fit_predict(X_umap_kmeans)
-    # 
-    # if X_umap_kmeans.shape[0] > 1:
-    #     sample_size = 10000 if X_umap_kmeans.shape[0] > 10000 else X_umap_kmeans.shape[0]
-    #     score_kmeans = silhouette_score(X_umap_kmeans, labels_kmeans, sample_size=sample_size, random_state=42)
-    #     print(f"     [Metrics] KMeans Silhouette Score (16D): {score_kmeans:.4f}")
+    print("  -> Pipeline A: UMAP(16d) + K-Means(16)")
+    n_components_kmeans = min(16, X.shape[0] - 1) if X.shape[0] > 16 else max(2, X.shape[0] - 1)
+    umap_kmeans = umap.UMAP(n_components=n_components_kmeans, n_neighbors=50, min_dist=0.0, random_state=42)
+    X_umap_kmeans = umap_kmeans.fit_transform(X)
     
-    # Pipeline B (HDBSCAN) - Grid Search
-    print("Step 2/3: Grid Search for UMAP + HDBSCAN & Serialization/Visualization...")
-    # 恢復為原本有 0.54 高分的 10 維空間，降維過度會導致點之間互相重疊，破壞輪廓係數
-    n_components = min(10, X.shape[0] - 1) if X.shape[0] > 10 else max(2, X.shape[0] - 1)
+    n_clusters = min(16, X.shape[0])
+    kmeans = KMeans(n_clusters=n_clusters, random_state=42)
+    labels_kmeans = kmeans.fit_predict(X_umap_kmeans)
     
-    # 預設 Grid Search 參數範圍 (新增 n_components 以比較 2D 直觀分群 vs 10D 空間分群)
-    param_grid = {
-        'n_components': [2, 10],
-        'n_neighbors': [50],
-        'min_cluster_size': [200, 500],
-        'min_samples': [30]
-    }
+    if X_umap_kmeans.shape[0] > 1:
+        sample_size = 10000 if X_umap_kmeans.shape[0] > 10000 else X_umap_kmeans.shape[0]
+        score_kmeans = silhouette_score(X_umap_kmeans, labels_kmeans, sample_size=sample_size, random_state=42)
+        print(f"     [Metrics] KMeans Silhouette Score (16D): {score_kmeans:.4f}")
     
-    keys = list(param_grid.keys())
-    combinations = list(itertools.product(*(param_grid[k] for k in keys)))
+    # Pipeline B (HDBSCAN)
+    print("  -> Pipeline B: UMAP(10d) + HDBSCAN")
+    n_components_hdbscan = min(10, X.shape[0] - 1) if X.shape[0] > 10 else max(2, X.shape[0] - 1)
+    umap_hdbscan = umap.UMAP(n_components=n_components_hdbscan, n_neighbors=50, min_dist=0.0, random_state=42)
+    X_umap_hdbscan = umap_hdbscan.fit_transform(X)
     
-    best_score = -float('inf')
-    best_labels = None
-    best_params = None
+    hdbscan = HDBSCAN(min_cluster_size=200, min_samples=30, metric='euclidean')
+    labels_hdbscan = hdbscan.fit_predict(X_umap_hdbscan)
     
-    for combo in combinations:
-        params = dict(zip(keys, combo))
-        nc = params['n_components']
-        nn = params['n_neighbors']
-        mcs = params['min_cluster_size']
-        ms = params['min_samples']
-        
-        print(f"\n--- Evaluating UMAP(nc={nc}, nn={nn}) + HDBSCAN(mcs={mcs}, ms={ms}) ---")
-        
-        # 使用 PCA 初始化確保穩定，並強烈建議對高維度語言模型 Embedding 使用 cosine 距離
-        umap_hdbscan = umap.UMAP(n_components=nc, n_neighbors=nn, min_dist=0.0, metric="cosine", random_state=42, init="pca")
-        X_umap_hdbscan = umap_hdbscan.fit_transform(X)
-        
-        hdbscan = HDBSCAN(min_cluster_size=mcs, min_samples=ms, metric='euclidean')
-        labels_hdbscan = hdbscan.fit_predict(X_umap_hdbscan)
-        
-        core_mask = labels_hdbscan != -1
-        score_hdbscan = -1
-        if np.sum(core_mask) > 1 and len(np.unique(labels_hdbscan[core_mask])) > 1:
-            X_core = X_umap_hdbscan[core_mask]
-            labels_core = labels_hdbscan[core_mask]
-            # 移除 sample_size 以計算完整的輪廓係數，避免隨機抽樣導致分數失準（可能變負數）
-            score_hdbscan = silhouette_score(X_core, labels_core, random_state=42)
-            print(f"     [Metrics] Silhouette Score (Core Only): {score_hdbscan:.4f}")
-            print(f"     [Stats] Core Points: {np.sum(core_mask)}/{X.shape[0]}, Clusters: {len(np.unique(labels_core))}")
-        
-        if score_hdbscan > best_score:
-            best_score = score_hdbscan
-            best_labels = labels_hdbscan.copy()
-            best_params = params.copy()
-            print(f"     *** New Best Score! ***")
-            
-        # Serialize Model
-        param_dir_name = f"umap{nc}d_nn{nn}_mcs{mcs}_ms{ms}"
-        param_models_dir = os.path.join(models_dir, param_dir_name)
-        os.makedirs(param_models_dir, exist_ok=True)
-        
-        joblib.dump(umap_hdbscan, os.path.join(param_models_dir, 'umap_hdbscan.pkl'))
-        joblib.dump(hdbscan, os.path.join(param_models_dir, 'hdbscan.pkl'))
-        
-        # Visualization
-        print("     [Visual] Generating cluster plot...")
-        X_emb = umap_hdbscan.embedding_
-        if X_emb is not None and X_emb.shape[0] > 1:
-            plot_labels = labels_hdbscan.copy()
-            if X_emb.shape[0] > 10000:
-                np.random.seed(42)
-                idx = np.random.choice(X_emb.shape[0], 10000, replace=False)
-                X_emb_sub = X_emb[idx]
-                plot_labels = plot_labels[idx]
-            else:
-                X_emb_sub = X_emb
-                
-            # 若原始已經是 2D，直接使用；若為 10D，才再透過 UMAP 降維畫圖
-            if nc == 2:
-                X_2d = X_emb_sub
-            else:
-                reducer_2d = umap.UMAP(n_components=2, n_neighbors=50, min_dist=0.0, n_jobs=-1, random_state=42, init="pca")
-                X_2d = reducer_2d.fit_transform(X_emb_sub)
-            
-            c_mask = plot_labels != -1
-            n_mask = plot_labels == -1
-            
-            unique_h, counts_h = np.unique(labels_hdbscan, return_counts=True)
-            count_dict_h = dict(zip(unique_h, counts_h))
-            
-            plt.figure(figsize=(12, 10))
-            plt.scatter(X_2d[n_mask, 0], X_2d[n_mask, 1], c='lightgrey', s=1, alpha=0.3, label='Noise')
-            scatter = plt.scatter(X_2d[c_mask, 0], X_2d[c_mask, 1], c=plot_labels[c_mask], cmap='tab20', s=2, alpha=0.6)
-            
-            plt.title(f'Global HDBSCAN Clusters | UMAP({nc}d, nn={nn}) | HDBSCAN(mcs={mcs}, ms={ms})\nSilhouette (Core): {score_hdbscan:.4f}')
-            cbar = plt.colorbar(scatter, label='Cluster ID (Point Count)')
-            unique_ids_h = sorted([k for k in count_dict_h.keys() if k != -1])
-            cbar.set_ticks(unique_ids_h)
-            cbar.ax.tick_params(labelsize=8)
-            cbar.set_ticklabels([f"{k} ({count_dict_h[k]})" for k in unique_ids_h])
-            
-            noise_count = count_dict_h.get(-1, 0)
-            plt.text(0.01, 0.01, f'Noise Points: {noise_count}', transform=plt.gca().transAxes, fontsize=10, bbox=dict(facecolor='white', alpha=0.8))
-            
-            plt.savefig(os.path.join(param_models_dir, 'global_hdbscan_clusters.png'), dpi=300, bbox_inches='tight')
-            plt.close()
-            
-    print(f"\nGrid search completed. Best params: {best_params} with Score: {best_score:.4f}")
-
-    # Step 4: Split & Distribute (Using Best Model)
-    print(f"Step 4: Split & Distribute (Using Best Model: {best_params})...")
+    core_mask = labels_hdbscan != -1
+    if np.sum(core_mask) > 1 and len(np.unique(labels_hdbscan[core_mask])) > 1:
+        X_core = X_umap_hdbscan[core_mask]
+        labels_core = labels_hdbscan[core_mask]
+        sample_size = 10000 if X_core.shape[0] > 10000 else X_core.shape[0]
+        score_hdbscan = silhouette_score(X_core, labels_core, sample_size=sample_size, random_state=42)
+        print(f"     [Metrics] HDBSCAN Silhouette Score (10D, Core Only): {score_hdbscan:.4f}")
+        print(f"     [Stats] HDBSCAN Core Points: {np.sum(core_mask)}/{X.shape[0]}, Clusters: {len(np.unique(labels_core))}")
+    
+    # Step 3: Model Serialization
+    print("Step 3: Model Serialization...")
+    # models_dir is already created
+    
+    joblib.dump(umap_kmeans, os.path.join(models_dir, 'umap_kmeans.pkl'))
+    joblib.dump(kmeans, os.path.join(models_dir, 'kmeans.pkl'))
+    joblib.dump(umap_hdbscan, os.path.join(models_dir, 'umap_hdbscan.pkl'))
+    joblib.dump(hdbscan, os.path.join(models_dir, 'hdbscan.pkl'))
+    print(f"Models saved to {models_dir}")
+    
+    # Step 4: Split & Distribute
+    print("Step 4: Split & Distribute...")
     project_groups = {}
     for i, target in enumerate(all_valid_contexts):
         proj = target['project']
@@ -458,28 +379,40 @@ def main():
             'lineno': target['lineno'],
             'target_code': target.get('target_code', ''),
             'context_code': target.get('context_code', ''),
-            'hdbscan_label': best_labels[i]
+            'kmeans_label': labels_kmeans[i],
+            'hdbscan_label': labels_hdbscan[i]
         })
         
     for proj, items in project_groups.items():
         proj_dir = os.path.join(bench_dir, proj)
+        
+        # Write KMeans outputs
+        out_kmeans_txt = os.path.join(proj_dir, 'cluster_map_kmeans.txt')
+        out_kmeans_log = os.path.join(proj_dir, 'cluster_map_kmeans.log')
+        with open(out_kmeans_txt, 'w') as f_txt, open(out_kmeans_log, 'w') as f_log:
+            f_log.write("--- KMeans Clustering Results ---\n")
+            for item in items:
+                f_txt.write(f"{item['kmeans_label']} {item['filename']}:{item['lineno']}\n")
+                
+                ctx_lines = len(item['context_code'].split('\n')) if item['context_code'] else 0
+                ctx_chars = len(item['context_code'])
+                log_line = (f"Cluster {item['kmeans_label']:2d} | {item['filename']}:{item['lineno']} | "
+                            f"(Ctx Lines: {ctx_lines}, Chars: {ctx_chars}) | {item['target_code']}\n")
+                f_log.write(log_line)
                 
         # Write HDBSCAN outputs
         out_hdbscan_txt = os.path.join(proj_dir, 'cluster_map_hdbscan.txt')
         out_hdbscan_log = os.path.join(proj_dir, 'cluster_map_hdbscan.log')
-        try:
-            with open(out_hdbscan_txt, 'w') as f_txt, open(out_hdbscan_log, 'w') as f_log:
-                f_log.write(f"--- HDBSCAN Clustering Results (Best Model: {best_params}) ---\n")
-                for item in items:
-                    f_txt.write(f"{item['hdbscan_label']} {item['filename']}:{item['lineno']}\n")
-                    
-                    ctx_lines = len(item['context_code'].split('\n')) if item['context_code'] else 0
-                    ctx_chars = len(item['context_code'])
-                    log_line = (f"Cluster {item['hdbscan_label']:2d} | {item['filename']}:{item['lineno']} | "
-                                f"(Ctx Lines: {ctx_lines}, Chars: {ctx_chars}) | {item['target_code']}\n")
-                    f_log.write(log_line)
-        except PermissionError as e:
-            print(f"     [Warning] Permission denied when writing to {proj_dir}. Skipping output for this benchmark.")
+        with open(out_hdbscan_txt, 'w') as f_txt, open(out_hdbscan_log, 'w') as f_log:
+            f_log.write("--- HDBSCAN Clustering Results ---\n")
+            for item in items:
+                f_txt.write(f"{item['hdbscan_label']} {item['filename']}:{item['lineno']}\n")
+                
+                ctx_lines = len(item['context_code'].split('\n')) if item['context_code'] else 0
+                ctx_chars = len(item['context_code'])
+                log_line = (f"Cluster {item['hdbscan_label']:2d} | {item['filename']}:{item['lineno']} | "
+                            f"(Ctx Lines: {ctx_lines}, Chars: {ctx_chars}) | {item['target_code']}\n")
+                f_log.write(log_line)
                 
     print("\nGlobal classification complete!")
 
