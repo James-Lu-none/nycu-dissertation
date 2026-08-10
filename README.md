@@ -89,7 +89,14 @@ sudo systemctl restart systemd-logind
 
 To effectively leverage semantic clusters during the havoc mutation phase, the architecture implements a Markov Chain model. This separates the selection of the initial mutator from the sequence of subsequent mutators.
 
-in `struct queue_entry`, a variable `semantic_type` is added to store the dominant semantic cluster ID of the input. and used in `afl-fuzz-one.c` when obtaining sematic type of current seed queue with `afl->queue_cur->semantic_type` to update finds_per_semantic_mut
+In `struct queue_entry`, a variable `semantic_type` is added to store the dominant semantic cluster ID of the input. This is used in `afl-fuzz-one.c` when obtaining the semantic type of the current seed (`afl->queue_cur->semantic_type`) to update `finds_per_semantic_mut`.
+
+### Assignment of Semantic Type (Queue Context)
+The `semantic_type` of a queue entry is determined using the **Frontier Dominance** method. Rather than arbitrarily picking a single node, the fuzzer finds the highest DFG score triggered by the seed (the frontier), aggregates the weights of all valid clustered nodes operating at that exact depth, and assigns the semantic type via a majority vote.
+
+Crucially, this context assignment must occur in two separate stages within the fuzzer to avoid losing feature data:
+1. **`add_to_queue` (New Finds)**: Handles testcases newly discovered during the mutation phase. Right after `run_target` finishes and discovers a new path, the shared memory (`shm.dfg_map`) retains the fresh execution trace. The context can be computed immediately here.
+2. **`calibrate_case` (Initial Seeds)**: Handles seeds loaded from the input directory at startup. When initially passed to `add_to_queue`, they *have never been executed*, meaning the DFG map is empty or contains garbage data. Therefore, the `semantic_type` must be recalculated and overwritten inside `calibrate_case` after the fuzzer executes them for the first time and captures their true DFG trace.
 
 ### 1. Initial State (First Mutator Selection)
 When a mutation stack begins, there is no previous mutator (`prev_mutator == -1`). 
