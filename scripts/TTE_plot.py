@@ -341,7 +341,10 @@ def analyze_and_write_lineage(artifact_dir, session_dir, method, trial, plot_dir
     exposure_file_path = None
     trial_dir = os.path.join(artifact_dir, session_dir, method, trial)
     for root_walk, _, files in os.walk(trial_dir):
-        if "tte.txt" in files:
+        if "tte_queue.txt" in files:
+            exposure_file_path = os.path.join(root_walk, "tte_queue.txt")
+            break
+        elif "tte.txt" in files:
             exposure_file_path = os.path.join(root_walk, "tte.txt")
             break
             
@@ -554,7 +557,10 @@ def main():
             trial_dir = os.path.join(artifact_dir, item["session_dir"], method, item["trial"])
             exposure_file_path = None
             for root_walk, _, files in os.walk(trial_dir):
-                if "tte.txt" in files:
+                if "tte_queue.txt" in files:
+                    exposure_file_path = os.path.join(root_walk, "tte_queue.txt")
+                    break
+                elif "tte.txt" in files:
                     exposure_file_path = os.path.join(root_walk, "tte.txt")
                     break
             

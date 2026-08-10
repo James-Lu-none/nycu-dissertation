@@ -129,7 +129,7 @@ def run_slurm_copy(root_dir, cve_list, num_trials, trial_name_arg):
             continue
         
         print(f"Requesting background sync for \033[1;35m{cve}\033[0m (trial: {trial_name})...")
-        pattern = os.path.join(root_dir, "artifact", cve, trial_name, "*", "trial*")
+        pattern = os.path.join(root_dir, manage.ARTIFACT_DIR_NAME, cve, trial_name, "*", "trial*")
         dirs = glob.glob(pattern)
         for d in dirs:
             if os.path.isdir(d):
