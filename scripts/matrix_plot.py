@@ -84,7 +84,7 @@ def main():
     
     methods = [d for d in os.listdir(session_dir) if os.path.isdir(os.path.join(session_dir, d)) and d not in ["plot", "TTE_check"]]
     
-    data = {"mut": defaultdict(lambda: defaultdict(dict)), "semantic": defaultdict(lambda: defaultdict(dict))}
+    data = defaultdict(lambda: defaultdict(lambda: defaultdict(dict)))
     
     for method in methods:
         method_dir = os.path.join(session_dir, method)
@@ -95,7 +95,7 @@ def main():
             
             for root, _, files in os.walk(trial_dir):
                 for f in files:
-                    m = re.match(r'(mut|semantic)_prob_matrix(?:_(\d+)m|_600s)?\.txt', f)
+                    m = re.match(r'(mut_prob|semantic_prob|finds_per_semantic_mut)_matrix(?:_(\d+)m|_600s)?\.txt', f)
                     if m:
                         mat_type = m.group(1)
                         mins_str = m.group(2)
@@ -111,7 +111,7 @@ def main():
                         if mat is not None:
                             data[mat_type][bucket][method][trial] = mat
                             
-    for mat_type in data:
+    for mat_type in list(data.keys()):
         def sort_bucket(b):
             return 999999 if b == "final" else int(b)
             
@@ -131,9 +131,9 @@ def main():
                 continue
                 
             if bucket == "final":
-                filename = f"{mat_type}_prob_matrix_final"
+                filename = f"{mat_type}_matrix_final"
             else:
-                filename = f"{mat_type}_prob_matrix_{bucket}m"
+                filename = f"{mat_type}_matrix_{bucket}m"
             num_methods = len(method_averages)
             
             sample_mat = method_averages[list(method_averages.keys())[0]]
