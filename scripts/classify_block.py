@@ -351,12 +351,18 @@ def main():
     # 預設 Grid Search 參數範圍 (新增 n_components 以比較 2D 直觀分群 vs 10D 空間分群)
     # 為了減少 Noise，我們降低 min_samples (讓 HDBSCAN 更寬容)，並測試更小的 min_cluster_size
     param_grid = {
-        'n_components': [5, 8, 10],           # 包含 5D, 有時候更低維度能凸顯群體
-        'n_neighbors': [15, 30, 50, 100],     # 涵蓋從極端局部 (15) 到極大全域 (100)
-        'min_dist': [0.0, 0.1, 0.25],         # 測試不同的緊密度
-        'umap_metric': ['euclidean', 'cosine'], # 既然要放過夜，我們把 cosine 也加回來測看看
-        'min_cluster_size': [100, 200, 300, 400, 500],
-        'min_samples': [5, 10, 15, 20, 30]
+        # 'n_components': [5, 8, 10],
+        # 'n_neighbors': [15, 30, 50, 100],
+        # 'min_dist': [0.0, 0.1, 0.25],
+        # 'umap_metric': ['euclidean', 'cosine'],
+        # 'min_cluster_size': [100, 200, 300, 400, 500],
+        # 'min_samples': [5, 10, 15, 20, 30],
+        'n_components': [8],
+        'n_neighbors': [100],
+        'min_dist': [0.25],
+        'umap_metric': ['euclidean'],
+        'min_cluster_size': [300],
+        'min_samples': [15]
     }
     
     keys = list(param_grid.keys())
@@ -518,6 +524,28 @@ def main():
                 best_labels[i]
             ])
             
+    print("     [TXT] Exporting per-benchmark cluster maps...")
+    from collections import defaultdict
+    project_clusters = defaultdict(list)
+    for i, target in enumerate(all_valid_contexts):
+        project_clusters[target['project']].append({
+            'filename': target['filename'],
+            'lineno': target['lineno'],
+            'label': best_labels[i]
+        })
+        
+    for project, items in project_clusters.items():
+        proj_dir = os.path.join(bench_dir, project)
+        if not os.path.exists(proj_dir):
+            continue
+        txt_path = os.path.join(proj_dir, 'cluster_map_hdbscan.txt')
+        try:
+            with open(txt_path, 'w', encoding='utf-8') as f:
+                for item in items:
+                    f.write(f"{item['label']} {item['filename']}:{item['lineno']}\n")
+        except Exception as e:
+            print(f"      [Warning] Could not write to {txt_path}: {e}")
+
     print(f"\nGlobal classification complete! Best model saved in: {param_models_dir}")
 
     # Step 5: Aggregate all metrics.csv into a root summary.csv
