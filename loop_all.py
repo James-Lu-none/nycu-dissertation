@@ -231,8 +231,8 @@ def main():
                 subprocess.run([python_bin, manage_script, "clean", "--tags", args.tags, "--registry", args.registry])
             
             # Extra: Run TTE check
-            print("\n\033[1;35m[Post-processing] Running TTE check...\033[0m")
-            subprocess.run([python_bin, manage_py, "tte_check", cve, "-y", "--registry", args.registry])
+            # print("\n\033[1;35m[Post-processing] Running TTE check...\033[0m")
+            # subprocess.run([python_bin, manage_py, "tte_check", cve, "-y", "--registry", args.registry])
             
             print(f"\n\033[1;32m[CVE {cve}] Iteration {iteration}/{iterations} completed. Resting 5 seconds...\033[0m")
             time.sleep(5)
