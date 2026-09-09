@@ -27,7 +27,7 @@ def parse_matrix(filepath):
                 if "Cluster" in line and ":" in line:
                     header, data = line.split(":", 1)
                     cluster_str = header.split(",")[0].replace("Cluster", "").strip()
-                    cluster_id = int(cluster_str)
+                    cluster_id = int(cluster_str.split()[0])
                     
                     if cluster_id != current_cluster:
                         if current_cluster_matrix:
