@@ -1153,7 +1153,19 @@ def run_summary(root_dir):
     if not summary_data:
         print("No summary data could be parsed.")
         return
-        
+
+    # Sort summary_data by dd Result time descending (largest to smallest, N.A. at the end)
+    def get_dd_sort_key(row):
+        dd_res = row.get("dd Result", "")
+        if dd_res != "N.A." and " s" in dd_res:
+            try:
+                return (True, float(dd_res.split(" s")[0]))
+            except (ValueError, IndexError):
+                pass
+        return (False, 0.0)
+
+    summary_data.sort(key=get_dd_sort_key, reverse=True)
+
     # Write to a CSV file in artifact root
     output_csv = os.path.join(artifact_root, "TTE_overall_summary.csv")
     headers = ["CVE", "dd Result"]
