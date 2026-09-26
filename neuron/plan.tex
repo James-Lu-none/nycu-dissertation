@@ -1,0 +1,87 @@
+\documentclass[12pt]{article}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{geometry}
+\usepackage{xcolor}
+\geometry{a4paper, margin=1in}
+
+\title{Implementation Plan: Vulnerability Knowledge Neurons for Directed Fuzzing}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{Implementation Details and Mathematical Formulation}
+
+This document details the step-by-step implementation plan for extracting line-level vulnerability neuron representations to replace the metrics used in the Attention Distance paper.
+
+\subsection{1. Token to Source Line Mapping}
+Before feeding data into the model, we must establish a precise mapping from tokens to source code lines. We record the set of tokens belonging to each source line $q$:
+\begin{equation}
+T_q = \{t \mid t \text{ belongs to source line } q\}
+\end{equation}
+
+\subsection{2. Model Input Strategy}
+During the dataset processing phase, we input the \textbf{full vulnerable function} ($F_v$) and the \textbf{full patched function} ($F_p$) into CodeBERT separately. This preserves the complete function context, which is critical for accurate semantic extraction.
+
+\subsection{3. Identifying the Vulnerability Neuron Set}
+Instead of relying on the last token (as in the original Jailbreak paper), we calculate the neuron contribution at layer $l$ using the average activation of all tokens in a line. 
+For a neuron $i$ in layer $l$, its activation for line $q$ is defined as:
+\begin{equation}
+a_{l,i}^{q} = \frac{1}{|T_q|} \sum_{t \in T_q} a_{l,i}^{t}
+\end{equation}
+\textcolor{blue}{\textit{(* Implementation Note: We tentatively use the average (mean) activation here. This will be marked with a comment in the code, as we may explore other pooling methods like Max later.)}}
+
+The contribution of neuron $i$ is then computed by multiplying its activation with the L2-norm of its corresponding down-projection weight vector $r_l^i$ (the $i$-th row of $\Theta_{down}$):
+\begin{equation}
+c_{l}^i = a_{l,i}^{q} \times \|r_l^i\|_2
+\end{equation}
+
+We extract the top $K$ neurons based on this contribution. $K$ is a configurable ratio parameter (e.g., $3\%$ of $d_{ff}$). The vectors of the neurons outside this top $K$ ratio are mathematically treated as $\vec{0}$ in the subspace. The target layer $l$ is also configurable (e.g., $l \in \{3, 7, 11\}$).
+
+\subsection{4. Refining the Vulnerability-Specific Neuron Set ($\mathcal{N}_{r,l}$)}
+By evaluating the modified "vulnerability-related lines" from the before-fix and after-fix pairs, we obtain two sets of top-$K$ neurons:
+\begin{itemize}
+    \item $\mathcal{N}_{v,l}$: The top-$K$ neurons activated by the vulnerable lines.
+    \item $\mathcal{N}_{p,l}$: The top-$K$ neurons activated by the patched (secure) lines.
+\end{itemize}
+We obtain the final vulnerability-specific neuron set by taking their set difference:
+\begin{equation}
+\mathcal{N}_{r,l} = \mathcal{N}_{v,l} \setminus \mathcal{N}_{p,l}
+\end{equation}
+
+\subsection{5. Line-Level Vulnerability-Neuron Representation}
+For line $q$, we construct its semantic representation by aggregating the residual contributions strictly within the isolated $\mathcal{N}_{r,l}$ space. Using the mean activation mapping:
+\begin{equation}
+p_{v,l}^q = \sum_{i \in \mathcal{N}_{r,l}} \left( \frac{1}{|T_q|} \sum_{t \in T_q} a_{l,i}^{v,t} \right) r_l^i
+\end{equation}
+\begin{equation}
+p_{p,l}^q = \sum_{i \in \mathcal{N}_{r,l}} \left( \frac{1}{|T_q|} \sum_{t \in T_q} a_{l,i}^{p,t} \right) r_l^i
+\end{equation}
+
+\subsection{6. Calculating the Vulnerability Direction ($d_{v,l}$)}
+We establish the global vulnerability direction by comparing the representations of vulnerable and patched lines. There are two proposed methods for this:
+\begin{itemize}
+    \item \textbf{Method A (Global Average):} Calculate the mean representation of all vulnerable lines $P_{v,l}$ and all patched lines $P_{p,l}$, then subtract:
+    \begin{equation}
+    d_{v,l} = P_{v,l} - P_{p,l}
+    \end{equation}
+    \item \textbf{Method B (Pairwise Average):} Calculate the direction for each patch pair first, then take the average of all directions:
+    \begin{equation}
+    d_{v,l} = \frac{1}{N_{pairs}} \sum_{j=1}^{N_{pairs}} \left( p_{v,l}^{q_j} - p_{p,l}^{q_j} \right)
+    \end{equation}
+\end{itemize}
+
+\subsection{7. Inference and Fuzzing Guidance Score}
+For a newly analyzed function $F_{target}$ during the fuzzing phase, we perform a complete forward pass. For each line $q$, we calculate its representation in the $\mathcal{N}_{r,l}$ space:
+\begin{equation}
+p_{target,l}^q = \sum_{i \in \mathcal{N}_{r,l}} \left( \frac{1}{|T_q|} \sum_{t \in T_q} a_{l,i}^{target,t} \right) r_l^i
+\end{equation}
+We project this line-level activation representation onto the vulnerability direction $d_{v,l}$. The length of this projection serves as the final semantic guidance scalar score:
+\begin{equation}
+Score_l^q = p_{target,l}^q \cdot \frac{d_{v,l}}{\|d_{v,l}\|_2}
+\end{equation}
+This $Score_l^q$ will be aggregated at the Basic Block (BB) level and directly replace the Attention Distance metric to guide the Fuzzer.
+
+\end{document}
