@@ -2,12 +2,14 @@ import os
 import json
 import torch
 import difflib
+from tqdm import tqdm
 from transformers import RobertaTokenizerFast, RobertaModel
 
 from core.hook_utils import ActivationExtractor
 from core.mapper import map_tokens_to_lines, get_line_level_activations
 from core.attribution import calculate_neuron_contributions, get_vulnerability_specific_neurons
 from core.direction import compute_line_representation, compute_vulnerability_direction, score_target_line
+from attention_baseline import calculate_line_attention_scores
 
 def load_dataset(file_path):
     data = []
@@ -40,7 +42,7 @@ def extract_paired_activations(vul_data, ben_data, tokenizer, model, extractor, 
     ben_acts_list = []
     
     with torch.no_grad():
-        for vul_code, ben_code in zip(vul_data, ben_data):
+        for vul_code, ben_code in tqdm(zip(vul_data, ben_data), total=len(vul_data), desc="Extracting Activations"):
             vul_changed, ben_changed = get_modified_lines(vul_code, ben_code)
             
             # Fallback if diff fails
@@ -128,10 +130,21 @@ def main():
         "Secure (After Patch)": ben_data[test_idx]
     }
     
+    vul_changed_test, ben_changed_test = get_modified_lines(test_codes["Vulnerable (Before Patch)"], test_codes["Secure (After Patch)"])
+    RED = '\033[91m'
+    GREEN = '\033[92m'
+    RESET = '\033[0m'
+    
     for label, code_snippet in test_codes.items():
-        print("\n" + "="*80)
+        is_vul = "Vulnerable" in label
+        changed_lines = vul_changed_test if is_vul else ben_changed_test
+        color = RED if is_vul else GREEN
+        
+        print("\n" + "="*100)
         print(f"Testing Inference on: {label}")
-        print("-" * 80)
+        print("-" * 100)
+        print("Line  | Neuron Score | Attention Score | Code")
+        print("-" * 100)
         
         inputs = tokenizer(code_snippet, return_tensors="pt", return_offsets_mapping=True, truncation=True, max_length=512)
         offsets = inputs.pop("offset_mapping")[0].tolist()
@@ -146,11 +159,21 @@ def main():
         line_acts = get_line_level_activations(test_acts, token_to_line, num_lines)
         lines = code_snippet.split('\n')
         
+        # Calculate Attention Scores
+        a_scores = calculate_line_attention_scores(code_snippet, model, tokenizer)
+        a_scores = a_scores / (a_scores.max() + 1e-9)
+        
         for q in range(num_lines):
             p_q = compute_line_representation(line_acts[q], target_neurons, down_proj_weights)
-            score = score_target_line(p_q, d_v)
-            print(f"Line {q+1:2d} | Score: {score.item():7.4f} | {lines[q]}")
-        print("="*80)
+            n_score = score_target_line(p_q, d_v)
+            a_score = a_scores[q].item()
+            
+            code_line = lines[q]
+            if q in changed_lines:
+                code_line = f"{color}{code_line}{RESET}"
+                
+            print(f"Line {q+1:2d} | N-Score: {n_score.item():7.4f} | A-Score: {a_score:7.4f} | {code_line}")
+        print("="*100)
 
 if __name__ == "__main__":
     main()
