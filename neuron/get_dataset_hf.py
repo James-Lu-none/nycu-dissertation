@@ -26,6 +26,10 @@ def main():
             continue
             
         if target_cwe in cwe_id:
+            # targets C language specifically
+            if row.get("lang", "").upper() != "C":
+                continue
+                
             func_before = row.get("func_before", "")
             func_after = row.get("func_after", "")
             
