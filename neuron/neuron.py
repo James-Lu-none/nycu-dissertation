@@ -128,6 +128,7 @@ def extract_all_layers(vul_data, ben_data, tokenizer, model, layers_to_probe):
             # Vulnerable
             inputs_v = tokenizer(vul_code, return_tensors="pt", truncation=True, max_length=512, return_offsets_mapping=True)
             offsets_v = inputs_v.pop("offset_mapping")[0].tolist()
+            inputs_v = {k: v.to(model.device) for k, v in inputs_v.items()}
             for ext in extractors.values(): ext.clear()
             model(**inputs_v)
             t2l_v = map_tokens_to_lines(vul_code, offsets_v)
@@ -141,6 +142,7 @@ def extract_all_layers(vul_data, ben_data, tokenizer, model, layers_to_probe):
             # Benign
             inputs_b = tokenizer(ben_code, return_tensors="pt", truncation=True, max_length=512, return_offsets_mapping=True)
             offsets_b = inputs_b.pop("offset_mapping")[0].tolist()
+            inputs_b = {k: v.to(model.device) for k, v in inputs_b.items()}
             for ext in extractors.values(): ext.clear()
             model(**inputs_b)
             t2l_b = map_tokens_to_lines(ben_code, offsets_b)
@@ -158,9 +160,10 @@ def extract_all_layers(vul_data, ben_data, tokenizer, model, layers_to_probe):
     return vul_acts_by_layer, ben_acts_by_layer, extractors
 
 def main():
-    print("Loading CodeBERT model...")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Loading CodeBERT model on {device}...")
     tokenizer = RobertaTokenizerFast.from_pretrained("microsoft/codebert-base")
-    model = RobertaModel.from_pretrained("microsoft/codebert-base")
+    model = RobertaModel.from_pretrained("microsoft/codebert-base").to(device)
     model.eval()
 
     # Probe all 12 layers of CodeBERT!
@@ -248,6 +251,7 @@ def main():
         
         inputs = tokenizer(code_snippet, return_tensors="pt", return_offsets_mapping=True, truncation=True, max_length=512)
         offsets = inputs.pop("offset_mapping")[0].tolist()
+        inputs = {k: v.to(model.device) for k, v in inputs.items()}
         
         with torch.no_grad():
             for ext in extractors.values(): ext.clear()

@@ -8,6 +8,7 @@ def calculate_line_attention_scores(test_code, model, tokenizer):
     """
     inputs = tokenizer(test_code, return_tensors="pt", return_offsets_mapping=True)
     offsets = inputs.pop("offset_mapping")[0].tolist()
+    inputs = {k: v.to(model.device) for k, v in inputs.items()}
     
     # Enable output_attentions to extract the attention matrices
     with torch.no_grad():
