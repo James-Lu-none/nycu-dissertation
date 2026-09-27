@@ -48,15 +48,12 @@ def score_target_line(target_line_rep, d_v):
     target_line_rep: Tensor of shape (embedding_size,)
     d_v: Tensor of shape (embedding_size,)
     
-    Returns: scalar score
+    Returns: scalar score (Cosine Similarity)
     """
+    rep_norm = torch.norm(target_line_rep)
     d_v_norm = torch.norm(d_v)
-    if(d_v_norm <= 1e-9):
-        printf(f"WARNING: norm of d_v is abit too small {d_v_norm}")
     
-    # Normalize d_v
-    d_v_unit = d_v / (d_v_norm + 1e-9)
-    
-    # Project: p_target dot d_v_unit
-    score = torch.dot(target_line_rep, d_v_unit)
-    return score
+    if rep_norm <= 1e-9 or d_v_norm <= 1e-9:
+        return torch.tensor(0.0)
+        
+    return torch.nn.functional.cosine_similarity(target_line_rep.unsqueeze(0), d_v.unsqueeze(0)).squeeze(0)
