@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: Dockerfile
 
-    container_name: faster-whisper
+    container_name: vul-neuron
     working_dir: /workspace
 
     volumes:
