@@ -22,26 +22,47 @@ def calculate_neuron_contributions(line_activations, down_proj_weights):
     
     return contributions
 
-def get_top_k_neurons(contributions, k_ratio=0.03):
+# # Old Set Difference Logic
+# def get_top_k_neurons(contributions, k_ratio=0.03):
+#     num_neurons = contributions.shape[0]
+#     k = max(1, int(num_neurons * k_ratio))
+#     top_k_vals, top_k_indices = torch.topk(contributions, k)
+#     return set(top_k_indices.tolist())
+#
+# def get_vulnerability_specific_neurons(vul_contributions, ben_contributions, k_ratio=0.03):
+#     """
+#     N_r,l = N_v,l - N_p,l
+#     """
+#     N_v = get_top_k_neurons(vul_contributions, k_ratio)
+#     N_p = get_top_k_neurons(ben_contributions, k_ratio)
+#     N_r = N_v - N_p
+#     return list(N_r)
+
+def get_vulnerability_specific_neurons(vul_activations, ben_activations, down_proj_weights, k_ratio=0.10):
     """
-    Get indices of the top-K neurons based on contribution score.
-    k_ratio: float, ratio of total neurons to select (e.g., 0.03 for 3%)
+    New Logic: Paired Difference of Contribution
+    vul_activations: Tensor of shape (num_samples, hidden_size)
+    ben_activations: Tensor of shape (num_samples, hidden_size)
+    down_proj_weights: Tensor of shape (hidden_size, embedding_size)
     """
-    num_neurons = contributions.shape[0]
+    # 1. Calculate L2 norm of down-projection weights for each neuron
+    # ||r_i||_2 for all i: shape (hidden_size,)
+    r_norms = torch.norm(down_proj_weights, p=2, dim=1)
+    
+    # 2. For each pair j, calculate contribution difference: delta_c_j = c_V_j - c_P_j
+    # Since c_V_j = a_V_j * ||r||, and c_P_j = a_P_j * ||r||
+    # delta_c_j = (a_V_j - a_P_j) * ||r||
+    delta_activations = vul_activations - ben_activations # (num_samples, hidden_size)
+    delta_contributions = delta_activations * r_norms # (num_samples, hidden_size)
+    
+    # 3. Take mean value of contribution difference across all patch pairs
+    mean_delta_c = delta_contributions.mean(dim=0) # (hidden_size,)
+    
+    # 4. Obtain the final top K vulnerability-specific neuron set directly
+    num_neurons = mean_delta_c.shape[0]
     k = max(1, int(num_neurons * k_ratio))
     
-    # Get top K indices
-    top_k_vals, top_k_indices = torch.topk(contributions, k)
+    # top_k returns values and indices. We just need the indices.
+    top_k_vals, top_k_indices = torch.topk(mean_delta_c, k)
     
-    # Return as a set for easy subtraction later
-    return set(top_k_indices.tolist())
-
-def get_vulnerability_specific_neurons(vul_contributions, ben_contributions, k_ratio=0.03):
-    """
-    N_r,l = N_v,l - N_p,l
-    """
-    N_v = get_top_k_neurons(vul_contributions, k_ratio)
-    N_p = get_top_k_neurons(ben_contributions, k_ratio)
-    
-    N_r = N_v - N_p
-    return list(N_r)
+    return top_k_indices.tolist()

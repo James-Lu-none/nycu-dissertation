@@ -51,7 +51,32 @@ We obtain the final vulnerability-specific neuron set by taking their set differ
 \mathcal{N}_{r,l} = \mathcal{N}_{v,l} \setminus \mathcal{N}_{p,l}
 \end{equation}
 
-\subsection{5. Line-Level Vulnerability-Neuron Representation}
+Alternatively, we can calculate contribution difference directly on same vul/patch pair and use topK of contribution difference to obtain neuron set ($\mathcal{N}_{r,l}$) directly:
+
+for each patch pair, compress vul/patched lines in to a region-level contribution
+\begin{equation}
+c_{V,i}^l = \frac{1}{|T_V|} \sum_{t \in T_V} (a_{t,i}^{l} \times \|r_i^l\|_2)
+\end{equation}
+\begin{equation}
+c_{P,i}^l = \frac{1}{|T_P|} \sum_{t \in T_P} (a_{t,i}^{l} \times \|r_i^l\|_2)
+\end{equation}
+where Tv, Tp mean the token set of vulnerable code region and patched region 
+
+And then for each pair j, calculate contribution vector difference:
+\begin{equation}
+\Delta c_{j,i}^l = c_{V_j,i}^l - c_{P_j,i}^l
+\end{equation}
+
+And take mean value of contribution vector difference across all patch pairs
+\begin{equation}
+\Delta c_{i}^l = \frac{1}{|M|} \sum_{j=1}^{M} (\Delta c_{j,i}^l)
+\end{equation}
+Finally We obtain the final top K vulnerability-specific neuron set directly
+\begin{equation}
+\mathrm{top}_k(\Delta c_{i}^l) 
+\end{equation}
+
+\subsection{Line-Level Vulnerability-Neuron Representation}
 For line $q$, we construct its semantic representation by aggregating the residual contributions strictly within the isolated $\mathcal{N}_{r,l}$ space. Using the mean activation mapping:
 \begin{equation}
 p_{v,l}^q = \sum_{i \in \mathcal{N}_{r,l}} \left( \frac{1}{|T_q|} \sum_{t \in T_q} a_{l,i}^{v,t} \right) r_l^i

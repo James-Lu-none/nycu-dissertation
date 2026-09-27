@@ -182,11 +182,15 @@ def main():
         v_acts = vul_acts_dict[l]
         b_acts = ben_acts_dict[l]
         
-        v_contrib = calculate_neuron_contributions(v_acts, down_proj)
-        b_contrib = calculate_neuron_contributions(b_acts, down_proj)
+        # Old Set Difference Logic
+        # v_contrib = calculate_neuron_contributions(v_acts, down_proj)
+        # b_contrib = calculate_neuron_contributions(b_acts, down_proj)
         
-        # Consistent with plot_layers: 30% ratio to maintain capacity after set difference
-        target_neurons = get_vulnerability_specific_neurons(v_contrib, b_contrib, k_ratio=0.30)
+        # # Consistent with plot_layers: 30% ratio to maintain capacity after set difference
+        # target_neurons = get_vulnerability_specific_neurons(v_contrib, b_contrib, k_ratio=0.30)
+
+        # Pair-wise contribution difference logic
+        target_neurons = get_vulnerability_specific_neurons(v_acts, b_acts, down_proj, k_ratio=0.10)
         
         vul_reps = torch.stack([compute_line_representation(a, target_neurons, down_proj) for a in v_acts])
         ben_reps = torch.stack([compute_line_representation(a, target_neurons, down_proj) for a in b_acts])
