@@ -16,16 +16,16 @@
 
 This document details the step-by-step implementation plan for extracting line-level vulnerability neuron representations to replace the metrics used in the Attention Distance paper.
 
-\subsection{1. Token to Source Line Mapping}
+\subsection{Token to Source Line Mapping}
 Before feeding data into the model, we must establish a precise mapping from tokens to source code lines. We record the set of tokens belonging to each source line $q$:
 \begin{equation}
 T_q = \{t \mid t \text{ belongs to source line } q\}
 \end{equation}
 
-\subsection{2. Model Input Strategy}
+\subsection{Model Input Strategy}
 During the dataset processing phase, we input the \textbf{full vulnerable function} ($F_v$) and the \textbf{full patched function} ($F_p$) into CodeBERT separately. This preserves the complete function context, which is critical for accurate semantic extraction.
 
-\subsection{3. Identifying the Vulnerability Neuron Set}
+\subsection{Identifying the Vulnerability Neuron Set}
 Instead of relying on the last token (as in the original Jailbreak paper), we calculate the neuron contribution at layer $l$ using the average activation of all tokens in a line. 
 For a neuron $i$ in layer $l$, its activation for line $q$ is defined as:
 \begin{equation}
@@ -40,7 +40,7 @@ c_{l}^i = a_{l,i}^{q} \times \|r_l^i\|_2
 
 We extract the top $K$ neurons based on this contribution. $K$ is a configurable ratio parameter (e.g., $3\%$ of $d_{ff}$). The vectors of the neurons outside this top $K$ ratio are mathematically treated as $\vec{0}$ in the subspace. The target layer $l$ is also configurable (e.g., $l \in \{3, 7, 11\}$).
 
-\subsection{4. Refining the Vulnerability-Specific Neuron Set ($\mathcal{N}_{r,l}$)}
+\subsection{Refining the Vulnerability-Specific Neuron Set ($\mathcal{N}_{r,l}$)}
 By evaluating the modified "vulnerability-related lines" from the before-fix and after-fix pairs, we obtain two sets of top-$K$ neurons:
 \begin{itemize}
     \item $\mathcal{N}_{v,l}$: The top-$K$ neurons activated by the vulnerable lines.
@@ -60,7 +60,7 @@ p_{v,l}^q = \sum_{i \in \mathcal{N}_{r,l}} \left( \frac{1}{|T_q|} \sum_{t \in T_
 p_{p,l}^q = \sum_{i \in \mathcal{N}_{r,l}} \left( \frac{1}{|T_q|} \sum_{t \in T_q} a_{l,i}^{p,t} \right) r_l^i
 \end{equation}
 
-\subsection{6. Calculating the Vulnerability Direction ($d_{v,l}$)}
+\subsection{Calculating the Vulnerability Direction ($d_{v,l}$)}
 We establish the global vulnerability direction by comparing the representations of vulnerable and patched lines. There are two proposed methods for this:
 \begin{itemize}
     \item \textbf{Method A (Global Average):} Calculate the mean representation of all vulnerable lines $P_{v,l}$ and all patched lines $P_{p,l}$, then subtract:
@@ -73,7 +73,7 @@ We establish the global vulnerability direction by comparing the representations
     \end{equation}
 \end{itemize}
 
-\subsection{7. Inference and Fuzzing Guidance Score}
+\subsection{Inference and Fuzzing Guidance Score}
 For a newly analyzed function $F_{target}$ during the fuzzing phase, we perform a complete forward pass. For each line $q$, we calculate its representation in the $\mathcal{N}_{r,l}$ space:
 \begin{equation}
 p_{target,l}^q = \sum_{i \in \mathcal{N}_{r,l}} \left( \frac{1}{|T_q|} \sum_{t \in T_q} a_{l,i}^{target,t} \right) r_l^i
