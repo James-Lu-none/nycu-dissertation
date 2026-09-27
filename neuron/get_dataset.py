@@ -30,8 +30,9 @@ def parse_patch(patch_str):
     return '\n'.join(vul_lines), '\n'.join(ben_lines)
 
 def main():
-    csv_file = "/home/user/workspace/MSR_20_Code_vulnerability_CSV_Dataset/all_c_cpp_release2.0.csv"
-    out_dir = "/home/user/workspace/nycu-dissertation/neuron/dataset"
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    csv_file = os.environ.get("CSV_FILE", os.path.join(base_dir, "..", "..", "MSR_20_Code_vulnerability_CSV_Dataset", "all_c_cpp_release2.0.csv"))
+    out_dir = os.path.join(base_dir, "dataset")
     
     vul_out = open(os.path.join(out_dir, "vulnerable.jsonl"), "w")
     ben_out = open(os.path.join(out_dir, "benign.jsonl"), "w")

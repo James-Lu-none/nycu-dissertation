@@ -4,7 +4,8 @@ from datasets import load_dataset
 from tqdm import tqdm
 
 def main():
-    out_dir = "/home/user/workspace/nycu-dissertation/neuron/dataset"
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    out_dir = os.path.join(base_dir, "dataset")
     os.makedirs(out_dir, exist_ok=True)
     
     vul_out = open(os.path.join(out_dir, "vulnerable.jsonl"), "w")
