@@ -35,7 +35,7 @@ def calculate_line_attention_scores(test_code, model, tokenizer):
     num_lines = len(test_code.split('\n'))
     token_to_line = map_tokens_to_lines(test_code, offsets)
     
-    line_scores = torch.zeros(num_lines)
+    line_scores = torch.zeros(num_lines, device=token_attention_scores.device)
     
     for token_idx, line_idx in token_to_line.items():
         if line_idx == -1 or line_idx >= num_lines:
