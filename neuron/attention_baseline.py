@@ -48,7 +48,7 @@ def calculate_line_attention_scores(test_code, model, tokenizer):
 def main():
     print("Loading Base CodeBERT model (No Fine-tuning)...")
     tokenizer = RobertaTokenizerFast.from_pretrained("microsoft/codebert-base")
-    model = RobertaModel.from_pretrained("microsoft/codebert-base")
+    model = RobertaModel.from_pretrained("microsoft/codebert-base", attn_implementation="eager")
     model.eval()
 
     test_code = (

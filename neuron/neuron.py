@@ -163,7 +163,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Loading CodeBERT model on {device}...")
     tokenizer = RobertaTokenizerFast.from_pretrained("microsoft/codebert-base")
-    model = RobertaModel.from_pretrained("microsoft/codebert-base").to(device)
+    model = RobertaModel.from_pretrained("microsoft/codebert-base", attn_implementation="eager").to(device)
     model.eval()
 
     # Probe all 12 layers of CodeBERT!
