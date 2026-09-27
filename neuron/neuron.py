@@ -53,7 +53,50 @@ def plot_all_layers(layer_directions, output_path="multi_layer_projection.png"):
         
     plt.tight_layout()
     plt.savefig(output_path, dpi=300)
-    print(f"\n[+] Saved multi-layer projection plot to {output_path}")
+    print(f"[+] Saved multi-layer projection plot to {output_path}")
+
+def plot_all_layers_pca(layer_directions, output_path="multi_layer_pca.png"):
+    import matplotlib.pyplot as plt
+    from sklearn.decomposition import PCA
+    import numpy as np
+    
+    num_layers = len(layer_directions)
+    cols = 4
+    rows = (num_layers + cols - 1) // cols
+    fig, axes = plt.subplots(rows, cols, figsize=(4 * cols, 3 * rows))
+    if num_layers == 1:
+        axes = [axes]
+    else:
+        axes = axes.flatten()
+        
+    for idx, (l, info) in enumerate(layer_directions.items()):
+        ax = axes[idx]
+        vul_reps = info['vul_reps']
+        ben_reps = info['ben_reps']
+        
+        all_reps = np.vstack((vul_reps, ben_reps))
+        pca = PCA(n_components=2)
+        pca_result = pca.fit_transform(all_reps)
+        
+        v_pca = pca_result[:len(vul_reps)]
+        b_pca = pca_result[len(vul_reps):]
+        
+        ax.scatter(v_pca[:, 0], v_pca[:, 1], c='red', label='Vulnerable', alpha=0.5, s=10)
+        ax.scatter(b_pca[:, 0], b_pca[:, 1], c='blue', label='Secure', alpha=0.5, s=10)
+        
+        ax.set_title(f"Layer {l}")
+        ax.set_xticks([])
+        ax.set_yticks([])
+        
+        if idx == 0:
+            ax.legend(loc='upper right', fontsize=8)
+            
+    for i in range(num_layers, len(axes)):
+        fig.delaxes(axes[i])
+        
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=300)
+    print(f"[+] Saved multi-layer PCA plot to {output_path}")
 
 def load_dataset(file_path):
     data = []
@@ -160,13 +203,16 @@ def main():
             'down_proj': down_proj,
             'd_v': d_v,
             'v_scores': v_scores,
-            'b_scores': b_scores
+            'b_scores': b_scores,
+            'vul_reps': vul_reps.cpu().numpy(),
+            'ben_reps': ben_reps.cpu().numpy()
         }
         print(f"Layer {l:2d} | |N_r,l| = {len(target_neurons)}")
 
     # Generate the comprehensive plot
     print("Generating comprehensive plot for all probed layers...")
     plot_all_layers(layer_directions)
+    plot_all_layers_pca(layer_directions)
 
     # Inference Phase
     test_idx = 0
