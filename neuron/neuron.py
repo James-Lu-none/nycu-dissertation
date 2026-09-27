@@ -2,14 +2,58 @@ import os
 import json
 import torch
 import difflib
+import numpy as np
 from tqdm import tqdm
 from transformers import RobertaTokenizerFast, RobertaModel
 
 from core.hook_utils import ActivationExtractor
 from core.mapper import map_tokens_to_lines, get_line_level_activations
 from core.attribution import calculate_neuron_contributions, get_vulnerability_specific_neurons
-from core.direction import compute_line_representation, compute_vulnerability_direction, score_target_line
+from core.direction import compute_line_representation, score_target_line
 from attention_baseline import calculate_line_attention_scores
+
+def plot_all_layers(layer_directions, output_path="multi_layer_projection.png"):
+    import matplotlib.pyplot as plt
+    import numpy as np
+    
+    num_layers = len(layer_directions)
+    cols = 4
+    rows = (num_layers + cols - 1) // cols
+    fig, axes = plt.subplots(rows, cols, figsize=(4 * cols, 3 * rows))
+    if num_layers == 1:
+        axes = [axes]
+    else:
+        axes = axes.flatten()
+    
+    for idx, (l, info) in enumerate(layer_directions.items()):
+        ax = axes[idx]
+        v_scores = info['v_scores']
+        b_scores = info['b_scores']
+        
+        mean_diff = np.mean(v_scores) - np.mean(b_scores)
+        info_text = (
+            f"|N_r,l|: {len(info['target_neurons'])}\n"
+            f"Mean Diff: {mean_diff:.2f}\n"
+            f"N: {len(v_scores)} pairs"
+        )
+        
+        ax.hist(v_scores, bins=30, alpha=0.5, color='red', label='Vulnerable', density=True)
+        ax.hist(b_scores, bins=30, alpha=0.5, color='blue', label='Secure', density=True)
+        
+        ax.set_title(f"Layer {l}")
+        ax.set_yticks([])
+        ax.set_xlabel("N-Score ($d_v$ Projection)")
+        ax.text(0.05, 0.95, info_text, transform=ax.transAxes, fontsize=9,
+                verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+        if idx == 0:
+            ax.legend(loc='upper right', fontsize=8)
+            
+    for i in range(num_layers, len(axes)):
+        fig.delaxes(axes[i])
+        
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=300)
+    print(f"\n[+] Saved multi-layer projection plot to {output_path}")
 
 def load_dataset(file_path):
     data = []
@@ -19,65 +63,56 @@ def load_dataset(file_path):
     return data
 
 def get_modified_lines(vul_code, ben_code):
-    vul_lines = vul_code.split('\n')
-    ben_lines = ben_code.split('\n')
-    
-    matcher = difflib.SequenceMatcher(None, vul_lines, ben_lines)
-    vul_changed_indices = []
-    ben_changed_indices = []
-    
+    matcher = difflib.SequenceMatcher(None, vul_code.split('\n'), ben_code.split('\n'))
+    vul_changed = []
+    ben_changed = []
     for tag, i1, i2, j1, j2 in matcher.get_opcodes():
-        if tag in ('replace', 'delete'):
-            vul_changed_indices.extend(range(i1, i2))
-        if tag in ('replace', 'insert'):
-            ben_changed_indices.extend(range(j1, j2))
-            
-    return vul_changed_indices, ben_changed_indices
+        if tag in ('replace', 'delete'): vul_changed.extend(range(i1, i2))
+        if tag in ('replace', 'insert'): ben_changed.extend(range(j1, j2))
+    return vul_changed, ben_changed
 
-def extract_paired_activations(vul_data, ben_data, tokenizer, model, extractor, target_layer):
-    """
-    Extracts line-level activations strictly for the MODIFIED lines in the dataset pairs.
-    """
-    vul_acts_list = []
-    ben_acts_list = []
+def extract_all_layers(vul_data, ben_data, tokenizer, model, layers_to_probe):
+    extractors = {l: ActivationExtractor(model, l) for l in layers_to_probe}
+    vul_acts_by_layer = {l: [] for l in layers_to_probe}
+    ben_acts_by_layer = {l: [] for l in layers_to_probe}
     
     with torch.no_grad():
         for vul_code, ben_code in tqdm(zip(vul_data, ben_data), total=len(vul_data), desc="Extracting Activations"):
             vul_changed, ben_changed = get_modified_lines(vul_code, ben_code)
-            
-            # Fallback if diff fails
             if not vul_changed: vul_changed = list(range(len(vul_code.split('\n'))))
             if not ben_changed: ben_changed = list(range(len(ben_code.split('\n'))))
             
-            # Process Vulnerable snippet
+            # Vulnerable
             inputs_v = tokenizer(vul_code, return_tensors="pt", truncation=True, max_length=512, return_offsets_mapping=True)
             offsets_v = inputs_v.pop("offset_mapping")[0].tolist()
-            extractor.clear()
+            for ext in extractors.values(): ext.clear()
             model(**inputs_v)
-            token_acts_v = extractor.activations[target_layer][0]
-            num_lines_v = len(vul_code.split('\n'))
             t2l_v = map_tokens_to_lines(vul_code, offsets_v)
-            line_acts_v = get_line_level_activations(token_acts_v, t2l_v, num_lines_v)
+            num_lines_v = len(vul_code.split('\n'))
             
-            # Aggregate ONLY over modified vulnerable lines
-            vul_act = line_acts_v[vul_changed].mean(dim=0)
-            vul_acts_list.append(vul_act)
-            
-            # Process Benign snippet
+            for l, ext in extractors.items():
+                token_acts_v = ext.activations[f"encoder.layer.{l}.intermediate"][0]
+                line_acts_v = get_line_level_activations(token_acts_v, t2l_v, num_lines_v)
+                vul_acts_by_layer[l].append(line_acts_v[vul_changed].max(dim=0)[0])
+                
+            # Benign
             inputs_b = tokenizer(ben_code, return_tensors="pt", truncation=True, max_length=512, return_offsets_mapping=True)
             offsets_b = inputs_b.pop("offset_mapping")[0].tolist()
-            extractor.clear()
+            for ext in extractors.values(): ext.clear()
             model(**inputs_b)
-            token_acts_b = extractor.activations[target_layer][0]
-            num_lines_b = len(ben_code.split('\n'))
             t2l_b = map_tokens_to_lines(ben_code, offsets_b)
-            line_acts_b = get_line_level_activations(token_acts_b, t2l_b, num_lines_b)
+            num_lines_b = len(ben_code.split('\n'))
             
-            # Aggregate ONLY over modified benign lines
-            ben_act = line_acts_b[ben_changed].mean(dim=0)
-            ben_acts_list.append(ben_act)
-            
-    return torch.stack(vul_acts_list), torch.stack(ben_acts_list)
+            for l, ext in extractors.items():
+                token_acts_b = ext.activations[f"encoder.layer.{l}.intermediate"][0]
+                line_acts_b = get_line_level_activations(token_acts_b, t2l_b, num_lines_b)
+                ben_acts_by_layer[l].append(line_acts_b[ben_changed].max(dim=0)[0])
+                
+    for l in layers_to_probe:
+        vul_acts_by_layer[l] = torch.stack(vul_acts_by_layer[l])
+        ben_acts_by_layer[l] = torch.stack(ben_acts_by_layer[l])
+        
+    return vul_acts_by_layer, ben_acts_by_layer, extractors
 
 def main():
     print("Loading CodeBERT model...")
@@ -85,40 +120,55 @@ def main():
     model = RobertaModel.from_pretrained("microsoft/codebert-base")
     model.eval()
 
-    # Configurable layer L
-    target_layer_idx = 10
-    target_layer_name = f"encoder.layer.{target_layer_idx}.intermediate"
-    
-    extractor = ActivationExtractor(model, target_layer_idx)
-    down_proj_weights = extractor.get_down_projection_weights() # shape: (3072, 768)
+    # Probe all 12 layers of CodeBERT!
+    layers_to_probe = list(range(12))
 
     print("Loading datasets...")
     base_dir = os.path.dirname(os.path.abspath(__file__))
     vul_data = load_dataset(os.path.join(base_dir, "dataset", "vulnerable.jsonl"))
     ben_data = load_dataset(os.path.join(base_dir, "dataset", "benign.jsonl"))
 
-    print(f"Extracting line-level activations strictly from modified lines...")
-    vul_acts, ben_acts = extract_paired_activations(vul_data, ben_data, tokenizer, model, extractor, target_layer_name)
+    print(f"Extracting line-level activations strictly from modified lines across {layers_to_probe}...")
+    vul_acts_dict, ben_acts_dict, extractors = extract_all_layers(vul_data, ben_data, tokenizer, model, layers_to_probe)
 
-    print("Calculating neuron contributions and finding N_r,l...")
-    vul_contributions = calculate_neuron_contributions(vul_acts, down_proj_weights)
-    ben_contributions = calculate_neuron_contributions(ben_acts, down_proj_weights)
+    print("Calculating vulnerability directions (d_v) for all layers...")
+    layer_directions = {}
     
-    # Increase K ratio to 10% to capture more complex vulnerability semantics
-    target_neurons = get_vulnerability_specific_neurons(vul_contributions, ben_contributions, k_ratio=0.10)
-    print(f"Found {len(target_neurons)} vulnerability-specific neurons in N_r,l.")
+    for l in layers_to_probe:
+        down_proj = extractors[l].get_down_projection_weights()
+        v_acts = vul_acts_dict[l]
+        b_acts = ben_acts_dict[l]
+        
+        v_contrib = calculate_neuron_contributions(v_acts, down_proj)
+        b_contrib = calculate_neuron_contributions(b_acts, down_proj)
+        
+        # Consistent with plot_layers: 30% ratio to maintain capacity after set difference
+        target_neurons = get_vulnerability_specific_neurons(v_contrib, b_contrib, k_ratio=0.30)
+        
+        vul_reps = torch.stack([compute_line_representation(a, target_neurons, down_proj) for a in v_acts])
+        ben_reps = torch.stack([compute_line_representation(a, target_neurons, down_proj) for a in b_acts])
+        
+        d_v = vul_reps.mean(dim=0) - ben_reps.mean(dim=0)
+        if torch.norm(d_v) > 0:
+            d_v = d_v / torch.norm(d_v)
+            
+        v_scores = (vul_reps @ d_v).cpu().numpy()
+        b_scores = (ben_reps @ d_v).cpu().numpy()
+            
+        layer_directions[l] = {
+            'target_neurons': target_neurons,
+            'down_proj': down_proj,
+            'd_v': d_v,
+            'v_scores': v_scores,
+            'b_scores': b_scores
+        }
+        print(f"Layer {l:2d} | |N_r,l| = {len(target_neurons)}")
 
-    print("Computing line-level representations in N_r,l space...")
-    vul_reps = torch.stack([compute_line_representation(act, target_neurons, down_proj_weights) for act in vul_acts])
-    ben_reps = torch.stack([compute_line_representation(act, target_neurons, down_proj_weights) for act in ben_acts])
+    # Generate the comprehensive plot
+    print("Generating comprehensive plot for all probed layers...")
+    plot_all_layers(layer_directions)
 
-    print("Calculating vulnerability direction d_v...")
-    d_v = compute_vulnerability_direction(vul_reps, ben_reps) # Method A: Global Average
-    
-    # ---------------------------------------------------------
-    # Inference Phase: Real World Code Snippet (Before and After Patch)
-    # ---------------------------------------------------------
-    # Find a relatively large snippet from our dataset for testing
+    # Inference Phase
     test_idx = 0
     for i in range(len(vul_data)):
         if len(vul_data[i].split('\n')) > 10 and len(ben_data[i].split('\n')) > 10:
@@ -143,36 +193,45 @@ def main():
         print("\n" + "="*100)
         print(f"Testing Inference on: {label}")
         print("-" * 100)
-        print("Line  | Neuron Score | Attention Score | Code")
+        print("Line  | Attention Score | Ensemble N-Score | Code")
         print("-" * 100)
         
         inputs = tokenizer(code_snippet, return_tensors="pt", return_offsets_mapping=True, truncation=True, max_length=512)
         offsets = inputs.pop("offset_mapping")[0].tolist()
         
         with torch.no_grad():
-            extractor.clear()
+            for ext in extractors.values(): ext.clear()
             model(**inputs)
-            test_acts = extractor.activations[target_layer_name][0]
             
         num_lines = len(code_snippet.split('\n'))
         token_to_line = map_tokens_to_lines(code_snippet, offsets)
-        line_acts = get_line_level_activations(test_acts, token_to_line, num_lines)
         lines = code_snippet.split('\n')
         
-        # Calculate Attention Scores
+        # Attention baseline
         a_scores = calculate_line_attention_scores(code_snippet, model, tokenizer)
         a_scores = a_scores / (a_scores.max() + 1e-9)
         
         for q in range(num_lines):
-            p_q = compute_line_representation(line_acts[q], target_neurons, down_proj_weights)
-            n_score = score_target_line(p_q, d_v)
+            # Calculate score for this line across all layers
+            layer_scores = []
+            for l in layers_to_probe:
+                test_acts = extractors[l].activations[f"encoder.layer.{l}.intermediate"][0]
+                line_acts = get_line_level_activations(test_acts, token_to_line, num_lines)
+                
+                info = layer_directions[l]
+                p_q = compute_line_representation(line_acts[q], info['target_neurons'], info['down_proj'])
+                score = score_target_line(p_q, info['d_v']).item()
+                layer_scores.append(score)
+                
+            # Take the MAXIMUM score across all layers (Ensemble approach)
+            ensemble_n_score = max(layer_scores)
             a_score = a_scores[q].item()
             
             code_line = lines[q]
             if q in changed_lines:
                 code_line = f"{color}{code_line}{RESET}"
                 
-            print(f"Line {q+1:2d} | N-Score: {n_score.item():7.4f} | A-Score: {a_score:7.4f} | {code_line}")
+            print(f"Line {q+1:2d} | A-Score: {a_score:7.4f} | N-Score: {ensemble_n_score:7.4f} | {code_line}")
         print("="*100)
 
 if __name__ == "__main__":
