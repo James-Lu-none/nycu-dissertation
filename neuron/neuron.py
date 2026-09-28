@@ -202,8 +202,9 @@ def main():
         if torch.norm(d_v) > 0:
             d_v = d_v / torch.norm(d_v)
             
-        v_scores = torch.nn.functional.cosine_similarity(vul_reps, d_v.unsqueeze(0)).cpu().numpy()
-        b_scores = torch.nn.functional.cosine_similarity(ben_reps, d_v.unsqueeze(0)).cpu().numpy()
+        #  project representation on to vul direction d_v
+        v_scores = score_target_line(vul_reps, d_v).cpu().numpy()
+        b_scores = score_target_line(ben_reps, d_v).cpu().numpy()
             
         layer_directions[l] = {
             'target_neurons': target_neurons,

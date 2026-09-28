@@ -45,15 +45,15 @@ def compute_pairwise_vulnerability_direction(vul_reps, ben_reps):
 def score_target_line(target_line_rep, d_v):
     """
     Project the line representation onto the vulnerability direction.
-    target_line_rep: Tensor of shape (embedding_size,)
+    target_line_rep: Tensor of shape (..., embedding_size)
     d_v: Tensor of shape (embedding_size,)
     
-    Returns: scalar score (Cosine Similarity)
+    Returns: signed scalar projection per representation, with shape (...,).
+    A zero direction returns zero scores.
     """
-    rep_norm = torch.norm(target_line_rep)
     d_v_norm = torch.norm(d_v)
     
-    if rep_norm <= 1e-9 or d_v_norm <= 1e-9:
-        return torch.tensor(0.0)
+    if d_v_norm == 0:
+        return target_line_rep.new_zeros(target_line_rep.shape[:-1])
         
-    return torch.nn.functional.cosine_similarity(target_line_rep.unsqueeze(0), d_v.unsqueeze(0)).squeeze(0)
+    return torch.matmul(target_line_rep, d_v / d_v_norm)
