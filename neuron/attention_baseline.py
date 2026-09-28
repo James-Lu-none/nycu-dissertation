@@ -1,13 +1,13 @@
 import torch
 from transformers import RobertaTokenizerFast, RobertaModel
-from core.mapper import map_tokens_to_lines
+from core.mapper import prepare_code_input
 
 def calculate_line_attention_scores(test_code, model, tokenizer):
     """
     Calculate Line-Level Attention Scores using the standard method from Attention-based directed fuzzing.
     """
-    inputs = tokenizer(test_code, return_tensors="pt", return_offsets_mapping=True)
-    offsets = inputs.pop("offset_mapping")[0].tolist()
+    inputs, token_to_line, valid_lines, _ = prepare_code_input(
+        test_code, tokenizer, max_length=512)
     inputs = {k: v.to(model.device) for k, v in inputs.items()}
     
     # Enable output_attentions to extract the attention matrices
@@ -33,7 +33,6 @@ def calculate_line_attention_scores(test_code, model, tokenizer):
     
     # 3. Map tokens to lines and aggregate
     num_lines = len(test_code.split('\n'))
-    token_to_line = map_tokens_to_lines(test_code, offsets)
     
     line_scores = torch.zeros(num_lines, device=token_attention_scores.device)
     
@@ -43,6 +42,10 @@ def calculate_line_attention_scores(test_code, model, tokenizer):
         # For attention, we typically SUM the attention weights of all tokens in the line
         line_scores[line_idx] += token_attention_scores[token_idx]
         
+    # NaN denotes an unscored line, not zero evidence of vulnerability.
+    for q in range(num_lines):
+        if q not in valid_lines:
+            line_scores[q] = float('nan')
     return line_scores
 
 def main():
@@ -66,12 +69,15 @@ def main():
     line_scores = calculate_line_attention_scores(test_code, model, tokenizer)
     
     # Normalize scores for better readability (0 to 1)
-    line_scores = line_scores / line_scores.max()
+    finite_scores = line_scores[torch.isfinite(line_scores)]
+    if finite_scores.numel():
+        line_scores = line_scores / (finite_scores.max() + 1e-9)
     
     lines = test_code.split('\n')
     print("Traditional Attention Scores (Baseline):")
     for q in range(len(lines)):
-        print(f"Line {q+1:2d} | Score: {line_scores[q].item():7.4f} | {lines[q]}")
+        score = f"{line_scores[q].item():7.4f}" if torch.isfinite(line_scores[q]) else "N.A."
+        print(f"Line {q+1:2d} | Score: {score} | {lines[q]}")
     print("="*60 + "\n")
     
     print("Interpretation:")
