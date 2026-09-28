@@ -1,112 +1,173 @@
 \documentclass[12pt]{article}
-\usepackage{amsmath}
-\usepackage{amssymb}
+\usepackage{amsmath,amssymb}
 \usepackage{geometry}
-\usepackage{xcolor}
 \geometry{a4paper, margin=1in}
+\newcommand{\fn}[1]{{\small\texttt{\detokenize{#1}}}}
 
-\title{Implementation Plan: Vulnerability Knowledge Neurons for Directed Fuzzing}
+\title{Vulnerability Neurons: Implementation Guide}
 \author{}
 \date{}
 
 \begin{document}
 \maketitle
 
-\section{Implementation Details and Mathematical Formulation}
-
-This document details the step-by-step implementation plan for extracting line-level vulnerability neuron representations to replace the metrics used in the Attention Distance paper.
-
-\subsection{Token to Source Line Mapping}
-Before feeding data into the model, we must establish a precise mapping from tokens to source code lines. We record the set of tokens belonging to each source line $q$:
-\begin{equation}
-T_q = \{t \mid t \text{ belongs to source line } q\}
-\end{equation}
-
-\subsection{Model Input Strategy}
-During the dataset processing phase, we input the \textbf{full vulnerable function} ($F_v$) and the \textbf{full patched function} ($F_p$) into CodeBERT separately. This preserves the complete function context, which is critical for accurate semantic extraction.
-
-\subsection{Identifying the Vulnerability Neuron Set}
-Instead of relying on the last token (as in the original Jailbreak paper), we calculate the neuron contribution at layer $l$ using the average activation of all tokens in a line. 
-For a neuron $i$ in layer $l$, its activation for line $q$ is defined as:
-\begin{equation}
-a_{l,i}^{q} = \frac{1}{|T_q|} \sum_{t \in T_q} a_{l,i}^{t}
-\end{equation}
-\textcolor{blue}{\textit{(* Implementation Note: We tentatively use the average (mean) activation here. This will be marked with a comment in the code, as we may explore other pooling methods like Max later.)}}
-
-The contribution of neuron $i$ is then computed by multiplying its activation with the L2-norm of its corresponding down-projection weight vector $r_l^i$ (the $i$-th row of $\Theta_{down}$):
-\begin{equation}
-c_{l}^i = a_{l,i}^{q} \times \|r_l^i\|_2
-\end{equation}
-
-We extract the top $K$ neurons based on this contribution. $K$ is a configurable ratio parameter (e.g., $3\%$ of $d_{ff}$). The vectors of the neurons outside this top $K$ ratio are mathematically treated as $\vec{0}$ in the subspace. The target layer $l$ is also configurable (e.g., $l \in \{3, 7, 11\}$).
-
-\subsection{Refining the Vulnerability-Specific Neuron Set ($\mathcal{N}_{r,l}$)}
-By evaluating the modified "vulnerability-related lines" from the before-fix and after-fix pairs, we obtain two sets of top-$K$ neurons:
+\section{Pipeline and Current Settings}
+\begin{enumerate}
+    \item Load vulnerable/patched function pairs and print token statistics.
+    \item Remove pairs whose complete functions exceed the token limit.
+    \item Select aligned changed regions and nearby context.
+    \item Forward each complete retained function and capture FFN activations.
+    \item Select neurons using region-level contribution differences.
+    \item Build a direction using mean line representations per pair.
+    \item Project target-line representations onto that direction.
+\end{enumerate}
 \begin{itemize}
-    \item $\mathcal{N}_{v,l}$: The top-$K$ neurons activated by the vulnerable lines.
-    \item $\mathcal{N}_{p,l}$: The top-$K$ neurons activated by the patched (secure) lines.
-\end{itemize}
-We obtain the final vulnerability-specific neuron set by taking their set difference:
-\begin{equation}
-\mathcal{N}_{r,l} = \mathcal{N}_{v,l} \setminus \mathcal{N}_{p,l}
-\end{equation}
-
-Alternatively, we can calculate contribution difference directly on same vul/patch pair and use topK of contribution difference to obtain neuron set ($\mathcal{N}_{r,l}$) directly:
-
-for each patch pair, compress vul/patched lines in to a region-level contribution
-\begin{equation}
-c_{V,i}^l = \frac{1}{|T_V|} \sum_{t \in T_V} (a_{t,i}^{l} \times \|r_i^l\|_2)
-\end{equation}
-\begin{equation}
-c_{P,i}^l = \frac{1}{|T_P|} \sum_{t \in T_P} (a_{t,i}^{l} \times \|r_i^l\|_2)
-\end{equation}
-where Tv, Tp mean the token set of vulnerable code region and patched region 
-
-And then for each pair j, calculate contribution vector difference:
-\begin{equation}
-\Delta c_{j,i}^l = c_{V_j,i}^l - c_{P_j,i}^l
-\end{equation}
-
-And take mean value of contribution vector difference across all patch pairs
-\begin{equation}
-\Delta c_{i}^l = \frac{1}{|M|} \sum_{j=1}^{M} (\Delta c_{j,i}^l)
-\end{equation}
-Finally We obtain the final top K vulnerability-specific neuron set directly
-\begin{equation}
-\mathrm{top}_k(\Delta c_{i}^l) 
-\end{equation}
-
-\subsection{Line-Level Vulnerability-Neuron Representation}
-For line $q$, we construct its semantic representation by aggregating the residual contributions strictly within the isolated $\mathcal{N}_{r,l}$ space. Using the mean activation mapping:
-\begin{equation}
-p_{v,l}^q = \sum_{i \in \mathcal{N}_{r,l}} \left( \frac{1}{|T_q|} \sum_{t \in T_q} a_{l,i}^{v,t} \right) r_l^i
-\end{equation}
-\begin{equation}
-p_{p,l}^q = \sum_{i \in \mathcal{N}_{r,l}} \left( \frac{1}{|T_q|} \sum_{t \in T_q} a_{l,i}^{p,t} \right) r_l^i
-\end{equation}
-
-\subsection{Calculating the Vulnerability Direction ($d_{v,l}$)}
-We establish the global vulnerability direction by comparing the representations of vulnerable and patched lines. There are two proposed methods for this:
-\begin{itemize}
-    \item \textbf{Method A (Global Average):} Calculate the mean representation of all vulnerable lines $P_{v,l}$ and all patched lines $P_{p,l}$, then subtract:
-    \begin{equation}
-    d_{v,l} = P_{v,l} - P_{p,l}
-    \end{equation}
-    \item \textbf{Method B (Pairwise Average):} Calculate the direction for each patch pair first, then take the average of all directions:
-    \begin{equation}
-    d_{v,l} = \frac{1}{N_{pairs}} \sum_{j=1}^{N_{pairs}} \left( p_{v,l}^{q_j} - p_{p,l}^{q_j} \right)
-    \end{equation}
+    \item \textbf{Entry point:} \fn{neuron.py: main()}.
+    \item \textbf{Model:} CodeBERT, evaluation mode; no model-weight updates.
+    \item \textbf{Input limit:} 512 tokens, including special tokens.
+    \item \textbf{Layers:} indices 0--11; currently set in \fn{main()}.
+    \item \textbf{Neuron ratio:} 10\%; currently set in \fn{main()}.
+    \item \textbf{Context:} $N=1$; change with \fn{--context-lines N}.
 \end{itemize}
 
-\subsection{Inference and Fuzzing Guidance Score}
-For a newly analyzed function $F_{target}$ during the fuzzing phase, we perform a complete forward pass. For each line $q$, we calculate its representation in the $\mathcal{N}_{r,l}$ space:
-\begin{equation}
-p_{target,l}^q = \sum_{i \in \mathcal{N}_{r,l}} \left( \frac{1}{|T_q|} \sum_{t \in T_q} a_{l,i}^{target,t} \right) r_l^i
-\end{equation}
-We project this line-level activation representation onto the vulnerability direction $d_{v,l}$. The length of this projection serves as the final semantic guidance scalar score:
-\begin{equation}
-Score_l^q = p_{target,l}^q \cdot \frac{d_{v,l}}{\|d_{v,l}\|_2}
-\end{equation}
-This $Score_l^q$ will be aggregated at the Basic Block (BB) level and directly replace the Attention Distance metric to guide the Fuzzer.
+\section{Load, Count, and Filter Pairs}
+\begin{itemize}
+    \item \fn{neuron.py: load_dataset()} reads the \fn{code} field from each JSONL record. The two files are paired by record order.
+    \item \fn{print_dataset_summary()} counts full token sequences without truncation and prints 100-token bins for each side.
+    \item Pair bins use the longer side. The summary reports length exclusions: vulnerable only, patched only, or both.
+    \item \fn{extract_all_layers()} filters out long pairs before the activation progress bar starts. Original pair indices are retained.
+    \item A pair passes the length filter only when
+    \[
+        L(F_{V_j})\leq512\quad\text{and}\quad L(F_{P_j})\leq512.
+    \]
+    \item Exactly 512 tokens is allowed. Excess tokens anywhere in either function exclude the whole pair, including outside the selected region.
+    \item Remaining exclusions: identical functions, or an empty valid region on either side.
+    \item Final counters are mutually exclusive, in this order:
+    \fn{skipped_overlength_function}, \fn{skipped_no_changes}, and
+    \fn{skipped_empty_region}. Their sum is total pairs minus retained pairs.
+\end{itemize}
+
+\section{Select Aligned Local Regions}
+\begin{itemize}
+    \item \textbf{Function:} \fn{core/regions.py: get_aligned_regions()}.
+    \item Find line-diff hunks using \fn{SequenceMatcher(autojunk=False)}.
+    \item Include changed lines plus up to $N$ matched unchanged lines before and after each hunk.
+    \item Count physical lines, including blank lines; stop at function boundaries.
+    \item Union overlapping regions so each line/token is counted once per pair.
+    \item Pure insertion compares original context against that context plus inserted code; deletion is symmetric.
+    \item Never replace an empty side with the whole function. With $N=0$, pure insertions/deletions may have no valid region and be excluded.
+    \item \fn{neuron.py: get_modified_lines()} is used separately to highlight changed lines in the printed inference example.
+\end{itemize}
+
+\section{Prepare Inputs and Capture Activations}
+\begin{itemize}
+    \item \fn{core/mapper.py: prepare_code_input()} returns model inputs, token-to-line mapping, valid lines, and truncated lines.
+    \item Compare full and retained offset multisets to detect missing tokens, including cuts inside a line and duplicate Unicode offsets.
+    \item \fn{map_tokens_to_lines()} assigns each token to its starting-character line, using zero-based line indices. Zero-length offsets are excluded.
+    \item A valid line has at least one mapped token and retains all its tokens.
+    \item \textbf{Training:} each retained complete function is forwarded separately; only selected-region activations enter the statistics below.
+    \item \textbf{Inference:} long functions are truncated to 512 tokens. Partially retained, missing, and tokenless lines are marked unscored.
+    \item \fn{core/hook_utils.py: ActivationExtractor.get_hook()} captures the post-GELU \fn{intermediate} output, detached and stored on CPU.
+    \item In \fn{ActivationExtractor}:\newline
+    \fn{get_down_projection_weights()} transposes the down-projection weight to shape $(d_{ff},d_{model})$; row $i$ is $r_l^i$.
+\end{itemize}
+
+\section{Keep Two Different Activation Averages}
+\begin{itemize}
+    \item $T_q$: mapped tokens of valid line $q$.
+    \item $Q_{S_j}$: valid selected-region lines for side $S\in\{V,P\}$ of pair $j$.
+    \item $T_{S_j}=\bigcup_{q\in Q_{S_j}}T_q$: selected-region token union.
+    \item $a_{l,i}^{S_j,t}$: post-GELU activation of neuron $i$, token $t$, layer $l$.
+    \item $M$: number of retained pairs.
+\end{itemize}
+\begin{enumerate}
+    \item \textbf{Within a line:} \fn{get_line_level_activations()} uses mean pooling:
+    \[
+        a_{l,i}^{S_j,q}=\frac{1}{|T_q|}\sum_{t\in T_q}a_{l,i}^{S_j,t}.
+    \]
+    Tokenless lines have zero placeholders in this helper but are excluded from valid-region averages and scoring.
+    \item \textbf{For neuron selection:} every region token has equal weight:
+    \[
+        \bar a_{S_j,l,i}^{\mathrm{token}}
+        =\frac{1}{|T_{S_j}|}\sum_{t\in T_{S_j}}a_{l,i}^{S_j,t}
+        =\frac{\sum_{q\in Q_{S_j}}|T_q|a_{l,i}^{S_j,q}}
+               {\sum_{q\in Q_{S_j}}|T_q|}.
+    \]
+    \item \textbf{For direction estimation:} every valid region line has equal weight:
+    \[
+        \bar a_{S_j,l,i}^{\mathrm{line}}
+        =\frac{1}{|Q_{S_j}|}\sum_{q\in Q_{S_j}}a_{l,i}^{S_j,q}.
+    \]
+\end{enumerate}
+\begin{itemize}
+    \item \textbf{Function:} \fn{core/mapper.py:}\newline
+    \fn{aggregate_region_activations()} returns both means.
+    \item \fn{extract_all_layers()} stores them as \fn{token_mean} and \fn{line_mean} per side and layer.
+    \item No max pooling is used here. Token mean and line mean differ when line lengths differ.
+\end{itemize}
+
+\section{Select the Neuron Set}
+\begin{itemize}
+    \item \textbf{Function:} \fn{core/attribution.py:}\newline
+    \fn{get_vulnerability_specific_neurons()}.
+    \item Compute region contribution, then average the paired differences:
+    \begin{align*}
+        c_{S_j,l,i}&=\bar a_{S_j,l,i}^{\mathrm{token}}\|r_l^i\|_2,\\
+        \Delta c_{l,i}&=\frac{1}{M}\sum_{j=1}^{M}
+                          (c_{V_j,l,i}-c_{P_j,l,i}),\\
+        \mathcal N_{r,l}&=\operatorname{TopKIndices}_i(\Delta c_{l,i}),\qquad
+        K=\max(1,\lfloor0.10\,d_{ff}\rfloor).
+    \end{align*}
+    \item Rank signed differences, not absolute values. The current implementation always selects $K$ neurons; it does not require positive differences.
+    \item \textbf{Inactive alternative:} $\mathcal N_{V,l}\setminus\mathcal N_{P,l}$, using separate top-$K$ sets. This is not the current selection path.
+    \item \fn{calculate_neuron_contributions()} is an auxiliary helper; the main path uses the paired-difference function above.
+\end{itemize}
+
+\section{Build Representations and the Direction}
+\begin{itemize}
+    \item \fn{core/direction.py: compute_line_representation()} sums only selected neurons:
+    \[
+        p_{S_j,l}^{q}=\sum_{i\in\mathcal N_{r,l}}a_{l,i}^{S_j,q}r_l^i.
+    \]
+    \item Average valid line representations separately on each side:
+    \[
+        \bar p_{S_j,l}=\frac{1}{|Q_{S_j}|}\sum_{q\in Q_{S_j}}p_{S_j,l}^{q}
+        =\sum_{i\in\mathcal N_{r,l}}\bar a_{S_j,l,i}^{\mathrm{line}}r_l^i.
+    \]
+    \item The code projects stored line-mean activations. Linearity makes this exactly equivalent to projecting every line and then averaging.
+    \item \fn{compute_pairwise_vulnerability_direction()} implements Method B:
+    \[
+        d_{v,l}=\frac{1}{M}\sum_{j=1}^{M}(\bar p_{V_j,l}-\bar p_{P_j,l}).
+    \]
+    \item Each retained pair has equal weight. The two sides may have different line counts; one-to-one line matching is not required.
+    \item \fn{main()} stores a unit direction when its norm is nonzero.
+    \item \fn{compute_vulnerability_direction()} is the alternative global-mean helper; it is not called by the main path.
+\end{itemize}
+
+\section{Score Lines and Display Results}
+\begin{itemize}
+    \item \fn{core/direction.py: score_target_line()} computes a signed projection:
+    \[
+        Score_l^q=p_{target,l}^q\cdot\frac{d_{v,l}}{\|d_{v,l}\|_2}.
+    \]
+    \item Preserve negative scores. Do not center or normalize the representation. A zero direction returns zero for valid lines.
+    \item \fn{neuron.py: main()} reports $\max_l Score_l^q$ across layers; this is an additional ensemble choice.
+    \item \fn{attention_baseline.py: calculate_line_attention_scores()} uses the same input limit and valid-line policy; unscored lines return NaN.
+    \item The attention baseline averages heads/layers, sums incoming attention per token, then sums tokens per line. The display scales valid attention scores by their maximum.
+    \item Save neuron line activations before the baseline forward, because it overwrites the same activation hooks.
+    \item \fn{plot_all_layers()} plots the scores of mean representations for each side of each pair.
+    \item \fn{plot_all_layers_pca()} visualizes those representations with PCA.
+\end{itemize}
+
+\section{Interpretation and Remaining Work}
+\begin{itemize}
+    \item Current plots and printed examples use the training pairs, not held-out evaluation.
+    \item A positive training mean-score gap is expected by construction:
+    $(\bar p_V-\bar p_P)\cdot d/\|d\|=\|d\|$ for nonzero, unnormalized $d=\bar p_V-\bar p_P$.
+    \item These are candidate neurons associated with patch differences; region separation alone does not establish accurate line localization or causal vulnerability knowledge.
+    \item Still to evaluate: held-out pairs, line ranking, context size, neuron ratio, and cross-layer score scales.
+    \item Training uses complete short functions; long-function inference has incomplete context.
+    \item Basic-block aggregation and conversion into fuzzer guidance are planned, not yet implemented in this pipeline.
+\end{itemize}
 
 \end{document}
