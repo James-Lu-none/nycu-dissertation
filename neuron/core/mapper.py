@@ -55,10 +55,7 @@ def map_tokens_to_lines(code, offsets):
             line_starts.append(i + 1)
             
     def get_line_from_char(char_idx):
-        for line_idx in range(len(line_starts)-1, -1, -1):
-            if char_idx >= line_starts[line_idx]:
-                return line_idx
-        return 0
+        return max(0, bisect_right(line_starts, char_idx) - 1)
 
     token_to_line = {}
     for token_idx, (start, end) in enumerate(offsets):
@@ -78,22 +75,17 @@ def get_line_level_activations(activations, token_to_line, num_lines):
     
     Returns: Tensor of shape (num_lines, hidden_size)
     """
-    import torch
-    
     hidden_size = activations.shape[1]
-    # Initialize with negative infinity for max pooling
-    line_acts = torch.full((num_lines, hidden_size), -float('inf'))
+    line_acts = activations.new_zeros((num_lines, hidden_size))
+    token_counts = activations.new_zeros((num_lines, 1))
     
     for token_idx, line_idx in token_to_line.items():
-        if line_idx == -1 or line_idx >= num_lines:
+        if line_idx < 0 or line_idx >= num_lines:
             continue
         
-        # CHANGED: Use Max pooling instead of Mean
-        # This prevents the strong signal of vulnerability tokens (like strcpy) 
-        # from being washed out by other common tokens in the same line.
-        line_acts[line_idx] = torch.max(line_acts[line_idx], activations[token_idx])
+        line_acts[line_idx] += activations[token_idx]
+        token_counts[line_idx] += 1
         
-    # Replace -inf with 0 for empty lines (lines with no tokens mapped)
-    line_acts[line_acts == -float('inf')] = 0.0
-    
-    return line_acts
+    # Mean pooling as defined in plan.tex; alternative pooling can be explored later.
+    # Lines without mapped tokens retain zero as a placeholder.
+    return line_acts / token_counts.clamp_min(1)
