@@ -1,13 +1,16 @@
-# Default vLLM backend. Use a separate virtualenv from neuron extraction.
-# Let vLLM select its compatible torch/transformers dependencies.
-vllm>=0.12,<1
-transformers>=4.57.1
+# Keep the vLLM/PyTorch binary stack on CUDA 12.8 for the host's R570 driver.
+# The CUDA base image alone does not constrain pip's CUDA wheels.
+--extra-index-url https://download.pytorch.org/whl/cu128
+vllm==0.12.0
+torch==2.9.0+cu128
+torchaudio==2.9.0+cu128
+torchvision==0.24.0+cu128
+transformers>=4.57.1,<5
 accelerate>=1.10,<2
 safetensors>=0.5
 tqdm>=4.66
 tree-sitter>=0.25,<0.26
 tree-sitter-c>=0.24,<0.25
-torch
 datasets
 scikit-learn
 matplotlib
