@@ -3,6 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    image: location0717/vul-neuron
 
     container_name: vul-neuron
     working_dir: /workspace
