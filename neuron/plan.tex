@@ -15,11 +15,12 @@
 \begin{enumerate}
     \item Load vulnerable/patched function pairs and print token statistics.
     \item Remove pairs whose complete functions exceed the token limit.
-    \item Select aligned changed regions and nearby context.
+    \item Split eligible pairs into train/validation/test groups.
+    \item Select aligned changed regions and nearby context for training.
     \item Forward each complete retained function and capture FFN activations.
     \item Select neurons using region-level contribution differences.
     \item Build a direction using mean line representations per pair.
-    \item Project target-line representations onto that direction.
+    \item Evaluate each layer on validation lines, select a layer, then evaluate test lines.
 \end{enumerate}
 \begin{itemize}
     \item \textbf{Entry point:} \fn{neuron.py: main()}.
@@ -32,7 +33,7 @@
 
 \section{Load, Count, and Filter Pairs}
 \begin{itemize}
-    \item \fn{neuron.py: load_dataset()} reads the \fn{code} field from each JSONL record. The two files are paired by record order.
+    \item \fn{core/splits.py: load_paired_records()} reads code and IDs from both JSONL files, pairs records by order, and checks matching IDs. The older \fn{load_dataset()} helper is not used by the main path.
     \item \fn{print_dataset_summary()} counts full token sequences without truncation and prints 100-token bins for each side.
     \item Pair bins use the longer side. The summary reports length exclusions: vulnerable only, patched only, or both.
     \item \fn{extract_all_layers()} filters out long pairs before the activation progress bar starts. Original pair indices are retained.
@@ -45,6 +46,16 @@
     \item Final counters are mutually exclusive, in this order:
     \fn{skipped_overlength_function}, \fn{skipped_no_changes}, and
     \fn{skipped_empty_region}. Their sum is total pairs minus retained pairs.
+\end{itemize}
+
+\section{Separate Fitting, Layer Selection, and Testing}
+\begin{itemize}
+    \item \fn{core/splits.py: split_pairs()} splits eligible pairs by connected groups: about 70\% train, 15\% validation, and 15\% test. Pair counts may differ from these ratios.
+    \item Both sides of a pair always stay together. A shared nonempty CVE ID or identical stripped function text on either side links pairs into the same group, including transitive links.
+    \item Default seed: 42; configure with \fn{--split-seed}. At least three independent groups are required.
+    \item This prevents CVE/exact-code overlap; project separation and near-duplicate detection are not guaranteed by the available metadata.
+    \item Only train pairs select neurons and estimate directions. Their contribution differences are still averaged across train pairs, including when all pairs share a CWE category.
+    \item Validation and test reuse the fixed train-derived neurons, weights, and directions. They do not refit these quantities.
 \end{itemize}
 
 \section{Select Aligned Local Regions}
@@ -151,7 +162,7 @@
         Score_l^q=p_{target,l}^q\cdot\frac{d_{v,l}}{\|d_{v,l}\|_2}.
     \]
     \item Preserve negative scores. Do not center or normalize the representation. A zero direction returns zero for valid lines.
-    \item \fn{neuron.py: main()} reports $\max_l Score_l^q$ across layers; this is an additional ensemble choice.
+    \item \fn{neuron.py: main()} prints each layer separately and highlights the chosen layer. Layer selection uses validation; no maximum of raw layer scores is used.
     \item \fn{attention_baseline.py: calculate_line_attention_scores()} uses the same input limit and valid-line policy; unscored lines return NaN.
     \item The attention baseline averages heads/layers, sums incoming attention per token, then sums tokens per line. The display scales valid attention scores by their maximum.
     \item Save neuron line activations before the baseline forward, because it overwrites the same activation hooks.
@@ -159,13 +170,31 @@
     \item \fn{plot_all_layers_pca()} visualizes those representations with PCA.
 \end{itemize}
 
+\section{Validation Localization and Layer Selection}
+\begin{itemize}
+    \item \fn{core/evaluation.py:}\newline
+    \fn{changed_vulnerable_lines()} uses vulnerable-side replaced/deleted lines as proxy positives, not verified vulnerability annotations. Context lines are not added as positives.
+    \item \fn{evaluate_localization()} scores all valid lines in each held-out vulnerable function. Patched code is used to obtain diff labels, not to fit or modify the direction.
+    \item Pure insertions have no vulnerable-side changed lines and are excluded from localization metrics. Missing valid labels and overlength inputs are counted separately.
+    \item Rank lines by descending score. For ties, nonpositive lines precede positives, avoiding source-order tie bias.
+    \item Let $r_j$ be the rank of the first proxy-positive line. Report macro averages across evaluable functions:
+    \[
+      \mathrm{Hit@}k=\frac{1}{E}\sum_{j=1}^{E}\mathbf{1}[r_j\leq k],
+      \qquad \mathrm{MRR}=\frac{1}{E}\sum_{j=1}^{E}\frac{1}{r_j}.
+    \]
+    \item Report Hit@1, Hit@5, and MRR for every layer on validation.
+    \item \fn{select_layer()} maximizes validation MRR among finite nonzero directions. Exact ties choose the lower layer index. No evaluable validation labels means selection fails explicitly.
+    \item Evaluate only the selected layer on test. If test has no evaluable labels, report undefined metrics rather than zero.
+    \item \fn{evaluation_report.json} records split indices, seed, policies, train exclusions, selected layer, and validation/test metrics.
+\end{itemize}
+
 \section{Interpretation and Remaining Work}
 \begin{itemize}
-    \item Current plots and printed examples use the training pairs, not held-out evaluation.
+    \item Plots remain train-only diagnostics. The printed example is from test; quantitative test evaluation uses only the validation-selected layer.
     \item A positive training mean-score gap is expected by construction:
     $(\bar p_V-\bar p_P)\cdot d/\|d\|=\|d\|$ for nonzero, unnormalized $d=\bar p_V-\bar p_P$.
     \item These are candidate neurons associated with patch differences; region separation alone does not establish accurate line localization or causal vulnerability knowledge.
-    \item Still to evaluate: held-out pairs, line ranking, context size, neuron ratio, and cross-layer score scales.
+    \item Still to evaluate: verified vulnerability-line labels, context size, neuron ratio, and robustness across projects and near-duplicate code.
     \item Training uses complete short functions; long-function inference has incomplete context.
     \item Basic-block aggregation and conversion into fuzzer guidance are planned, not yet implemented in this pipeline.
 \end{itemize}
