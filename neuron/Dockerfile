@@ -18,8 +18,9 @@ RUN apt-get update && \
 # Make `python` available too
 RUN ln -sf /usr/bin/python3 /usr/local/bin/python
 
+COPY requirements.txt /tmp/requirements.txt
 RUN python3 -m pip install --upgrade pip && \
-    python3 -m pip install torch transformers datasets tqdm scikit-learn matplotlib
+    python3 -m pip install -r /tmp/requirements.txt
 
 WORKDIR /workspace
 
