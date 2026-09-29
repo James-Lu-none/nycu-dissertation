@@ -4,3 +4,4 @@
 *.png
 dataset
 *.json
+hf-cache
