@@ -20,7 +20,9 @@ RUN ln -sf /usr/bin/python3 /usr/local/bin/python
 
 COPY requirements.txt /tmp/requirements.txt
 RUN python3 -m pip install --upgrade pip && \
-    python3 -m pip install -r /tmp/requirements.txt
+    python3 -m pip install -r /tmp/requirements.txt && \
+    python3 -m pip check && \
+    python3 -c 'import torch; from importlib.metadata import version; assert torch.version.cuda == "12.8", torch.version.cuda; assert version("vllm") == "0.12.0"; print("PyTorch:", torch.__version__, "CUDA:", torch.version.cuda, "vLLM:", version("vllm"))'
 
 WORKDIR /workspace
 
