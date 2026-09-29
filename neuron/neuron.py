@@ -11,6 +11,8 @@ from core.hook_utils import ActivationExtractor
 from core.mapper import (get_line_level_activations, prepare_code_input,
                          aggregate_region_activations)
 from core.regions import get_aligned_regions
+from core.splits import load_paired_records, split_pairs
+from core.evaluation import evaluate_localization, select_layer
 from core.attribution import get_vulnerability_specific_neurons
 from core.direction import (compute_line_representation, score_target_line,
                             compute_pairwise_vulnerability_direction)
@@ -24,10 +26,7 @@ def plot_all_layers(layer_directions, output_path="multi_layer_projection.png"):
     cols = 4
     rows = (num_layers + cols - 1) // cols
     fig, axes = plt.subplots(rows, cols, figsize=(4 * cols, 3 * rows))
-    if num_layers == 1:
-        axes = [axes]
-    else:
-        axes = axes.flatten()
+    axes = np.asarray(axes).reshape(-1)
     
     for idx, (l, info) in enumerate(layer_directions.items()):
         ax = axes[idx]
@@ -68,10 +67,7 @@ def plot_all_layers_pca(layer_directions, output_path="multi_layer_pca.png"):
     cols = 4
     rows = (num_layers + cols - 1) // cols
     fig, axes = plt.subplots(rows, cols, figsize=(4 * cols, 3 * rows))
-    if num_layers == 1:
-        axes = [axes]
-    else:
-        axes = axes.flatten()
+    axes = np.asarray(axes).reshape(-1)
         
     for idx, (l, info) in enumerate(layer_directions.items()):
         ax = axes[idx]
@@ -235,6 +231,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--context-lines', type=int, default=1,
                         help='Matched context lines on each side of a diff hunk (default: 1)')
+    parser.add_argument('--split-seed', type=int, default=42)
     args = parser.parse_args()
     if args.context_lines < 0:
         parser.error('--context-lines must be nonnegative')
@@ -247,18 +244,27 @@ def main():
 
     print("Loading datasets...")
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    vul_data = load_dataset(os.path.join(base_dir, "dataset", "vulnerable.jsonl"))
-    ben_data = load_dataset(os.path.join(base_dir, "dataset", "benign.jsonl"))
+    records = load_paired_records(
+        os.path.join(base_dir, "dataset", "vulnerable.jsonl"),
+        os.path.join(base_dir, "dataset", "benign.jsonl"))
+    vul_data = [v['code'] for v, _ in records]
+    ben_data = [p['code'] for _, p in records]
     pair_lengths = print_dataset_summary(vul_data, ben_data, tokenizer)
 
+    eligible = [i for i, lengths in enumerate(pair_lengths) if max(lengths) <= 512]
+    splits = split_pairs(records, eligible, seed=args.split_seed)
+    print("CVE/exact-code grouped splits: " + json.dumps({k: len(v) for k, v in splits.items()}))
+    print("Localization labels: vulnerable changed/deleted lines (proxy, not verified vulnerability lines).")
     print(f"Loading CodeBERT model on {device}...")
     model = RobertaModel.from_pretrained("microsoft/codebert-base", attn_implementation="eager").to(device)
     model.eval()
 
     print(f"Extracting aligned regions with context N={args.context_lines} across {layers_to_probe}...")
     summaries, extractors, stats, retained_indices = extract_all_layers(
-        vul_data, ben_data, tokenizer, model, layers_to_probe,
-        context_lines=args.context_lines, pair_lengths=pair_lengths)
+        [vul_data[i] for i in splits['train']],
+        [ben_data[i] for i in splits['train']], tokenizer, model, layers_to_probe,
+        context_lines=args.context_lines,
+        pair_lengths=[pair_lengths[i] for i in splits['train']])
 
     print("Calculating vulnerability directions (d_v) for all layers...")
     layer_directions = {}
@@ -295,17 +301,36 @@ def main():
         print(f"Layer {l:2d} | |N_r,l| = {len(target_neurons)}")
 
     # Generate the comprehensive plot
-    print("Generating comprehensive plot for all probed layers...")
+    print("Generating training-only diagnostic plots for all probed layers...")
     plot_all_layers(layer_directions)
     plot_all_layers_pca(layer_directions)
 
-    # Inference Phase
-    test_idx = retained_indices[0]
-    for i in retained_indices:
-        if len(vul_data[i].split('\n')) > 10 and len(ben_data[i].split('\n')) > 10:
-            test_idx = i
-            break
-            
+    validation = evaluate_localization(
+        records, splits['validation'], tokenizer, model, extractors,
+        layer_directions, description='Validation')
+    selected_layer = select_layer(validation, layer_directions)
+    print(f"Selected layer {selected_layer} by validation MRR (lower layer index breaks ties).")
+    test_report = evaluate_localization(
+        records, splits['test'], tokenizer, model, extractors,
+        {selected_layer: layer_directions[selected_layer]}, description='Test')
+    report = {
+        'split_seed': args.split_seed, 'context_lines': args.context_lines,
+        'split_policy': '70/15/15 by CVE/exact-code connected groups',
+        'label_policy': 'vulnerable changed/deleted lines; proxy labels',
+        'ranking_ties': 'nonpositive lines before positive lines',
+        'selection_metric': 'validation MRR; ties use lower layer index',
+        'splits': splits,
+        'train_filtering': stats,
+        'retained_train_indices': [splits['train'][i] for i in retained_indices],
+        'selected_layer': selected_layer, 'validation': validation, 'test': test_report,
+    }
+    report_path = os.path.join(base_dir, 'evaluation_report.json')
+    with open(report_path, 'w') as stream:
+        json.dump(report, stream, indent=2)
+    print(f"Saved evaluation report to {report_path}")
+
+    # Show every layer on a held-out test example; do not combine raw scores.
+    test_idx = splits['test'][0]
     test_codes = {
         "Vulnerable (Before Patch)": vul_data[test_idx],
         "Secure (After Patch)": ben_data[test_idx]
@@ -324,7 +349,8 @@ def main():
         print("\n" + "="*100)
         print(f"Testing Inference on: {label}")
         print("-" * 100)
-        print("Line  | Attention Score | Ensemble N-Score | Code")
+        print("Line | Attention | " + " | ".join(f"L{l}" for l in layers_to_probe)
+              + f" | Selected L{selected_layer} | Code")
         print("-" * 100)
         
         inputs, token_to_line, valid_lines, _ = prepare_code_input(
@@ -365,15 +391,16 @@ def main():
                 score = score_target_line(p_q, info['d_v']).item()
                 layer_scores.append(score)
                 
-            # Take the MAXIMUM score across all layers (Ensemble approach)
-            ensemble_n_score = max(layer_scores)
+            selected_score = layer_scores[layers_to_probe.index(selected_layer)]
             a_score = a_scores[q].item()
             
             code_line = lines[q]
             if q in changed_lines:
                 code_line = f"{color}{code_line}{RESET}"
                 
-            print(f"Line {q+1:2d} | A-Score: {a_score:7.4f} | N-Score: {ensemble_n_score:7.4f} | {code_line}")
+            scores_text = " | ".join(f"{value:7.4f}" for value in layer_scores)
+            print(f"Line {q+1:2d} | {a_score:7.4f} | {scores_text} | "
+                  f"{selected_score:7.4f} | {code_line}")
         print("="*100)
     for ext in extractors.values():
         ext.remove_hooks()
