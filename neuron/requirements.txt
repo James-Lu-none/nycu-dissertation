@@ -1,6 +1,7 @@
 # Keep the vLLM/PyTorch binary stack on CUDA 12.8 for the host's R570 driver.
 # The CUDA base image alone does not constrain pip's CUDA wheels.
 --extra-index-url https://download.pytorch.org/whl/cu128
+filelock>=3.12.2,<4
 vllm==0.12.0
 torch==2.9.0+cu128
 torchaudio==2.9.0+cu128
