@@ -1,36 +1,46 @@
 import torch
-from transformers import RobertaTokenizerFast, RobertaModel
+from transformers import AutoTokenizer
+from core.model_config import MODEL_ID, MAX_LENGTH, load_encoder
 from core.mapper import prepare_code_input
 
-def calculate_line_attention_scores(test_code, model, tokenizer):
+def calculate_line_attention_scores(test_code, model, tokenizer, max_length=MAX_LENGTH):
     """
     Calculate Line-Level Attention Scores using the standard method from Attention-based directed fuzzing.
     """
     inputs, token_to_line, valid_lines, _ = prepare_code_input(
-        test_code, tokenizer, max_length=512)
+        test_code, tokenizer, max_length=max_length)
     inputs = {k: v.to(model.device) for k, v in inputs.items()}
     
-    # Enable output_attentions to extract the attention matrices
-    with torch.no_grad():
-        outputs = model(**inputs, output_attentions=True)
-        
-    # outputs.attentions is a tuple of 12 layers
-    # Each layer is a tensor of shape (batch_size, num_heads, seq_len, seq_len)
-    # CodeBERT base has 12 layers and 12 attention heads
-    attentions = torch.stack(outputs.attentions) # shape: (12, 1, 12, seq_len, seq_len)
-    
-    # 1. Average attention across all layers and all heads
-    # shape becomes (seq_len, seq_len)
-    avg_attention = attentions.mean(dim=(0, 1, 2))
-    
-    # 2. Calculate Token-Level Attention Score
-    # We use the "Column Sum" approach (Global Pooling): 
-    # How much attention does token 'i' receive from ALL other tokens in the sequence?
-    token_attention_scores = avg_attention.sum(dim=0) # shape: (seq_len,)
-    
-    # Alternatively, you could use the CLS token's attention to other tokens:
-    # token_attention_scores = avg_attention[0, :]
-    
+    # Reduce each attention layer immediately, rather than retain all L*T*T maps.
+    # Eager is required for explicit attention probabilities.
+    total = None
+    count = 0
+    def collect(module, args, output):
+        nonlocal total, count
+        weights = output[1]
+        if weights is None:
+            raise ValueError('Attention probabilities unavailable')
+        column = weights.float().mean(dim=(0, 1)).sum(dim=0)
+        total = column if total is None else total + column
+        count += 1
+        return (output[0], None)
+
+    previous = model.config._attn_implementation
+    hooks = []
+    try:
+        model.config._attn_implementation = 'eager'
+        for layer in model.layers:
+            hooks.append(layer.attn.register_forward_hook(collect))
+        with torch.no_grad():
+            model(**inputs, output_attentions=True)
+    finally:
+        for hook in hooks:
+            hook.remove()
+        model.config._attn_implementation = previous
+    if not count:
+        raise ValueError('No attention layers captured')
+    token_attention_scores = total / count
+
     # 3. Map tokens to lines and aggregate
     num_lines = len(test_code.split('\n'))
     
@@ -49,9 +59,9 @@ def calculate_line_attention_scores(test_code, model, tokenizer):
     return line_scores
 
 def main():
-    print("Loading Base CodeBERT model (No Fine-tuning)...")
-    tokenizer = RobertaTokenizerFast.from_pretrained("microsoft/codebert-base")
-    model = RobertaModel.from_pretrained("microsoft/codebert-base", attn_implementation="eager")
+    print("Loading Base ModernBERT model (No Fine-tuning)...")
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
+    model = load_encoder()
     model.eval()
 
     test_code = (
