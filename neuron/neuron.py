@@ -1,3 +1,4 @@
+from core.model_config import MODEL_ID, MAX_LENGTH, load_encoder
 import os
 import argparse
 import json
@@ -5,7 +6,7 @@ import torch
 import difflib
 import numpy as np
 from tqdm import tqdm
-from transformers import RobertaTokenizerFast, RobertaModel
+from transformers import AutoTokenizer
 
 from core.hook_utils import ActivationExtractor
 from core.mapper import (get_line_level_activations, prepare_code_input,
@@ -18,7 +19,7 @@ from core.direction import (compute_line_representation, score_target_line,
                             compute_pairwise_vulnerability_direction)
 from attention_baseline import calculate_line_attention_scores
 
-def plot_all_layers(layer_directions, output_path="multi_layer_projection.png"):
+def plot_all_layers(layer_directions, output_path="multi_layer_projection_modernbert.png"):
     import matplotlib.pyplot as plt
     import numpy as np
     
@@ -58,7 +59,7 @@ def plot_all_layers(layer_directions, output_path="multi_layer_projection.png"):
     plt.savefig(output_path, dpi=300)
     print(f"[+] Saved multi-layer projection plot to {output_path}")
 
-def plot_all_layers_pca(layer_directions, output_path="multi_layer_pca.png"):
+def plot_all_layers_pca(layer_directions, output_path="multi_layer_pca_modernbert.png"):
     import matplotlib.pyplot as plt
     from sklearn.decomposition import PCA
     import numpy as np
@@ -105,7 +106,7 @@ def load_dataset(file_path):
             data.append(json.loads(line)['code'])
     return data
 
-def print_dataset_summary(vul_data, ben_data, tokenizer, max_length=512):
+def print_dataset_summary(vul_data, ben_data, tokenizer, max_length=MAX_LENGTH):
     """Report full token lengths; pair bins use the longer side of each pair."""
     from collections import Counter
 
@@ -152,7 +153,7 @@ def get_modified_lines(vul_code, ben_code):
     return vul_changed, ben_changed
 
 def extract_all_layers(vul_data, ben_data, tokenizer, model, layers_to_probe,
-                       context_lines=1, max_length=512, pair_lengths=None):
+                       context_lines=1, max_length=MAX_LENGTH, pair_lengths=None):
     if len(vul_data) != len(ben_data):
         raise ValueError("Vulnerable and patched datasets must have equal lengths")
     if pair_lengths is not None and len(pair_lengths) != len(vul_data):
@@ -206,7 +207,7 @@ def extract_all_layers(vul_data, ben_data, tokenizer, model, layers_to_probe,
                         ext.clear()
                     model(**{k: v.to(model.device) for k, v in inputs.items()})
                     for l, ext in extractors.items():
-                        acts = ext.activations[f"encoder.layer.{l}.intermediate"][0]
+                        acts = ext.activation[0]
                         token_mean, line_mean = aggregate_region_activations(
                             acts, token_to_line, region, len(code.split('\n')))
                         summaries[side]['token_mean'][l].append(token_mean)
@@ -236,11 +237,10 @@ def main():
     if args.context_lines < 0:
         parser.error('--context-lines must be nonnegative')
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print("Loading CodeBERT tokenizer...")
-    tokenizer = RobertaTokenizerFast.from_pretrained("microsoft/codebert-base")
+    print("Loading ModernBERT tokenizer...")
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
 
-    # Probe all 12 layers of CodeBERT!
-    layers_to_probe = list(range(12))
+
 
     print("Loading datasets...")
     base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -251,13 +251,14 @@ def main():
     ben_data = [p['code'] for _, p in records]
     pair_lengths = print_dataset_summary(vul_data, ben_data, tokenizer)
 
-    eligible = [i for i, lengths in enumerate(pair_lengths) if max(lengths) <= 512]
+    eligible = [i for i, lengths in enumerate(pair_lengths) if max(lengths) <= MAX_LENGTH]
     splits = split_pairs(records, eligible, seed=args.split_seed)
     print("CVE/exact-code grouped splits: " + json.dumps({k: len(v) for k, v in splits.items()}))
     print("Localization labels: vulnerable changed/deleted lines (proxy, not verified vulnerability lines).")
-    print(f"Loading CodeBERT model on {device}...")
-    model = RobertaModel.from_pretrained("microsoft/codebert-base", attn_implementation="eager").to(device)
+    print(f"Loading ModernBERT model on {device}...")
+    model = load_encoder(device)
     model.eval()
+    layers_to_probe = list(range(model.config.num_hidden_layers))
 
     print(f"Extracting aligned regions with context N={args.context_lines} across {layers_to_probe}...")
     summaries, extractors, stats, retained_indices = extract_all_layers(
@@ -314,6 +315,8 @@ def main():
         records, splits['test'], tokenizer, model, extractors,
         {selected_layer: layer_directions[selected_layer]}, description='Test')
     report = {
+        'model': MODEL_ID, 'max_length': MAX_LENGTH,
+        'model_revision': getattr(model.config, '_commit_hash', None),
         'split_seed': args.split_seed, 'context_lines': args.context_lines,
         'split_policy': '70/15/15 by CVE/exact-code connected groups',
         'label_policy': 'vulnerable changed/deleted lines; proxy labels',
@@ -324,7 +327,7 @@ def main():
         'retained_train_indices': [splits['train'][i] for i in retained_indices],
         'selected_layer': selected_layer, 'validation': validation, 'test': test_report,
     }
-    report_path = os.path.join(base_dir, 'evaluation_report.json')
+    report_path = os.path.join(base_dir, 'evaluation_report_modernbert.json')
     with open(report_path, 'w') as stream:
         json.dump(report, stream, indent=2)
     print(f"Saved evaluation report to {report_path}")
@@ -354,7 +357,7 @@ def main():
         print("-" * 100)
         
         inputs, token_to_line, valid_lines, _ = prepare_code_input(
-            code_snippet, tokenizer, max_length=512)
+            code_snippet, tokenizer, max_length=MAX_LENGTH)
         inputs = {k: v.to(model.device) for k, v in inputs.items()}
         
         with torch.no_grad():
@@ -367,7 +370,7 @@ def main():
         # Save line activations before the attention forward overwrites hooks.
         line_acts_by_layer = {
             l: get_line_level_activations(
-                extractors[l].activations[f"encoder.layer.{l}.intermediate"][0],
+                extractors[l].activation[0],
                 token_to_line, num_lines)
             for l in layers_to_probe
         }
