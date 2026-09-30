@@ -6,13 +6,14 @@ import sys
 import tempfile
 import unittest
 from unittest.mock import patch
+from types import SimpleNamespace
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import review_dataset as audit
 
 class AuditTests(unittest.TestCase):
     def verdict(self):
         return dict(decision='keep', reason_codes=['supported'], evidence=['before line 1'],
-                    needs_external_context=False,
+                    needs_external_context=False, hypotheses=[], missing_evidence=[],
                     checks={k: 'pass' for k in ('same_function','complete_c','security_relevance','fix_plausible','metadata_consistent')})
 
     def test_strict_verdict_and_uncertainty(self):
@@ -22,6 +23,17 @@ class AuditTests(unittest.TestCase):
         self.assertEqual(audit.parse_verdict(json.dumps(v))['decision'],'review')
         with self.assertRaises(ValueError): audit.parse_verdict('{"decision":"keep"}')
         with self.assertRaises(ValueError): audit.parse_verdict('not json')
+
+    def test_missing_evidence_and_metadata_guard(self):
+        v = self.verdict()
+        v['missing_evidence'] = ['callee implementation']
+        self.assertEqual(audit.parse_verdict(json.dumps(v))['decision'], 'review')
+        v = self.verdict()
+        result = audit.finalize_verdict(json.dumps(v), {'metadata': {'id': 'CVE-1'}},
+                                        {'syntax': {}}, 'stop')
+        self.assertEqual(result['decision'], 'review')
+        self.assertEqual(result['checks']['metadata_consistent'], 'unknown')
+        self.assertTrue(result['needs_external_context'])
 
     def test_metadata(self):
         self.assertFalse(audit.metadata_complete({'id':'CVE-1'}))
@@ -34,7 +46,7 @@ class AuditTests(unittest.TestCase):
             pair={'func_before':'int f(){return 1;}','func_after':'int f(){return 2;}'}
             src.write_text('\n'.join(json.dumps(x) for x in [pair,pair]))
             argv=['review_dataset.py','--input',str(src),'--output',str(out),'--checks-only']
-            with patch('sys.argv',argv), patch('transformers.AutoTokenizer.from_pretrained',return_value=tokenizer), patch.object(audit,'make_parser',return_value=None),contextlib.redirect_stdout(io.StringIO()):
+            with patch('sys.argv',argv), patch.dict(sys.modules, {'transformers': SimpleNamespace(AutoTokenizer=SimpleNamespace(from_pretrained=lambda *a, **k: tokenizer))}), patch.object(audit,'make_parser',return_value=None),contextlib.redirect_stdout(io.StringIO()):
                 audit.main();first=out.read_text();audit.main()
             self.assertEqual(first,out.read_text())
             rows=[json.loads(x) for x in first.splitlines()]
@@ -47,7 +59,8 @@ class AuditTests(unittest.TestCase):
     def test_length_and_syntax_do_not_fake_safety(self):
         pair={'before':'abc','after':'defgh'}
         checks=audit.inspect_pair(pair,lambda s,**kw:{'input_ids':list(s)},None,4)
-        self.assertIn('overlength_for_codebert',checks['reject_reasons'])
+        self.assertEqual(checks['reject_reasons'], [])
+        self.assertFalse(checks['experiment_eligibility']['eligible'])
         self.assertEqual(checks['syntax']['before']['status'],'unavailable')
 
 class BatchAuditTests(unittest.TestCase):
@@ -66,7 +79,7 @@ class BatchAuditTests(unittest.TestCase):
             src.write_text('\n'.join(json.dumps({'func_before':f'int f{i}(){{return 1;}}',
                                                   'func_after':f'int f{i}(){{return 2;}}'}) for i in range(5)))
             argv=['audit','--input',str(src),'--output',str(out),'--batch-size','2']
-            with patch('sys.argv',argv),patch('transformers.AutoTokenizer.from_pretrained',return_value=tokenizer),patch.object(audit,'make_parser',return_value=None),patch.object(audit,'VLLMReviewer',FakeReviewer),contextlib.redirect_stdout(io.StringIO()):
+            with patch('sys.argv',argv),patch.dict(sys.modules, {'transformers': SimpleNamespace(AutoTokenizer=SimpleNamespace(from_pretrained=lambda *a, **k: tokenizer))}),patch.object(audit,'make_parser',return_value=None),patch.object(audit,'VLLMReviewer',FakeReviewer),contextlib.redirect_stdout(io.StringIO()):
                 audit.main()
                 audit.main()
             self.assertEqual(calls,[2,2,1])
@@ -115,7 +128,7 @@ class BatchAuditTests(unittest.TestCase):
             src=Path(tmp)/'pairs.jsonl';out=Path(tmp)/'audit.jsonl'
             src.write_text(json.dumps({'func_before':'a','func_after':'b'}))
             argv=['audit','--input',str(src),'--output',str(out)]
-            with patch('sys.argv',argv),patch('transformers.AutoTokenizer.from_pretrained',return_value=tokenizer),patch.object(audit,'make_parser',return_value=None),contextlib.redirect_stdout(io.StringIO()):
+            with patch('sys.argv',argv),patch.dict(sys.modules, {'transformers': SimpleNamespace(AutoTokenizer=SimpleNamespace(from_pretrained=lambda *a, **k: tokenizer))}),patch.object(audit,'make_parser',return_value=None),contextlib.redirect_stdout(io.StringIO()):
                 with patch.object(audit,'VLLMReviewer',Broken),self.assertRaisesRegex(RuntimeError,'fake OOM'):
                     audit.main()
                 self.assertEqual(out.read_text(),'')
