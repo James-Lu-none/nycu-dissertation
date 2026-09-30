@@ -24,8 +24,10 @@
 \end{enumerate}
 \begin{itemize}
     \item \textbf{Entry point:} \fn{neuron.py: main()}.
-    \item \textbf{Model:} CodeBERT, evaluation mode; no model-weight updates.
-    \item \textbf{Input limit:} 512 tokens, including special tokens.
+    \item \textbf{Model:} \fn{answerdotai/ModernBERT-base}, evaluation mode; no model-weight updates. All layers are selected from the model configuration.
+    \item \textbf{FFN:} $[u,g]=W_{\rm in}h$, $a=\operatorname{GELU}(u)\odot g$, and $\mathrm{FFN}(h)=W_{\rm out}a$. Neuron vectors are columns of $W_{\rm out}$; selection and projection use these gated activations.
+    \item \textbf{Execution:} SDPA with reference compilation disabled preserves token-aligned hooks. Attention baseline temporarily uses eager attention and reduces one layer at a time; local/global attention masks remain active.
+    \item \textbf{Input limit:} 8192 tokens, including special tokens.
     \item \textbf{Layers:} indices 0--11; currently set in \fn{main()}.
     \item \textbf{Neuron ratio:} 10\%; currently set in \fn{main()}.
     \item \textbf{Context:} $N=1$; change with \fn{--context-lines N}.
@@ -39,9 +41,9 @@
     \item \fn{extract_all_layers()} filters out long pairs before the activation progress bar starts. Original pair indices are retained.
     \item A pair passes the length filter only when
     \[
-        L(F_{V_j})\leq512\quad\text{and}\quad L(F_{P_j})\leq512.
+        L(F_{V_j})\leq8192\quad\text{and}\quad L(F_{P_j})\leq8192.
     \]
-    \item Exactly 512 tokens is allowed. Excess tokens anywhere in either function exclude the whole pair, including outside the selected region.
+    \item Exactly 8192 tokens is allowed. Excess tokens anywhere in either function exclude the whole pair, including outside the selected region.
     \item Remaining exclusions: identical functions, or an empty valid region on either side.
     \item Final counters are mutually exclusive, in this order:
     \fn{skipped_overlength_function}, \fn{skipped_no_changes}, and
@@ -77,8 +79,8 @@
     \item \fn{map_tokens_to_lines()} assigns each token to its starting-character line, using zero-based line indices. Zero-length offsets are excluded.
     \item A valid line has at least one mapped token and retains all its tokens.
     \item \textbf{Training:} each retained complete function is forwarded separately; only selected-region activations enter the statistics below.
-    \item \textbf{Inference:} long functions are truncated to 512 tokens. Partially retained, missing, and tokenless lines are marked unscored.
-    \item \fn{core/hook_utils.py: ActivationExtractor.get_hook()} captures the post-GELU \fn{intermediate} output, detached and stored on CPU.
+    \item \textbf{Inference:} long functions are truncated to 8192 tokens. Partially retained, missing, and tokenless lines are marked unscored.
+    \item \fn{core/hook_utils.py: ActivationExtractor.capture_input()} captures the input of \fn{layers[l].mlp.Wo} with a forward pre-hook, detached and stored on CPU.
     \item In \fn{ActivationExtractor}:\newline
     \fn{get_down_projection_weights()} transposes the down-projection weight to shape $(d_{ff},d_{model})$; row $i$ is $r_l^i$.
 \end{itemize}
@@ -88,7 +90,7 @@
     \item $T_q$: mapped tokens of valid line $q$.
     \item $Q_{S_j}$: valid selected-region lines for side $S\in\{V,P\}$ of pair $j$.
     \item $T_{S_j}=\bigcup_{q\in Q_{S_j}}T_q$: selected-region token union.
-    \item $a_{l,i}^{S_j,t}$: post-GELU activation of neuron $i$, token $t$, layer $l$.
+    \item $a_{l,i}^{S_j,t}$: gated activation $\operatorname{GELU}(u_i)g_i$ of neuron $i$, token $t$, layer $l$.
     \item $M$: number of retained pairs.
 \end{itemize}
 \begin{enumerate}
