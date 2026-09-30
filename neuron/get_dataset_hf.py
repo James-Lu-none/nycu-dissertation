@@ -39,8 +39,9 @@ def main():
             if func_before.strip() == func_after.strip():
                 continue
                 
-            vul_out.write(json.dumps({"id": row.get("CVE ID", ""), "code": func_before}) + '\n')
-            ben_out.write(json.dumps({"id": row.get("CVE ID", ""), "code": func_after}) + '\n')
+            metadata = {k: v for k, v in row.items() if k not in ("func_before", "func_after")}
+            vul_out.write(json.dumps({"id": row.get("CVE ID", ""), "code": func_before, "metadata": metadata}) + '\n')
+            ben_out.write(json.dumps({"id": row.get("CVE ID", ""), "code": func_after, "metadata": metadata}) + '\n')
             
             count += 1
             if count >= max_samples:

@@ -14,6 +14,8 @@ class AuditTests(unittest.TestCase):
     def verdict(self):
         return dict(decision='keep', reason_codes=['supported'], evidence=['before line 1'],
                     needs_external_context=False, hypotheses=[], missing_evidence=[],
+                    causal_chain=dict(before_path='input', failure_operation='access',
+                                      patch_effect='bound check', after_path='early return'),
                     checks={k: 'pass' for k in ('same_function','complete_c','security_relevance','fix_plausible','metadata_consistent')})
 
     def test_strict_verdict_and_uncertainty(self):
@@ -34,6 +36,13 @@ class AuditTests(unittest.TestCase):
         self.assertEqual(result['decision'], 'review')
         self.assertEqual(result['checks']['metadata_consistent'], 'unknown')
         self.assertTrue(result['needs_external_context'])
+
+    def test_empty_causal_chain_cannot_keep(self):
+        v = self.verdict()
+        v['causal_chain']['failure_operation'] = ''
+        result = audit.parse_verdict(json.dumps(v))
+        self.assertEqual(result['decision'], 'review')
+        self.assertEqual(result['checks']['fix_plausible'], 'unknown')
 
     def test_metadata(self):
         self.assertFalse(audit.metadata_complete({'id':'CVE-1'}))
@@ -135,3 +144,27 @@ class BatchAuditTests(unittest.TestCase):
                 self.assertIn('fake OOM',Path(str(out)+'.runtime.log').read_text())
                 with patch.object(audit,'VLLMReviewer',Working): audit.main()
             self.assertEqual(len(out.read_text().splitlines()),1)
+
+
+class ParserAuditTests(unittest.TestCase):
+    def setUp(self):
+        self.parsers = audit.make_parser()
+        if not self.parsers or 'cpp' not in self.parsers:
+            self.skipTest('C/C++ parsers not installed')
+
+    def test_layout_literals_and_macro_arguments(self):
+        fp = lambda code: audit.lexical_fingerprint(code, self.parsers)
+        self.assertEqual(fp('int f(){return 1;}'), fp('int f() {\n\n return 1; }'))
+        self.assertNotEqual(fp('char *f(){return "a b";}'), fp('char *f(){return "ab";}'))
+        self.assertNotEqual(fp('int f(){return M(a+b);}'), fp('int f(){return M(a + b);}'))
+        self.assertIsNone(fp('#define M(x) #x\nint f(){return 1;}'))
+        pair = {'before': 'int f(){return 1;}', 'after': 'int f(){\n return 1; }'}
+        checks = audit.inspect_pair(pair, lambda s, **kw: {'input_ids': list(s)}, self.parsers, 8192)
+        self.assertIn('layout_only_change', checks['reject_reasons'])
+
+    def test_cpp_structure_is_not_c_parse_failure(self):
+        result = audit.syntax_check('int A::f() const {return 1;}', self.parsers)
+        self.assertEqual(result['language'], 'cpp_compatible')
+        self.assertEqual(result['structure_status'], 'pass')
+        broken = audit.syntax_check('int A::f() const {', self.parsers)
+        self.assertEqual(broken['structure_status'], 'review')
