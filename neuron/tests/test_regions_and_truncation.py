@@ -6,7 +6,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import torch
-from transformers import RobertaConfig, RobertaModel
+from transformers import ModernBertConfig, ModernBertModel
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from core.mapper import (prepare_code_input, aggregate_region_activations,
@@ -97,10 +97,11 @@ class CoverageTests(unittest.TestCase):
 class PipelineTests(unittest.TestCase):
     def setUp(self):
         self.tokenizer = CharacterTokenizer()
-        self.model = RobertaModel(RobertaConfig(
+        self.model = ModernBertModel(ModernBertConfig(
             vocab_size=64, hidden_size=8, intermediate_size=12,
             num_hidden_layers=1, num_attention_heads=2,
-            max_position_embeddings=514, hidden_dropout_prob=0.,
+            max_position_embeddings=8192, reference_compile=False, pad_token_id=0,
+            bos_token_id=1, eos_token_id=2, cls_token_id=1, sep_token_id=2,
             attention_probs_dropout_prob=0.)).eval()
 
     def test_pair_filtering_and_summaries(self):
@@ -121,7 +122,7 @@ class PipelineTests(unittest.TestCase):
         inputs, mapping, valid, _ = prepare_code_input(before[0], self.tokenizer, 8)
         with torch.no_grad():
             self.model(**inputs)
-        acts = extractors[0].activations['encoder.layer.0.intermediate'][0]
+        acts = extractors[0].activation[0]
         expected_lines = torch.stack([acts[[t for t, q2 in mapping.items() if q2 == q]].mean(0)
                                       for q in sorted(valid)]).mean(0)
         torch.testing.assert_close(summaries['vulnerable']['line_mean'][0][0], expected_lines)
@@ -141,7 +142,7 @@ class PipelineTests(unittest.TestCase):
                                        context_lines=context, max_length=8)
             self.assertIn('"skipped_overlength_function": 1', output.getvalue())
             forward.assert_not_called()
-        self.assertFalse(self.model.encoder.layer[0].intermediate._forward_hooks)
+        self.assertFalse(self.model.layers[0].mlp.Wo._forward_pre_hooks)
 
     def test_exact_512_and_either_side_overlength(self):
         # CharacterTokenizer adds two special tokens: 510 characters fit exactly.
@@ -150,7 +151,7 @@ class PipelineTests(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()), patch.object(
                 self.model, 'forward', wraps=self.model.forward) as forward:
             _, extractors, stats, indices = extract_all_layers(
-                before, after, self.tokenizer, self.model, [0])
+                before, after, self.tokenizer, self.model, [0], max_length=512)
         self.assertEqual(indices, [0])
         self.assertEqual(stats['retained'], 1)
         self.assertEqual(stats['skipped_overlength_function'], 3)
@@ -163,7 +164,7 @@ class PipelineTests(unittest.TestCase):
             ext.remove_hooks()
 
     def test_baseline_truncates_and_marks_partial_line(self):
-        scores = calculate_line_attention_scores('a\n' + 'b' * 600, self.model, self.tokenizer)
+        scores = calculate_line_attention_scores('a\n' + 'b' * 600, self.model, self.tokenizer, max_length=512)
         self.assertTrue(torch.isfinite(scores[0]))
         self.assertTrue(torch.isnan(scores[1]))
 

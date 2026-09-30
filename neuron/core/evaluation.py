@@ -1,3 +1,4 @@
+from core.model_config import MODEL_ID, MAX_LENGTH, load_encoder
 """Held-out localization against changed-line proxy labels, not ground truth."""
 import difflib
 import torch
@@ -37,7 +38,7 @@ def evaluate_localization(records, indices, tokenizer, model, extractors,
                   skipped_overlength_function=0)
     for i in tqdm(indices, desc=description):
         vulnerable, patched = (record['code'] for record in records[i])
-        if any(len(tokenizer(code, truncation=False, verbose=False)['input_ids']) > 512
+        if any(len(tokenizer(code, truncation=False, verbose=False)['input_ids']) > MAX_LENGTH
                for code in (vulnerable, patched)):
             counts['skipped_overlength_function'] += 1
             continue
@@ -54,7 +55,7 @@ def evaluate_localization(records, indices, tokenizer, model, extractors,
                 ext.clear()
             model(**{k: v.to(model.device) for k, v in inputs.items()})
             for l, info in layer_directions.items():
-                acts = extractors[l].activations[f'encoder.layer.{l}.intermediate'][0]
+                acts = extractors[l].activation[0]
                 line_acts = get_line_level_activations(acts, mapping, len(vulnerable.split('\n')))
                 neurons = info['target_neurons']
                 reps = line_acts[:, neurons] @ info['down_proj'][neurons]

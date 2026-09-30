@@ -1,8 +1,9 @@
+from core.model_config import MODEL_ID, MAX_LENGTH, load_encoder
 from collections import Counter
 from bisect import bisect_right
 
 
-def prepare_code_input(code, tokenizer, max_length=512):
+def prepare_code_input(code, tokenizer, max_length=MAX_LENGTH):
     """Tokenize for the model and identify fully retained, nonempty token sets.
 
     Full offsets are computed on CPU only; the full sequence is never forwarded.

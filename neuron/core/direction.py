@@ -5,9 +5,9 @@ def compute_line_representation(line_activation, target_neurons, down_proj_weigh
     Compute the vulnerability-neuron representation p_l for a specific line.
     line_activation: Tensor of shape (hidden_size,) -> a_l^q
     target_neurons: list of int -> N_r,l
-    down_proj_weights: Tensor of shape (hidden_size, embedding_size) -> (3072, 768)
+    down_proj_weights: Tensor of shape (hidden_size, embedding_size) -> (intermediate_size, hidden_size)
     
-    Returns: Tensor of shape (embedding_size,) -> (768,)
+    Returns: Tensor of shape (embedding_size,) -> (hidden_size,)
     """
     # Extract only the target neurons
     indices = torch.tensor(target_neurons, dtype=torch.long)

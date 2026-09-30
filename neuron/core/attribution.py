@@ -5,7 +5,7 @@ def calculate_neuron_contributions(line_activations, down_proj_weights):
     Calculate the contribution of each neuron based on line-level activations.
     line_activations: Tensor of shape (num_samples, hidden_size) 
                       (already aggregated across relevant lines for each sample)
-    down_proj_weights: Tensor of shape (hidden_size, embedding_size) -> (3072, 768)
+    down_proj_weights: Tensor of shape (hidden_size, embedding_size) -> (intermediate_size, hidden_size)
                        where i-th row is r_i
     
     Returns: Tensor of shape (hidden_size,) containing contribution scores.
