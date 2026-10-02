@@ -12,7 +12,7 @@ from core.hook_utils import ActivationExtractor
 from core.mapper import (get_line_level_activations, prepare_code_input,
                          aggregate_region_activations)
 from core.regions import get_aligned_regions
-from core.splits import load_paired_records, split_pairs
+from core.splits import load_paired_records, split_pairs, load_unified_records
 from core.evaluation import evaluate_localization, select_layer
 from core.attribution import get_vulnerability_specific_neurons
 from core.direction import (compute_line_representation, score_target_line,
@@ -233,6 +233,10 @@ def main():
     parser.add_argument('--context-lines', type=int, default=1,
                         help='Matched context lines on each side of a diff hunk (default: 1)')
     parser.add_argument('--split-seed', type=int, default=42)
+    parser.add_argument('--dataset', type=str, nargs='*', default=None,
+                        help='Path(s) to unified JSONL dataset file(s) or directory. Defaults to dataset/source/.')
+    parser.add_argument('--cwe', type=str, nargs='+', default=None,
+                        help='Optional CWE ID(s) to filter by (e.g. CWE-787).')
     args = parser.parse_args()
     if args.context_lines < 0:
         parser.error('--context-lines must be nonnegative')
@@ -243,10 +247,26 @@ def main():
 
 
     print("Loading datasets...")
+    import glob
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    records = load_paired_records(
-        os.path.join(base_dir, "dataset", "vulnerable.jsonl"),
-        os.path.join(base_dir, "dataset", "benign.jsonl"))
+    
+    dataset_paths = args.dataset
+    if not dataset_paths:
+        dataset_paths = [os.path.join(base_dir, "dataset", "source")]
+        
+    records = []
+    for path in dataset_paths:
+        if os.path.isdir(path):
+            jsonl_files = glob.glob(os.path.join(path, "*.jsonl"))
+            for jf in jsonl_files:
+                records.extend(load_unified_records(jf, cwe_filter=args.cwe))
+        elif os.path.isfile(path):
+            records.extend(load_unified_records(path, cwe_filter=args.cwe))
+        else:
+            print(f"Warning: Dataset path not found: {path}")
+            
+    print(f"Loaded {len(records)} pairs across {len(dataset_paths)} specified paths.")
+    
     vul_data = [v['code'] for v, _ in records]
     ben_data = [p['code'] for _, p in records]
     pair_lengths = print_dataset_summary(vul_data, ben_data, tokenizer)

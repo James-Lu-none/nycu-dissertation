@@ -18,6 +18,36 @@ def load_paired_records(vulnerable_path, patched_path):
             raise ValueError(f'Pair {i}: code must be a string on both sides')
     return list(zip(vulnerable, patched))
 
+def load_unified_records(unified_path, cwe_filter=None):
+    pairs = []
+    with open(unified_path) as stream:
+        for line in stream:
+            record = json.loads(line)
+            meta = record.get('metadata', {})
+            
+            if cwe_filter:
+                cwes = []
+                if "CWE ID" in meta:
+                    cwes.append(meta["CWE ID"])
+                if "cwe_ids" in meta:
+                    cwes.extend(meta["cwe_ids"])
+                
+                if not set(cwe_filter).intersection(set(cwes)):
+                    continue
+            
+            v = {
+                'id': record.get('pair_id'),
+                'code': record.get('func_before', ''),
+                'metadata': meta
+            }
+            p = {
+                'id': record.get('pair_id'),
+                'code': record.get('func_after', ''),
+                'metadata': meta
+            }
+            pairs.append((v, p))
+    return pairs
+
 
 def split_pairs(records, eligible_indices, seed=42):
     """Approximate 70/15/15 group split; return original record indices.
@@ -42,6 +72,15 @@ def split_pairs(records, eligible_indices, seed=42):
         if source_id:
             keys.append(('id', source_id))
         for record in (v, p):
+            metadata = record.get('metadata') or {}
+            cves = record.get('cve_ids') or metadata.get('cve_ids') or []
+            if isinstance(cves, str):
+                cves = [cves]
+            cves = list(cves) + [metadata.get('CVE ID'), metadata.get('cve_id')]
+            keys.extend(('cve', cve) for cve in cves if cve)
+            commit = metadata.get('commit_id') or metadata.get('hash')
+            if commit:
+                keys.append(('commit', commit))
             code = record['code'].strip()
             if code:
                 keys.append(('code', hashlib.sha256(code.encode()).hexdigest()))
