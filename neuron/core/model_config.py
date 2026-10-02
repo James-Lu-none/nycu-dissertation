@@ -7,7 +7,7 @@ def load_encoder(device='cpu'):
     from transformers import AutoModel
     # Preserve batch/sequence axes and observable Python hooks; no unpadding/compile.
     model = AutoModel.from_pretrained(
-        MODEL_ID, attn_implementation='sdpa', reference_compile=False)
+        MODEL_ID, attn_implementation='sdpa')
     if model.config.model_type != 'modernbert':
         raise ValueError('Expected ModernBERT')
     if model.config.max_position_embeddings < MAX_LENGTH:
