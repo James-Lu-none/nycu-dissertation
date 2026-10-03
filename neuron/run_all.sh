@@ -1,35 +1,26 @@
-# srun -w dgx-cn02 --pty --time=24:00:00 --gpus=1 /bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
+cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
+# Activate the environment before running: conda activate /raid/khyeh/miniconda_envs/vul-neuron
+export HF_HOME="${HF_HOME:-/raid/khyeh/hf_cache}"
+export HF_HUB_CACHE="${HF_HUB_CACHE:-$HF_HOME/hub}"
+mkdir -p outputs
+pipeline_dir=$(mktemp -d "outputs/pipeline_$(TZ=Asia/Taipei date +%Y%m%d_%H%M%S)_XXXXXX")
+printf 'Pipeline output: %s\n' "$pipeline_dir"
 
-conda activate /raid/khyeh/miniconda_envs/vul-neuron
+for source in bigvul cvefixes; do
+  python review_dataset.py --input "dataset/source/$source.jsonl" \
+    --output-dir "$pipeline_dir/$source" --batch-size 1
+done
 
-export HF_HOME=/raid/khyeh/hf_cache
-export HF_HUB_CACHE=/raid/khyeh/hf_cache/hub
+# Each source has exactly one run in this newly created pipeline directory.
+kept=( "$pipeline_dir"/bigvul/*/kept.jsonl "$pipeline_dir"/cvefixes/*/kept.jsonl )
+for path in "${kept[@]}"; do
+  test -f "$path"
+done
 
-python review_dataset.py \
-  --input dataset/source/bigvul.jsonl \
-  --output dataset/audits/bigvul_v5.jsonl \
-  --batch-size 1
-python review_dataset.py \
-  --input dataset/source/cvefixes.jsonl \
-  --output dataset/audits/cvefixes_v5.jsonl \
-  --batch-size 1
-
-python neuron.py \
-  --model modernbert \
-  --dataset dataset/source/bigvul.jsonl dataset/source/cvefixes.jsonl \
-  --cwe CWE-119
-python neuron.py \
-  --model securebert2 \
-  --dataset dataset/source/bigvul.jsonl dataset/source/cvefixes.jsonl \
-  --cwe CWE-119
-
-python function_probe.py \
-  --model modernbert \
-  --dataset dataset/source/bigvul.jsonl dataset/source/cvefixes.jsonl \
-  --max-length 8192 \
-  --cwe CWE-119
-python function_probe.py \
-  --model securebert2 \
-  --dataset dataset/source/bigvul.jsonl dataset/source/cvefixes.jsonl \
-  --max-length 8192 \
-  --cwe CWE-119
+for model in modernbert securebert2; do
+  python neuron.py --model "$model" --dataset "${kept[@]}" --cwe CWE-119 --output-dir "$pipeline_dir"
+  python function_probe.py --model "$model" --dataset "${kept[@]}" \
+    --max-length 8192 --cwe CWE-119 --output-dir "$pipeline_dir"
+done
