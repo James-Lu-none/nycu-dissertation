@@ -10,7 +10,7 @@ printf 'Pipeline output: %s\n' "$pipeline_dir"
 
 for source in bigvul cvefixes; do
   python review_dataset.py --input "dataset/source/$source.jsonl" \
-    --output-dir "$pipeline_dir/$source" --batch-size 1
+    --output-dir "$pipeline_dir/$source" --batch-size 8
 done
 
 # Each source has exactly one run in this newly created pipeline directory.
