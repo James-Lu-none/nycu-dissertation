@@ -19,8 +19,6 @@ for path in "${kept[@]}"; do
   test -f "$path"
 done
 
-for model in modernbert securebert2; do
-  python neuron.py --model "$model" --dataset "${kept[@]}" --cwe CWE-119 --output-dir "$pipeline_dir"
-  python function_probe.py --model "$model" --dataset "${kept[@]}" \
-    --max-length 8192 --cwe CWE-119 --output-dir "$pipeline_dir"
-done
+python run_cwe_experiments.py --dataset "${kept[@]}" \
+  --cwe-source dataset/source/bigvul.jsonl dataset/source/cvefixes.jsonl \
+  --output-dir "$pipeline_dir/experiments"

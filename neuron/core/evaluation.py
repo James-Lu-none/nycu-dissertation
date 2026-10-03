@@ -29,8 +29,22 @@ def localization_metrics(scores, positive_lines):
             'mrr': 1.0 / rank}
 
 
+def random_ranking_metrics(n, positives):
+    """Exact expectation under a uniformly random permutation of valid lines."""
+    survival, mrr, hit5 = 1.0, 0.0, 0.0
+    for rank in range(1, n - positives + 2):
+        probability = survival * positives / (n - rank + 1)
+        mrr += probability / rank
+        if rank <= 5:
+            hit5 += probability
+        survival *= (n - rank + 1 - positives) / (n - rank + 1)
+    return dict(hit_at_1=positives / n, hit_at_5=hit5, mrr=mrr)
+
+
 def evaluate_localization(records, indices, tokenizer, model, extractors,
                           layer_directions, description='Validation'):
+    random_totals = dict(hit_at_1=0., hit_at_5=0., mrr=0.)
+    per_pair = []
     layers = list(layer_directions)
     totals = {l: dict(hit_at_1=0., hit_at_5=0., mrr=0.) for l in layers}
     counts = dict(total_pairs=len(indices), evaluated_pairs=0,
@@ -50,6 +64,11 @@ def evaluate_localization(records, indices, tokenizer, model, extractors,
         if not labels & valid_lines:
             counts['skipped_no_valid_labels'] += 1
             continue
+        random_metrics = random_ranking_metrics(len(valid_lines), len(labels & valid_lines))
+        pair_result = {'index': i, 'valid_lines': len(valid_lines), 'positive_lines': len(labels & valid_lines),
+                       'random': random_metrics, 'layers': {}}
+        for key, value in random_metrics.items():
+            random_totals[key] += value
         with torch.no_grad():
             for ext in extractors.values():
                 ext.clear()
@@ -63,8 +82,10 @@ def evaluate_localization(records, indices, tokenizer, model, extractors,
                 if not torch.isfinite(scores).all():
                     raise ValueError(f'Nonfinite scores in {description}, pair {i}, layer {l}')
                 metrics = localization_metrics({q: scores[q].item() for q in valid_lines}, labels)
+                pair_result['layers'][l] = metrics
                 for key, value in metrics.items():
                     totals[l][key] += value
+        per_pair.append(pair_result)
         counts['evaluated_pairs'] += 1
     n = counts['evaluated_pairs']
     metrics = {l: {key: value / n if n else None for key, value in values.items()}
@@ -76,7 +97,8 @@ def evaluate_localization(records, indices, tokenizer, model, extractors,
                   f"Hit@5={values['hit_at_5']:.4f} | MRR={values['mrr']:.4f}")
         else:
             print(f'Layer {l:2d} | no evaluable labels')
-    return {'counts': counts, 'layers': metrics}
+    return {'counts': counts, 'layers': metrics, 'per_pair': per_pair,
+            'random_baseline': {k: v / n if n else None for k, v in random_totals.items()}}
 
 
 def select_layer(validation_report, layer_directions):

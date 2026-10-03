@@ -292,6 +292,7 @@ def main():
 
     print("Calculating vulnerability directions (d_v) for all layers...")
     layer_directions = {}
+    all_neuron_directions = {}
     
     for l in layers_to_probe:
         down_proj = extractors[l].get_down_projection_weights()
@@ -322,6 +323,15 @@ def main():
             'vul_reps': vul_reps.cpu().numpy(),
             'ben_reps': ben_reps.cpu().numpy()
         }
+        all_neurons = torch.arange(down_proj.shape[0], device=down_proj.device)
+        all_v = torch.stack([compute_line_representation(a, all_neurons, down_proj)
+                             for a in summaries['vulnerable']['line_mean'][l]])
+        all_p = torch.stack([compute_line_representation(a, all_neurons, down_proj)
+                             for a in summaries['patched']['line_mean'][l]])
+        all_direction = compute_pairwise_vulnerability_direction(all_v, all_p)
+        if torch.norm(all_direction) > 0:
+            all_direction = all_direction / torch.norm(all_direction)
+        all_neuron_directions[l] = dict(target_neurons=all_neurons, down_proj=down_proj, d_v=all_direction)
         print(f"Layer {l:2d} | |N_r,l| = {len(target_neurons)}")
 
     # Generate the comprehensive plot
@@ -337,7 +347,18 @@ def main():
     test_report = evaluate_localization(
         records, splits['test'], tokenizer, model, extractors,
         {selected_layer: layer_directions[selected_layer]}, description='Test')
+    all_validation = evaluate_localization(
+        records, splits['validation'], tokenizer, model, extractors,
+        all_neuron_directions, description='All neurons validation')
+    all_layer = select_layer(all_validation, all_neuron_directions)
+    all_test = evaluate_localization(
+        records, splits['test'], tokenizer, model, extractors,
+        {all_layer: all_neuron_directions[all_layer]}, description='All neurons test')
     report = {
+        'baselines': {'all_neurons': {'selected_layer': all_layer,
+                      'validation': all_validation, 'test': all_test},
+                      'random': {'method': 'exact uniform random ranking expectation',
+                                 'test': test_report['random_baseline']}},
         'run': run_metadata,
         'model': MODELS[args.model], 'max_length': MAX_LENGTH,
         'model_revision': getattr(model.config, '_commit_hash', None),
