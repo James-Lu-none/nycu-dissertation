@@ -33,9 +33,26 @@ class AuditTests(unittest.TestCase):
         v = self.verdict()
         result = audit.finalize_verdict(json.dumps(v), {'metadata': {'id': 'CVE-1'}},
                                         {'syntax': {}}, 'stop')
-        self.assertEqual(result['decision'], 'review')
+        self.assertEqual(result['decision'], 'keep')
         self.assertEqual(result['checks']['metadata_consistent'], 'unknown')
+        self.assertFalse(result['needs_external_context'])
+
+    def test_candidate_warnings_do_not_block_keep(self):
+        v = self.verdict()
+        v['needs_external_context'] = True
+        v['hypotheses'] = ['caller supplies a valid buffer']
+        v['checks']['metadata_consistent'] = 'unknown'
+        result = audit.finalize_verdict(json.dumps(v), {'metadata': {}},
+                                       {'syntax': {'before': {'status': 'review'},
+                                                   'after': {'status': 'unavailable'}}}, 'stop')
+        self.assertEqual(result['decision'], 'keep')
+        self.assertIn('syntax_parser_warning', result['reason_codes'])
         self.assertTrue(result['needs_external_context'])
+        v['checks']['metadata_consistent'] = 'fail'
+        self.assertEqual(audit.parse_verdict(json.dumps(v))['decision'], 'review')
+        v['checks']['metadata_consistent'] = 'unknown'
+        v['checks']['complete_c'] = 'fail'
+        self.assertEqual(audit.parse_verdict(json.dumps(v))['decision'], 'review')
 
     def test_empty_causal_chain_cannot_keep(self):
         v = self.verdict()

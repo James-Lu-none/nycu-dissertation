@@ -24,16 +24,17 @@ class MainPipelineTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder, contextlib.ExitStack() as stack:
             stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
             stack.enter_context(patch.object(neuron, '__file__', str(Path(folder)/'neuron.py')))
-            stack.enter_context(patch('sys.argv', ['neuron.py']))
-            stack.enter_context(patch.object(neuron, 'load_paired_records', return_value=records))
-            stack.enter_context(patch.object(neuron.AutoTokenizer, 'from_pretrained',
-                                            return_value=CharacterTokenizer()))
+            stack.enter_context(patch('sys.argv', ['neuron.py', '--dataset', __file__]))
+            stack.enter_context(patch.object(neuron, 'load_unified_records', return_value=records))
+            stack.enter_context(patch.object(neuron, 'load_tokenizer',
+                                            return_value=(CharacterTokenizer(), 'test')))
             stack.enter_context(patch.object(neuron, 'load_encoder', return_value=model))
             stack.enter_context(patch.object(neuron.torch.cuda, 'is_available', return_value=False))
             stack.enter_context(patch.object(neuron, 'plot_all_layers'))
             stack.enter_context(patch.object(neuron, 'plot_all_layers_pca'))
+            (Path(folder) / 'neuron.py').write_text('# test script')
             neuron.main()
-            report = json.loads((Path(folder)/'evaluation_report_modernbert.json').read_text())
+            report = json.loads(next((Path(folder)/'outputs').glob('neuron_modernbert_*/report.json')).read_text())
         self.assertEqual(report['train_filtering']['total'], 14)
         self.assertEqual(set(report['retained_train_indices']), set(report['splits']['train']))
         self.assertEqual(report['validation']['counts']['total_pairs'], 3)
