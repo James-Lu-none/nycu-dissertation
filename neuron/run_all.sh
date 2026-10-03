@@ -5,6 +5,15 @@ conda activate /raid/khyeh/miniconda_envs/vul-neuron
 export HF_HOME=/raid/khyeh/hf_cache
 export HF_HUB_CACHE=/raid/khyeh/hf_cache/hub
 
+python review_dataset.py \
+  --input dataset/source/bigvul.jsonl \
+  --output dataset/audits/bigvul_v5.jsonl \
+  --batch-size 1
+python review_dataset.py \
+  --input dataset/source/cvefixes.jsonl \
+  --output dataset/audits/cvefixes_v5.jsonl \
+  --batch-size 1
+
 python neuron.py \
   --model modernbert \
   --dataset dataset/source/bigvul.jsonl dataset/source/cvefixes.jsonl \
