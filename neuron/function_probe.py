@@ -7,17 +7,8 @@ from pathlib import Path
 import numpy as np
 import torch
 from tqdm import tqdm
-from core.model_config import MAX_LENGTH
+from core.model_config import MODELS, MAX_LENGTH, load_tokenizer, load_encoder
 from core.splits import split_pairs
-
-MODELS = {'modernbert': 'answerdotai/ModernBERT-base',
-          'securebert2': 'cisco-ai/SecureBERT2.0-base'}
-
-
-def fits_cohort(pair, tokenizers, max_length):
-    return all(len(tokenizer(r['code'], truncation=False, verbose=False)['input_ids'])
-               <= max_length for tokenizer in tokenizers for r in pair)
-
 
 POOLINGS = ('cls', 'mean', 'last')
 
@@ -127,10 +118,8 @@ def main():
     cli.add_argument('--output', type=Path, default=Path('function_probe_report.json'))
     cli.add_argument('--seed', type=int, default=42)
     cli.add_argument('--model', choices=MODELS, default='modernbert')
-    cli.add_argument('--cohort-models', choices=MODELS, nargs='+',
-                     help='Require complete functions to fit every listed tokenizer; include --model')
-    cli.add_argument('--max-length', type=int,
-                     help='Includes special tokens; default ModernBERT=8192, SecureBERT2=1024')
+    cli.add_argument('--max-length', type=int, default=MAX_LENGTH,
+                     help='Maximum tokens per complete function, including special tokens (default: 8192)')
     cli.add_argument('--revision', default='main', help='Revision for the selected model')
     cli.add_argument('--c-values', type=float, nargs='+', default=[.01, .1, 1., 10.])
     cli.add_argument('--bootstrap', type=int, default=1000)
@@ -139,45 +128,28 @@ def main():
         cli.error('Output exists; choose a new --output')
     if args.bootstrap < 0 or any(not np.isfinite(c) or c <= 0 for c in args.c_values):
         cli.error('C values must be finite positive numbers; bootstrap must be nonnegative')
-    from transformers import AutoTokenizer, AutoModel, AutoConfig
     from sklearn.pipeline import make_pipeline
     from sklearn.preprocessing import StandardScaler
     from sklearn.linear_model import LogisticRegression
     records, sources = load_records(args.dataset, args.cwe)
-    cohort_names = sorted(set(args.cohort_models or [args.model]))
-    if args.model not in cohort_names:
-        cli.error('--cohort-models must include --model')
-    max_length = args.max_length if args.max_length is not None else (1024 if 'securebert2' in cohort_names else MAX_LENGTH)
-    if max_length <= 0:
-        cli.error('--max-length must be positive')
-    tokenizers, cohort = {}, {}
-    for name in cohort_names:
-        model_id = MODELS[name]
-        config = AutoConfig.from_pretrained(model_id, revision=args.revision if name == args.model else 'main')
-        revision = getattr(config, '_commit_hash', None) or (args.revision if name == args.model else 'main')
-        if config.model_type != 'modernbert' or max_length > config.max_position_embeddings:
-            cli.error(f'{model_id}: unsupported architecture or length beyond model capacity')
-        tokenizers[name] = AutoTokenizer.from_pretrained(model_id, revision=revision)
-        cohort[name] = dict(model=model_id, revision=revision)
     model_id = MODELS[args.model]
-    revision = cohort[args.model]['revision']
-    tokenizer = tokenizers[args.model]
+    max_length = args.max_length
+    tokenizer, revision = load_tokenizer(args.model, args.revision, max_length)
     retained, counts = [], Counter(total_pairs=len(records))
     for i, pair in enumerate(tqdm(records, desc='Checking complete functions')):
         if any(not r['code'].strip() for r in pair):
             counts['empty'] += 1
         elif pair[0]['code'].strip() == pair[1]['code'].strip():
             counts['identical'] += 1
-        elif not fits_cohort(pair, tokenizers.values(), max_length):
+        elif any(len(tokenizer(r['code'], truncation=False, verbose=False)['input_ids']) > max_length for r in pair):
             counts['overlength'] += 1
         else:
             retained.append(i)
-    print('Common-cohort filtering:', dict(counts, retained=len(retained)), flush=True)
+    print('Pair filtering:', dict(counts, retained=len(retained)), flush=True)
     splits = split_pairs(records, retained, seed=args.seed)
     print('Splits:', {k: len(v) for k, v in splits.items()}, flush=True)
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    model = AutoModel.from_pretrained(model_id, revision=revision,
-                                     attn_implementation='sdpa').to(device).eval()
+    model = load_encoder(device, args.model, revision, max_length)
     features = {p: {} for p in POOLINGS}
     with torch.inference_mode():
         for i in tqdm(retained, desc='Extracting frozen function representations'):
@@ -214,7 +186,6 @@ def main():
     scores = probe.decision_function(test.reshape(-1, test.shape[-1])).reshape(-1, 2)
     groups = connected_groups(records, splits['test'])
     report = dict(model=model_id, revision=revision, seed=args.seed, max_length=max_length,
-                  cohort_models=cohort,
                   sources=sources, cwe_filter=args.cwe, filtering=dict(counts, retained=len(retained)),
                   label_policy='before=1, after=0; not verified vulnerable/safe labels',
                   selection='validation AUROC; ties: cls, mean, last then smaller C; no train+validation refit',

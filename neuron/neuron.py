@@ -1,4 +1,4 @@
-from core.model_config import MODEL_ID, MAX_LENGTH, load_encoder
+from core.model_config import MODELS, MAX_LENGTH, load_encoder, load_tokenizer
 import os
 import argparse
 import json
@@ -6,7 +6,6 @@ import torch
 import difflib
 import numpy as np
 from tqdm import tqdm
-from transformers import AutoTokenizer
 
 from core.hook_utils import ActivationExtractor
 from core.mapper import (get_line_level_activations, prepare_code_input,
@@ -230,6 +229,7 @@ def extract_all_layers(vul_data, ben_data, tokenizer, model, layers_to_probe,
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument('--model', choices=MODELS, default='modernbert')
     parser.add_argument('--context-lines', type=int, default=1,
                         help='Matched context lines on each side of a diff hunk (default: 1)')
     parser.add_argument('--split-seed', type=int, default=42)
@@ -241,8 +241,8 @@ def main():
     if args.context_lines < 0:
         parser.error('--context-lines must be nonnegative')
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print("Loading ModernBERT tokenizer...")
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
+    print(f"Loading {args.model} tokenizer...")
+    tokenizer, revision = load_tokenizer(args.model)
 
 
 
@@ -275,8 +275,8 @@ def main():
     splits = split_pairs(records, eligible, seed=args.split_seed)
     print("CVE/exact-code grouped splits: " + json.dumps({k: len(v) for k, v in splits.items()}))
     print("Localization labels: vulnerable changed/deleted lines (proxy, not verified vulnerability lines).")
-    print(f"Loading ModernBERT model on {device}...")
-    model = load_encoder(device)
+    print(f"Loading {args.model} model on {device}...")
+    model = load_encoder(device, args.model, revision)
     model.eval()
     layers_to_probe = list(range(model.config.num_hidden_layers))
 
@@ -323,8 +323,8 @@ def main():
 
     # Generate the comprehensive plot
     print("Generating training-only diagnostic plots for all probed layers...")
-    plot_all_layers(layer_directions)
-    plot_all_layers_pca(layer_directions)
+    plot_all_layers(layer_directions, output_path=f"multi_layer_projection_{args.model}.png")
+    plot_all_layers_pca(layer_directions, output_path=f"multi_layer_pca_{args.model}.png")
 
     validation = evaluate_localization(
         records, splits['validation'], tokenizer, model, extractors,
@@ -335,7 +335,7 @@ def main():
         records, splits['test'], tokenizer, model, extractors,
         {selected_layer: layer_directions[selected_layer]}, description='Test')
     report = {
-        'model': MODEL_ID, 'max_length': MAX_LENGTH,
+        'model': MODELS[args.model], 'max_length': MAX_LENGTH,
         'model_revision': getattr(model.config, '_commit_hash', None),
         'split_seed': args.split_seed, 'context_lines': args.context_lines,
         'split_policy': '70/15/15 by CVE/exact-code connected groups',
@@ -347,7 +347,7 @@ def main():
         'retained_train_indices': [splits['train'][i] for i in retained_indices],
         'selected_layer': selected_layer, 'validation': validation, 'test': test_report,
     }
-    report_path = os.path.join(base_dir, 'evaluation_report_modernbert.json')
+    report_path = os.path.join(base_dir, f'evaluation_report_{args.model}.json')
     with open(report_path, 'w') as stream:
         json.dump(report, stream, indent=2)
     print(f"Saved evaluation report to {report_path}")
