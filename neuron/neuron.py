@@ -1,3 +1,4 @@
+from core.run_output import create_run
 from core.model_config import MODELS, MAX_LENGTH, load_encoder, load_tokenizer
 import os
 import argparse
@@ -229,6 +230,7 @@ def extract_all_layers(vul_data, ben_data, tokenizer, model, layers_to_probe,
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument('--output-dir', help='Parent of timestamped run directories (default: outputs/)')
     parser.add_argument('--model', choices=MODELS, default='modernbert')
     parser.add_argument('--context-lines', type=int, default=1,
                         help='Matched context lines on each side of a diff hunk (default: 1)')
@@ -240,6 +242,7 @@ def main():
     args = parser.parse_args()
     if args.context_lines < 0:
         parser.error('--context-lines must be nonnegative')
+    run_dir, run_metadata = create_run(__file__, args.model, args, args.output_dir)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Loading {args.model} tokenizer...")
     tokenizer, revision = load_tokenizer(args.model)
@@ -323,8 +326,8 @@ def main():
 
     # Generate the comprehensive plot
     print("Generating training-only diagnostic plots for all probed layers...")
-    plot_all_layers(layer_directions, output_path=f"multi_layer_projection_{args.model}.png")
-    plot_all_layers_pca(layer_directions, output_path=f"multi_layer_pca_{args.model}.png")
+    plot_all_layers(layer_directions, output_path=run_dir / "projection.png")
+    plot_all_layers_pca(layer_directions, output_path=run_dir / "pca.png")
 
     validation = evaluate_localization(
         records, splits['validation'], tokenizer, model, extractors,
@@ -335,6 +338,7 @@ def main():
         records, splits['test'], tokenizer, model, extractors,
         {selected_layer: layer_directions[selected_layer]}, description='Test')
     report = {
+        'run': run_metadata,
         'model': MODELS[args.model], 'max_length': MAX_LENGTH,
         'model_revision': getattr(model.config, '_commit_hash', None),
         'split_seed': args.split_seed, 'context_lines': args.context_lines,
@@ -347,7 +351,7 @@ def main():
         'retained_train_indices': [splits['train'][i] for i in retained_indices],
         'selected_layer': selected_layer, 'validation': validation, 'test': test_report,
     }
-    report_path = os.path.join(base_dir, f'evaluation_report_{args.model}.json')
+    report_path = run_dir / 'report.json'
     with open(report_path, 'w') as stream:
         json.dump(report, stream, indent=2)
     print(f"Saved evaluation report to {report_path}")

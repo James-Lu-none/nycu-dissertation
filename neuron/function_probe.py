@@ -1,4 +1,5 @@
 """Frozen encoder function-level linear probe: before vs after, not verified safety."""
+from core.run_output import create_run
 import argparse
 from collections import Counter
 import hashlib
@@ -115,7 +116,8 @@ def main():
     cli = argparse.ArgumentParser(description=__doc__)
     cli.add_argument('--dataset', type=Path, nargs='+', default=[Path(__file__).resolve().parent/'dataset/source'])
     cli.add_argument('--cwe', nargs='+')
-    cli.add_argument('--output', type=Path, default=Path('function_probe_report.json'))
+    cli.add_argument('--output', type=Path, default=None, help='Optional explicit report path; otherwise saved in the run directory')
+    cli.add_argument('--output-dir', type=Path, help='Parent of timestamped run directories (default: outputs/)')
     cli.add_argument('--seed', type=int, default=42)
     cli.add_argument('--model', choices=MODELS, default='modernbert')
     cli.add_argument('--max-length', type=int, default=MAX_LENGTH,
@@ -124,10 +126,12 @@ def main():
     cli.add_argument('--c-values', type=float, nargs='+', default=[.01, .1, 1., 10.])
     cli.add_argument('--bootstrap', type=int, default=1000)
     args = cli.parse_args()
-    if args.output.exists():
+    if args.output is not None and args.output.exists():
         cli.error('Output exists; choose a new --output')
     if args.bootstrap < 0 or any(not np.isfinite(c) or c <= 0 for c in args.c_values):
         cli.error('C values must be finite positive numbers; bootstrap must be nonnegative')
+    run_dir, run_metadata = create_run(__file__, args.model, args, args.output_dir)
+    output_path = args.output or run_dir / 'report.json'
     from sklearn.pipeline import make_pipeline
     from sklearn.preprocessing import StandardScaler
     from sklearn.linear_model import LogisticRegression
@@ -185,7 +189,7 @@ def main():
     test = np.stack([features[selected['pooling']][i] for i in splits['test']])
     scores = probe.decision_function(test.reshape(-1, test.shape[-1])).reshape(-1, 2)
     groups = connected_groups(records, splits['test'])
-    report = dict(model=model_id, revision=revision, seed=args.seed, max_length=max_length,
+    report = dict(run=run_metadata, model=model_id, revision=revision, seed=args.seed, max_length=max_length,
                   sources=sources, cwe_filter=args.cwe, filtering=dict(counts, retained=len(retained)),
                   label_policy='before=1, after=0; not verified vulnerable/safe labels',
                   selection='validation AUROC; ties: cls, mean, last then smaller C; no train+validation refit',
@@ -197,11 +201,11 @@ def main():
                                               source_line=records[i][0]['source_line'],
                                               before_score=float(s[0]), after_score=float(s[1]))
                                          for i, s in zip(splits['test'], scores)]))
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    with args.output.open('x') as stream:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open('x') as stream:
         json.dump(report, stream, indent=2)
     print('Test:', report['test']['metrics'])
-    print('Saved:', args.output)
+    print('Saved:', output_path)
 
 
 if __name__ == '__main__':
