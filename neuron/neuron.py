@@ -1,3 +1,4 @@
+from core.direction_consistency import direction_consistency, plot_consistency
 from core.linear_directions import fit_linear_candidates
 from core.run_output import create_run
 from core.model_config import MODELS, MAX_LENGTH, load_encoder, load_tokenizer
@@ -297,6 +298,7 @@ def main():
 
     print("Calculating vulnerability directions (d_v) for all layers...")
     layer_directions = {}
+    consistency = {'selected_neurons': {}, 'all_neurons': {}}
     all_neuron_directions = {}
     linear_candidates = {'shrinkage_lda': {}, 'logistic': {}}
     
@@ -312,6 +314,7 @@ def main():
                                for a in summaries['vulnerable']['line_mean'][l]])
         ben_reps = torch.stack([compute_line_representation(a, target_neurons, down_proj)
                                for a in summaries['patched']['line_mean'][l]])
+        consistency['selected_neurons'][l] = direction_consistency(vul_reps, ben_reps)
         d_v = compute_pairwise_vulnerability_direction(vul_reps, ben_reps)
         if torch.norm(d_v) > 0:
             d_v = d_v / torch.norm(d_v)
@@ -334,6 +337,7 @@ def main():
                              for a in summaries['vulnerable']['line_mean'][l]])
         all_p = torch.stack([compute_line_representation(a, all_neurons, down_proj)
                              for a in summaries['patched']['line_mean'][l]])
+        consistency['all_neurons'][l] = direction_consistency(all_v, all_p)
         all_direction = compute_pairwise_vulnerability_direction(all_v, all_p)
         if torch.norm(all_direction) > 0:
             all_direction = all_direction / torch.norm(all_direction)
@@ -344,6 +348,14 @@ def main():
             candidates[len(candidates)] = dict(layer=l, parameter=parameter,
                 target_neurons=all_neurons, down_proj=down_proj, d_v=weight, bias=bias)
         print(f"Layer {l:2d} | |N_r,l| = {len(target_neurons)}")
+
+    consistency_report = dict(
+        scope='train only; selected neurons were also selected on train',
+        pair_indices=[splits['train'][i] for i in retained_indices],
+        layers=consistency)
+    with (run_dir / 'direction_consistency.json').open('w') as stream:
+        json.dump(consistency_report, stream, indent=2, allow_nan=False)
+    plot_consistency(consistency, run_dir / 'direction_consistency.png')
 
     # Generate the comprehensive plot
     print("Generating training-only diagnostic plots for all probed layers...")
@@ -380,6 +392,7 @@ def main():
             selection='validation line MRR; ties: lower layer then smaller parameter; train only fit',
             validation=val, test=test)
     report = {
+        'direction_consistency_file': 'direction_consistency.json',
         'linear_methods': linear_reports,
         'baselines': {'all_neurons': {'selected_layer': all_layer,
                       'validation': all_validation, 'test': all_test},
