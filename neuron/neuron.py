@@ -1,3 +1,4 @@
+from core.linear_directions import fit_linear_candidates
 from core.run_output import create_run
 from core.model_config import MODELS, MAX_LENGTH, load_encoder, load_tokenizer
 import os
@@ -230,6 +231,8 @@ def extract_all_layers(vul_data, ben_data, tokenizer, model, layers_to_probe,
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument('--lda-shrinkages', type=float, nargs='+', default=[0.1, 0.5, 1.0])
+    parser.add_argument('--logistic-c-values', type=float, nargs='+', default=[0.01, 0.1, 1.0, 10.0])
     parser.add_argument('--output-dir', help='Parent of timestamped run directories (default: outputs/)')
     parser.add_argument('--model', choices=MODELS, default='modernbert')
     parser.add_argument('--context-lines', type=int, default=1,
@@ -240,6 +243,8 @@ def main():
     parser.add_argument('--cwe', type=str, nargs='+', default=None,
                         help='Optional CWE ID(s) to filter by (e.g. CWE-787).')
     args = parser.parse_args()
+    if any(not 0 < x <= 1 for x in args.lda_shrinkages) or any(not 0 < x < float('inf') for x in args.logistic_c_values):
+        parser.error('Shrinkage must be in (0, 1]; logistic C must be finite and positive')
     if args.context_lines < 0:
         parser.error('--context-lines must be nonnegative')
     run_dir, run_metadata = create_run(__file__, args.model, args, args.output_dir)
@@ -293,6 +298,7 @@ def main():
     print("Calculating vulnerability directions (d_v) for all layers...")
     layer_directions = {}
     all_neuron_directions = {}
+    linear_candidates = {'shrinkage_lda': {}, 'logistic': {}}
     
     for l in layers_to_probe:
         down_proj = extractors[l].get_down_projection_weights()
@@ -332,6 +338,11 @@ def main():
         if torch.norm(all_direction) > 0:
             all_direction = all_direction / torch.norm(all_direction)
         all_neuron_directions[l] = dict(target_neurons=all_neurons, down_proj=down_proj, d_v=all_direction)
+        for method, parameter, weight, bias in fit_linear_candidates(
+                all_v, all_p, args.lda_shrinkages, args.logistic_c_values, args.split_seed):
+            candidates = linear_candidates[method]
+            candidates[len(candidates)] = dict(layer=l, parameter=parameter,
+                target_neurons=all_neurons, down_proj=down_proj, d_v=weight, bias=bias)
         print(f"Layer {l:2d} | |N_r,l| = {len(target_neurons)}")
 
     # Generate the comprehensive plot
@@ -354,7 +365,22 @@ def main():
     all_test = evaluate_localization(
         records, splits['test'], tokenizer, model, extractors,
         {all_layer: all_neuron_directions[all_layer]}, description='All neurons test')
+    linear_reports = {}
+    for method, candidates in linear_candidates.items():
+        val = evaluate_localization(records, splits['validation'], tokenizer, model,
+            extractors, candidates, description=f'{method} validation candidates')
+        best = select_layer(val, candidates)
+        info = candidates[best]
+        test = evaluate_localization(records, splits['test'], tokenizer, model,
+            extractors, {best: info}, description=f'{method} test')
+        linear_reports[method] = dict(selected_candidate=best, selected_layer=info['layer'],
+            selected_parameter=info['parameter'],
+            parameter_name='shrinkage' if method == 'shrinkage_lda' else 'C',
+            candidates={k: dict(layer=v['layer'], parameter=v['parameter']) for k, v in candidates.items()},
+            selection='validation line MRR; ties: lower layer then smaller parameter; train only fit',
+            validation=val, test=test)
     report = {
+        'linear_methods': linear_reports,
         'baselines': {'all_neurons': {'selected_layer': all_layer,
                       'validation': all_validation, 'test': all_test},
                       'random': {'method': 'exact uniform random ranking expectation',

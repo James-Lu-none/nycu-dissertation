@@ -74,11 +74,12 @@ def evaluate_localization(records, indices, tokenizer, model, extractors,
                 ext.clear()
             model(**{k: v.to(model.device) for k, v in inputs.items()})
             for l, info in layer_directions.items():
-                acts = extractors[l].activation[0]
+                acts = extractors[info.get('layer', l)].activation[0]
                 line_acts = get_line_level_activations(acts, mapping, len(vulnerable.split('\n')))
                 neurons = info['target_neurons']
                 reps = line_acts[:, neurons] @ info['down_proj'][neurons]
-                scores = score_target_line(reps, info['d_v'])
+                scores = (reps @ info['d_v'] + info['bias'] if 'bias' in info
+                          else score_target_line(reps, info['d_v']))
                 if not torch.isfinite(scores).all():
                     raise ValueError(f'Nonfinite scores in {description}, pair {i}, layer {l}')
                 metrics = localization_metrics({q: scores[q].item() for q in valid_lines}, labels)
