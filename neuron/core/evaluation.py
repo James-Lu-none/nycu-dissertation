@@ -41,10 +41,26 @@ def random_ranking_metrics(n, positives):
     return dict(hit_at_1=positives / n, hit_at_5=hit5, mrr=mrr)
 
 
+def window_scores(scores, valid_lines, width):
+    """Physical source-line windows; even widths include one extra following line."""
+    result = scores.clone()
+    n = len(scores)
+    for q in valid_lines:
+        if width == 'all':
+            neighbors = sorted(valid_lines)
+        else:
+            w = int(width)
+            neighbors = [j for j in range(max(0, q - (w - 1)//2), min(n, q + w//2 + 1))
+                         if j in valid_lines]
+        result[q] = scores[neighbors].mean()
+    return result
+
+
 def evaluate_localization(records, indices, tokenizer, model, extractors,
                           layer_directions, description='Validation'):
     random_totals = dict(hit_at_1=0., hit_at_5=0., mrr=0.)
     per_pair = []
+    score_ranges = {k: {'min': None, 'max': None} for k in layer_directions}
     layers = list(layer_directions)
     totals = {l: dict(hit_at_1=0., hit_at_5=0., mrr=0.) for l in layers}
     counts = dict(total_pairs=len(indices), evaluated_pairs=0,
@@ -73,13 +89,28 @@ def evaluate_localization(records, indices, tokenizer, model, extractors,
             for ext in extractors.values():
                 ext.clear()
             model(**{k: v.to(model.device) for k, v in inputs.items()})
+            cached_reps = {}
             for l, info in layer_directions.items():
-                acts = extractors[info.get('layer', l)].activation[0]
-                line_acts = get_line_level_activations(acts, mapping, len(vulnerable.split('\n')))
-                neurons = info['target_neurons']
-                reps = line_acts[:, neurons] @ info['down_proj'][neurons]
-                scores = (reps @ info['d_v'] + info['bias'] if 'bias' in info
-                          else score_target_line(reps, info['d_v']))
+                cache_key = (info.get('layer', l), info.get('representation', 'all'))
+                if cache_key not in cached_reps:
+                    acts = extractors[info.get('layer', l)].activation[0]
+                    line_acts = get_line_level_activations(acts, mapping, len(vulnerable.split('\n')))
+                    neurons = info['target_neurons']
+                    cached_reps[cache_key] = line_acts[:, neurons] @ info['down_proj'][neurons]
+                reps = cached_reps[cache_key]
+                if 'estimator' in info:
+                    # Rank raw margins to avoid artificial ties when tanh saturates.
+                    scores = torch.from_numpy(info['estimator'].decision_function(reps.cpu().numpy()))
+                else:
+                    scores = (reps @ info['d_v'] + info['bias'] if 'bias' in info
+                              else score_target_line(reps, info['d_v']))
+                if 'window' in info:
+                    scores = window_scores(scores, valid_lines, info['window'])
+                if 'estimator' in info:
+                    bounded = torch.tanh(scores[sorted(valid_lines)])
+                    current = score_ranges[l]
+                    current['min'] = min(current['min'], bounded.min().item()) if current['min'] is not None else bounded.min().item()
+                    current['max'] = max(current['max'], bounded.max().item()) if current['max'] is not None else bounded.max().item()
                 if not torch.isfinite(scores).all():
                     raise ValueError(f'Nonfinite scores in {description}, pair {i}, layer {l}')
                 metrics = localization_metrics({q: scores[q].item() for q in valid_lines}, labels)
@@ -98,7 +129,7 @@ def evaluate_localization(records, indices, tokenizer, model, extractors,
                   f"Hit@5={values['hit_at_5']:.4f} | MRR={values['mrr']:.4f}")
         else:
             print(f'Layer {l:2d} | no evaluable labels')
-    return {'counts': counts, 'layers': metrics, 'per_pair': per_pair,
+    return {'counts': counts, 'layers': metrics, 'per_pair': per_pair, 'score_ranges': score_ranges,
             'random_baseline': {k: v / n if n else None for k, v in random_totals.items()}}
 
 
@@ -106,8 +137,8 @@ def select_layer(validation_report, layer_directions):
     if not validation_report['counts']['evaluated_pairs']:
         raise ValueError('Validation has no evaluable changed-line labels; cannot select a layer')
     usable = [l for l in validation_report['layers']
-              if torch.isfinite(layer_directions[l]['d_v']).all()
-              and torch.norm(layer_directions[l]['d_v']) > 0]
+              if 'estimator' in layer_directions[l] or (torch.isfinite(layer_directions[l]['d_v']).all()
+              and torch.norm(layer_directions[l]['d_v']) > 0)]
     if not usable:
         raise ValueError('No finite nonzero vulnerability direction is available')
     # Primary metric: MRR. Exact ties use the lower layer index, not test results.

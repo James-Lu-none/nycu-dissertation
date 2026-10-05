@@ -1,3 +1,5 @@
+from core.nonlinear import fit_rbf, plot_delta_clusters
+from core.experiment_report import uncertainty, write_csv
 from core.direction_consistency import direction_consistency, plot_consistency
 from core.linear_directions import fit_linear_candidates
 from core.run_output import create_run
@@ -232,6 +234,9 @@ def extract_all_layers(vul_data, ben_data, tokenizer, model, layers_to_probe,
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument('--svm-c-values', type=float, nargs='+', default=[0.1, 1., 10.])
+    parser.add_argument('--svm-gammas', type=float, nargs='+', default=[0.0001, 0.001, 0.01])
+    parser.add_argument('--bootstrap', type=int, default=1000)
     parser.add_argument('--lda-shrinkages', type=float, nargs='+', default=[0.1, 0.5, 1.0])
     parser.add_argument('--logistic-c-values', type=float, nargs='+', default=[0.01, 0.1, 1.0, 10.0])
     parser.add_argument('--output-dir', help='Parent of timestamped run directories (default: outputs/)')
@@ -246,6 +251,8 @@ def main():
     args = parser.parse_args()
     if any(not 0 < x <= 1 for x in args.lda_shrinkages) or any(not 0 < x < float('inf') for x in args.logistic_c_values):
         parser.error('Shrinkage must be in (0, 1]; logistic C must be finite and positive')
+    if args.bootstrap < 0 or any(not 0 < v < float('inf') for v in args.svm_c_values + args.svm_gammas):
+        parser.error('Invalid bootstrap count or SVM parameters')
     if args.context_lines < 0:
         parser.error('--context-lines must be nonnegative')
     run_dir, run_metadata = create_run(__file__, args.model, args, args.output_dir)
@@ -300,7 +307,8 @@ def main():
     layer_directions = {}
     consistency = {'selected_neurons': {}, 'all_neurons': {}}
     all_neuron_directions = {}
-    linear_candidates = {'shrinkage_lda': {}, 'logistic': {}}
+    linear_candidates = {'shrinkage_lda': {}, 'logistic': {}, 'rbf_svm': {}}
+    train_deltas = {}
     
     for l in layers_to_probe:
         down_proj = extractors[l].get_down_projection_weights()
@@ -342,6 +350,11 @@ def main():
         if torch.norm(all_direction) > 0:
             all_direction = all_direction / torch.norm(all_direction)
         all_neuron_directions[l] = dict(target_neurons=all_neurons, down_proj=down_proj, d_v=all_direction)
+        train_deltas[l] = all_v - all_p
+        for parameter, estimator in fit_rbf(all_v, all_p, args.svm_c_values, args.svm_gammas):
+            candidates = linear_candidates['rbf_svm']
+            candidates[len(candidates)] = dict(layer=l, parameter=parameter, estimator=estimator,
+                target_neurons=all_neurons, down_proj=down_proj)
         for method, parameter, weight, bias in fit_linear_candidates(
                 all_v, all_p, args.lda_shrinkages, args.logistic_c_values, args.split_seed):
             candidates = linear_candidates[method]
@@ -349,72 +362,73 @@ def main():
                 target_neurons=all_neurons, down_proj=down_proj, d_v=weight, bias=bias)
         print(f"Layer {l:2d} | |N_r,l| = {len(target_neurons)}")
 
-    consistency_report = dict(
-        scope='train only; selected neurons were also selected on train',
-        pair_indices=[splits['train'][i] for i in retained_indices],
-        layers=consistency)
-    with (run_dir / 'direction_consistency.json').open('w') as stream:
-        json.dump(consistency_report, stream, indent=2, allow_nan=False)
+    # Keep aggregates, not per-pair arrays, in persisted diagnostics.
     plot_consistency(consistency, run_dir / 'direction_consistency.png')
+    for layers in consistency.values():
+        for values in layers.values():
+            values.pop('delta_norms', None)
+            for key in ('cosine_to_mean', 'cosine_to_leave_one_out_mean'):
+                values[key].pop('cosines', None)
+    with (run_dir / 'direction_consistency.json').open('w') as stream:
+        json.dump(dict(scope='train only', layers=consistency), stream, indent=2, allow_nan=False)
+    plot_delta_clusters(train_deltas, run_dir / 'delta_clusters.png', args.split_seed)
 
     # Generate the comprehensive plot
     print("Generating training-only diagnostic plots for all probed layers...")
     plot_all_layers(layer_directions, output_path=run_dir / "projection.png")
     plot_all_layers_pca(layer_directions, output_path=run_dir / "pca.png")
 
-    validation = evaluate_localization(
-        records, splits['validation'], tokenizer, model, extractors,
-        layer_directions, description='Validation')
-    selected_layer = select_layer(validation, layer_directions)
-    print(f"Selected layer {selected_layer} by validation MRR (lower layer index breaks ties).")
-    test_report = evaluate_localization(
-        records, splits['test'], tokenizer, model, extractors,
-        {selected_layer: layer_directions[selected_layer]}, description='Test')
-    all_validation = evaluate_localization(
-        records, splits['validation'], tokenizer, model, extractors,
-        all_neuron_directions, description='All neurons validation')
-    all_layer = select_layer(all_validation, all_neuron_directions)
-    all_test = evaluate_localization(
-        records, splits['test'], tokenizer, model, extractors,
-        {all_layer: all_neuron_directions[all_layer]}, description='All neurons test')
-    linear_reports = {}
-    for method, candidates in linear_candidates.items():
+    methods = {'B': all_neuron_directions, 'C': linear_candidates['shrinkage_lda'],
+               'D': linear_candidates['logistic'], 'E': linear_candidates['rbf_svm']}
+    for width in (1, 2, 4, 8, 16, 'all'):
+        methods[f'A_window_{width}'] = {l: dict(info, layer=l, representation='selected',
+            window=width, parameter={'window': width}) for l, info in layer_directions.items()}
+    csv_rows, selected_methods = [], {}
+    counts_report = {}
+    for method, candidates in methods.items():
         val = evaluate_localization(records, splits['validation'], tokenizer, model,
-            extractors, candidates, description=f'{method} validation candidates')
+            extractors, candidates, description=f'{method} validation')
         best = select_layer(val, candidates)
-        info = candidates[best]
+        # Tune parameters separately within each layer, using validation only.
+        by_layer = {}
+        for key, info in candidates.items():
+            layer = info.get('layer', key)
+            if layer not in by_layer or val['layers'][key]['mrr'] > val['layers'][by_layer[layer]]['mrr']:
+                by_layer[layer] = key
+        chosen = {key: candidates[key] for key in by_layer.values()}
         test = evaluate_localization(records, splits['test'], tokenizer, model,
-            extractors, {best: info}, description=f'{method} test')
-        linear_reports[method] = dict(selected_candidate=best, selected_layer=info['layer'],
-            selected_parameter=info['parameter'],
-            parameter_name='shrinkage' if method == 'shrinkage_lda' else 'C',
-            candidates={k: dict(layer=v['layer'], parameter=v['parameter']) for k, v in candidates.items()},
-            selection='validation line MRR; ties: lower layer then smaller parameter; train only fit',
-            validation=val, test=test)
-    report = {
-        'direction_consistency_file': 'direction_consistency.json',
-        'linear_methods': linear_reports,
-        'baselines': {'all_neurons': {'selected_layer': all_layer,
-                      'validation': all_validation, 'test': all_test},
-                      'random': {'method': 'exact uniform random ranking expectation',
-                                 'test': test_report['random_baseline']}},
-        'run': run_metadata,
-        'model': MODELS[args.model], 'max_length': MAX_LENGTH,
-        'model_revision': getattr(model.config, '_commit_hash', None),
-        'split_seed': args.split_seed, 'context_lines': args.context_lines,
-        'split_policy': '70/15/15 by CVE/exact-code connected groups',
-        'label_policy': 'vulnerable changed/deleted lines; proxy labels',
-        'ranking_ties': 'nonpositive lines before positive lines',
-        'selection_metric': 'validation MRR; ties use lower layer index',
-        'splits': splits,
-        'train_filtering': stats,
-        'retained_train_indices': [splits['train'][i] for i in retained_indices],
-        'selected_layer': selected_layer, 'validation': validation, 'test': test_report,
-    }
-    report_path = run_dir / 'report.json'
-    with open(report_path, 'w') as stream:
+            extractors, chosen, description=f'{method} test by layer')
+        if method == 'E':
+            selected_svm = candidates[best]
+        selected_methods[method] = dict(layer=candidates[best].get('layer', best),
+            parameter=candidates[best].get('parameter'), test=test['layers'][best])
+        counts_report[method] = {'validation': val['counts'], 'test': test['counts']}
+        for key, info in chosen.items():
+            row = dict(method=method, layer=info.get('layer', key),
+                parameter=json.dumps(info.get('parameter', {}), sort_keys=True),
+                selected_by_validation=key == best,
+                validation_pairs=val['counts']['evaluated_pairs'], test_pairs=test['counts']['evaluated_pairs'],
+                **{'validation_'+k: v for k, v in val['layers'][key].items()},
+                **{'test_'+k: v for k, v in test['layers'][key].items()},
+                **{'random_'+k: v for k, v in test['random_baseline'].items()})
+            row.update(uncertainty(test['per_pair'], key, records, args.bootstrap, args.split_seed))
+            if method == 'E':
+                row['score_transform'] = 'tanh(decision_function); ranking uses raw margin to avoid saturation ties'
+                row['bounded_score_min'] = test['score_ranges'][key]['min']
+                row['bounded_score_max'] = test['score_ranges'][key]['max']
+            csv_rows.append(row)
+        if method == 'A_window_1':
+            selected_layer = candidates[best].get('layer', best)
+    write_csv(run_dir / 'report.csv', csv_rows)
+    report = dict(model=MODELS[args.model], model_revision=revision,
+        split_sizes={k: len(v) for k, v in splits.items()}, train_filtering=stats,
+        selected_methods=selected_methods, counts=counts_report,
+        results_file='report.csv', label_policy='changed/deleted lines: proxy labels',
+        significance='group bootstrap 95% MRR CI; two-sided group sign-flip vs random expectation; Holm within run',
+        selection='validation MRR only; per-layer parameter selection; lower layer then smaller grid parameter on ties')
+    with (run_dir / 'report.json').open('w') as stream:
         json.dump(report, stream, indent=2)
-    print(f"Saved evaluation report to {report_path}")
+    print(f'Saved aggregate results to {run_dir / "report.csv"}')
 
     # Show every layer on a held-out test example; do not combine raw scores.
     test_idx = splits['test'][0]
@@ -437,7 +451,7 @@ def main():
         print(f"Testing Inference on: {label}")
         print("-" * 100)
         print("Line | Attention | " + " | ".join(f"L{l}" for l in layers_to_probe)
-              + f" | Selected L{selected_layer} | Code")
+              + f" | Selected L{selected_layer} | E tanh(margin) | Code")
         print("-" * 100)
         
         inputs, token_to_line, valid_lines, _ = prepare_code_input(
@@ -458,6 +472,8 @@ def main():
                 token_to_line, num_lines)
             for l in layers_to_probe
         }
+        svm_reps = line_acts_by_layer[selected_svm['layer']] @ selected_svm['down_proj']
+        svm_scores = np.tanh(selected_svm['estimator'].decision_function(svm_reps.cpu().numpy()))
         # Attention baseline uses the same truncation and validity policy.
         a_scores = calculate_line_attention_scores(code_snippet, model, tokenizer)
         finite_scores = a_scores[torch.isfinite(a_scores)]
@@ -487,7 +503,7 @@ def main():
                 
             scores_text = " | ".join(f"{value:7.4f}" for value in layer_scores)
             print(f"Line {q+1:2d} | {a_score:7.4f} | {scores_text} | "
-                  f"{selected_score:7.4f} | {code_line}")
+                  f"{selected_score:7.4f} | {svm_scores[q]:7.4f} | {code_line}")
         print("="*100)
     for ext in extractors.values():
         ext.remove_hooks()

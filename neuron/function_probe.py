@@ -193,14 +193,20 @@ def main():
                   sources=sources, cwe_filter=args.cwe, filtering=dict(counts, retained=len(retained)),
                   label_policy='before=1, after=0; not verified vulnerable/safe labels',
                   selection='validation AUROC; ties: cls, mean, last then smaller C; no train+validation refit',
-                  splits=splits, validation=validation, selected=selected,
+                  split_sizes={k: len(v) for k, v in splits.items()}, selected=selected,
                   test=dict(metrics=metrics(scores), groups=len(groups),
-                            bootstrap_95_ci=confidence_intervals(scores, groups, args.bootstrap, args.seed),
-                            predictions=[dict(index=i, pair_id=records[i][0]['id'],
-                                              source_file=records[i][0]['source_file'],
-                                              source_line=records[i][0]['source_line'],
-                                              before_score=float(s[0]), after_score=float(s[1]))
-                                         for i, s in zip(splits['test'], scores)]))
+                            bootstrap_95_ci=confidence_intervals(scores, groups, args.bootstrap, args.seed)))
+    import csv
+    row = dict(model=model_id, pooling=selected['pooling'], C=selected['C'],
+               **{'validation_'+k: v for k, v in selected.items() if k not in ('pooling', 'C')},
+               **{'test_'+k: v for k, v in report['test']['metrics'].items()},
+               test_pairs=len(splits['test']), test_groups=len(groups))
+    for metric, interval in (report['test']['bootstrap_95_ci'] or {}).items():
+        row[metric+'_ci_low'], row[metric+'_ci_high'] = interval
+    with (run_dir / 'report.csv').open('w', newline='') as stream:
+        writer = csv.DictWriter(stream, fieldnames=list(row))
+        writer.writeheader()
+        writer.writerow(row)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with output_path.open('x') as stream:
         json.dump(report, stream, indent=2)
