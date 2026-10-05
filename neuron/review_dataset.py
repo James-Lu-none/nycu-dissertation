@@ -15,6 +15,7 @@ import sys
 
 from core.model_config import MODEL_ID, MAX_LENGTH
 from core.run_output import create_run
+from core.review_cache import find_completed, reuse_completed, file_hash
 
 MODEL = 'Qwen/Qwen3-Coder-30B-A3B-Instruct'
 VERSION = 'pair-audit-v6.1-concise'
@@ -434,6 +435,8 @@ def main():
     cli.add_argument('--patched', help='Paired patched JSONL with id/code')
     cli.add_argument('--output', help='Append-only audit JSONL; same config resumes automatically')
     cli.add_argument('--output-dir', help='Parent directory for a new timestamped run')
+    cli.add_argument('--reuse-from', help='Search this directory for identical completed reviews')
+    cli.add_argument('--force-review', action='store_true', help='Bypass completed-review reuse')
     cli.add_argument('--resume-dir', help='Resume an existing review run directory')
     cli.add_argument('--model', default=MODEL)
     cli.add_argument('--backend', choices=['vllm', 'transformers'], default='vllm')
@@ -450,7 +453,17 @@ def main():
     cli.add_argument('--limit', type=int, default=0, help='First N pairs; 0 means all')
     cli.add_argument('--checks-only', action='store_true', help='No reviewer model; passing checks means review, never keep')
     args = cli.parse_args()
-    if bool(args.input) == bool(args.vulnerable or args.patched) or (not args.input and not(args.vulnerable and args.patched)):
+    default_mode = not (args.input or args.vulnerable or args.patched)
+    review_dir = Path(__file__).resolve().parent / 'dataset/review'
+    if default_mode:
+        if args.output or args.output_dir or args.resume_dir or args.reuse_from:
+            cli.error('Default dataset review uses dataset/review; omit output/resume/reuse options')
+        if args.limit or args.checks_only:
+            cli.error('Use --input for partial/checks-only runs; default output must be a full review')
+        if not args.force_review and all((review_dir / name).is_file() for name in ('report.json', 'dataset.jsonl')):
+            print(f'Reusing existing reviewed dataset: {review_dir / "dataset.jsonl"}', flush=True)
+            return
+    if not default_mode and (bool(args.input) == bool(args.vulnerable or args.patched) or (not args.input and not(args.vulnerable and args.patched))):
         cli.error('Use either --input or both --vulnerable and --patched')
     if args.limit < 0 or min(args.max_input_tokens, args.max_new_tokens, args.encoder_limit, args.batch_size, args.tensor_parallel_size) <= 0:
         cli.error('Limits must be positive (or --limit 0 for all)')
@@ -458,13 +471,34 @@ def main():
         cli.error('--gpu-memory-utilization must be between 0 and 1')
     if args.encoder_limit > MAX_LENGTH:
         cli.error(f'--encoder-limit cannot exceed {MAX_LENGTH}')
-    pairs = load_pairs(args)
+    if args.reuse_from and (args.output or args.resume_dir):
+        cli.error('--reuse-from requires a new run directory, not --output or --resume-dir')
+    if default_mode:
+        from argparse import Namespace
+        sources = sorted((Path(__file__).resolve().parent / 'dataset/source').glob('*.jsonl'))
+        if not sources:
+            cli.error('No source JSONL files found in dataset/source')
+        pairs = []
+        for source in sources:
+            loaded = load_pairs(Namespace(input=str(source)))
+            for index, pair in enumerate(loaded):
+                pair['metadata']['review_source'] = {'path': str(source), 'row_index': index}
+            pairs.extend(loaded)
+        print(f'Reviewing {len(pairs)} pairs from {len(sources)} source files', flush=True)
+    else:
+        pairs = load_pairs(args)
     if args.output and (args.output_dir or args.resume_dir):
         cli.error('--output cannot be combined with --output-dir or --resume-dir')
     if args.resume_dir and args.output_dir:
         cli.error('--resume-dir cannot be combined with --output-dir')
     run_metadata = None
-    if args.resume_dir:
+    if default_mode:
+        import tempfile
+        review_dir.mkdir(parents=True, exist_ok=True)
+        run_dir = Path(tempfile.mkdtemp(prefix='.pending_', dir=review_dir))
+        run_metadata = {'arguments': vars(args), 'output_directory': str(review_dir),
+                        'started_at': datetime.now(timezone.utc).isoformat()}
+    elif args.resume_dir:
         run_dir = Path(args.resume_dir)
         run_metadata = json.loads((run_dir / 'run.json').read_text())
         if not (run_dir / 'audit.jsonl').exists():
@@ -472,19 +506,29 @@ def main():
     elif not args.output:
         run_dir, run_metadata = create_run(__file__, args.model.replace('/', '_'), args, args.output_dir)
     path = Path(args.output) if args.output else run_dir / 'audit.jsonl' 
-    sources = [Path(x).resolve() for x in (args.input, args.vulnerable, args.patched) if x]
+    if not default_mode:
+        sources = [Path(x).resolve() for x in (args.input, args.vulnerable, args.patched) if x]
     analysis_path = Path(args.analysis_log or str(path) + '.analysis.log')
     runtime_path = Path(args.runtime_log or str(path) + '.runtime.log')
     outputs = [p.resolve() for p in (path, analysis_path, runtime_path)]
     if len(set(outputs)) != 3 or any(p in sources for p in outputs):
         cli.error('Output and logs must be distinct and must not overwrite inputs')
     parser = make_parser()
-    config = {k: v for k, v in vars(args).items() if k not in ('limit', 'output', 'input', 'vulnerable', 'patched', 'analysis_log', 'runtime_log', 'output_dir', 'resume_dir')}
+    config = {k: v for k, v in vars(args).items() if k not in ('limit', 'output', 'input', 'vulnerable', 'patched', 'analysis_log', 'runtime_log', 'output_dir', 'resume_dir', 'reuse_from', 'force_review')}
     config.update(encoder_model=MODEL_ID, prompt_version=VERSION, prompt_hash=digest(PROMPT),
                   script_hash=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                   c_parser_available=parser is not None,
                   syntax_parsers=sorted(parser) if isinstance(parser, dict) else [])
     run_id = digest({'config': config, 'dataset': pairs})
+    if args.reuse_from and not args.force_review and not args.limit:
+        cached = find_completed(args.reuse_from, run_id, len(pairs))
+        if cached:
+            directory, summary = cached
+            reuse_completed(directory, summary, run_dir, run_metadata)
+            print(f'Reusing completed review: {directory}', flush=True)
+            print(f'Kept pairs: {run_dir / "kept.jsonl"}', flush=True)
+            return
+        print('No matching completed review; starting a new review.', flush=True)
     done, counts = {}, Counter()
     if path.exists():
         for line in path.read_text().splitlines():
@@ -611,8 +655,22 @@ def main():
                     'metadata': metadata,
                     'audit': {'run_id': run_id, 'pair_index': i, 'decision': 'keep'}}, ensure_ascii=False) + '\n')
         temporary.replace(kept_path)
+        summary['artifact_hashes'] = {name: file_hash(run_dir / name) for name in ('kept.jsonl', 'audit.jsonl')}
         (run_dir / 'report.json').write_text(json.dumps(summary, indent=2), encoding='utf-8')
-        print(f'Kept pairs: {kept_path}', flush=True)
+        if default_mode:
+            # Publish the completion marker last. Failed runs leave only .pending_* diagnostics.
+            (review_dir / 'report.json').unlink(missing_ok=True)
+            kept_path.replace(review_dir / 'dataset.jsonl')
+            for name in ('audit.jsonl', 'audit.jsonl.analysis.log', 'audit.jsonl.runtime.log'):
+                if (run_dir / name).exists():
+                    (run_dir / name).replace(review_dir / name)
+            summary['artifact_hashes']['dataset.jsonl'] = summary['artifact_hashes'].pop('kept.jsonl')
+            (run_dir / 'report.json').write_text(json.dumps(summary, indent=2), encoding='utf-8')
+            (run_dir / 'report.json').replace(review_dir / 'report.json')
+            run_dir.rmdir()
+            print(f'Reviewed dataset: {review_dir / "dataset.jsonl"}', flush=True)
+        else:
+            print(f'Kept pairs: {kept_path}', flush=True)
     print(json.dumps({'total_pairs': len(pairs), 'audited': len(done), 'decisions': dict(counts)}, indent=2))
 
 
