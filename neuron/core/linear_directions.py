@@ -6,7 +6,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
 
 
-def fit_linear_candidates(vulnerable, patched, shrinkages, c_values, seed=42):
+def fit_linear_candidates(vulnerable, patched, shrinkages, c_values, seed=42, verbose=True):
     v = vulnerable.detach().cpu().double().numpy()
     p = patched.detach().cpu().double().numpy()
     x = np.concatenate([v, p])
@@ -14,25 +14,26 @@ def fit_linear_candidates(vulnerable, patched, shrinkages, c_values, seed=42):
     if not np.isfinite(x).all():
         raise ValueError('Nonfinite training representations')
     candidates = []
-    # Pooled within-class covariance (MLE), not covariance of pair differences.
-    residuals = np.concatenate([v - v.mean(0), p - p.mean(0)])
-    covariance = residuals.T @ residuals / len(x)
-    tau = max(float(np.trace(covariance) / x.shape[1]), np.finfo(float).eps)
-    delta = v.mean(0) - p.mean(0)
+    if shrinkages:
+        # Pooled within-class covariance (MLE), not covariance of pair differences.
+        residuals = np.concatenate([v - v.mean(0), p - p.mean(0)])
+        covariance = residuals.T @ residuals / len(x)
+        tau = max(float(np.trace(covariance) / x.shape[1]), np.finfo(float).eps)
+        delta = v.mean(0) - p.mean(0)
     for shrinkage in sorted(set(shrinkages)):
         regularized = (1 - shrinkage) * covariance + shrinkage * tau * np.eye(x.shape[1])
-        print(f"LDA fit start shrinkage={shrinkage}", flush=True)
+        if verbose: print(f"LDA fit start shrinkage={shrinkage}", flush=True)
         started = perf_counter()
         w = np.linalg.solve(regularized, delta)
-        print(f"LDA fit done seconds={perf_counter()-started:.1f}", flush=True)
+        if verbose: print(f"LDA fit done seconds={perf_counter()-started:.1f}", flush=True)
         b = -0.5 * (v.mean(0) + p.mean(0)) @ w
         candidates.append(('shrinkage_lda', shrinkage, w, b))
-    scaler = StandardScaler().fit(x)
+    scaler = StandardScaler().fit(x) if c_values else None
     for c in sorted(set(c_values)):
-        print(f"Logistic fit start C={c}", flush=True)
+        if verbose: print(f"Logistic fit start C={c}", flush=True)
         started = perf_counter()
         probe = LogisticRegression(C=c, max_iter=3000, random_state=seed).fit(scaler.transform(x), y)
-        print(f"Logistic fit done C={c} seconds={perf_counter()-started:.1f} iterations={probe.n_iter_.tolist()}", flush=True)
+        if verbose: print(f"Logistic fit done C={c} seconds={perf_counter()-started:.1f} iterations={probe.n_iter_.tolist()}", flush=True)
         # Fold train-only scaling into coefficients for direct line scoring.
         w = probe.coef_[0] / scaler.scale_
         b = probe.intercept_[0] - w @ scaler.mean_

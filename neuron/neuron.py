@@ -1,7 +1,7 @@
-from core.nonlinear import fit_rbf, plot_delta_clusters
+from core.nonlinear import plot_delta_clusters
 from core.experiment_report import uncertainty, write_csv
 from core.direction_consistency import direction_consistency, plot_consistency
-from core.linear_directions import fit_linear_candidates
+from core.fit_jobs import fit_jobs
 from core.run_output import create_run
 from core.model_config import MODELS, MAX_LENGTH, load_encoder, load_tokenizer
 import os
@@ -234,11 +234,13 @@ def extract_all_layers(vul_data, ben_data, tokenizer, model, layers_to_probe,
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--svm-c-values', type=float, nargs='+', default=[0.1, 1., 10.])
-    parser.add_argument('--svm-gammas', type=float, nargs='+', default=[0.0001, 0.001, 0.01])
+    parser.add_argument('--svm-c-values', type=float, nargs='+', default=[0.1, 1.])
+    parser.add_argument('--svm-gammas', type=float, nargs='+', default=[0.0001, 0.001])
+    parser.add_argument('--cpu-jobs', type=int, default=24)
+    parser.add_argument('--svm-cache-mb', type=int, default=512)
     parser.add_argument('--bootstrap', type=int, default=1000)
     parser.add_argument('--lda-shrinkages', type=float, nargs='+', default=[0.1, 0.5, 1.0])
-    parser.add_argument('--logistic-c-values', type=float, nargs='+', default=[0.01, 0.1, 1.0, 10.0])
+    parser.add_argument('--logistic-c-values', type=float, nargs='+', default=[0.01, 0.1, 1.0])
     parser.add_argument('--output-dir', help='Parent of timestamped run directories (default: outputs/)')
     parser.add_argument('--model', choices=MODELS, default='modernbert')
     parser.add_argument('--context-lines', type=int, default=1,
@@ -249,6 +251,8 @@ def main():
     parser.add_argument('--cwe', type=str, nargs='+', default=None,
                         help='Optional CWE ID(s) to filter by (e.g. CWE-787).')
     args = parser.parse_args()
+    if args.cpu_jobs < 1 or args.svm_cache_mb < 1:
+        parser.error("CPU jobs and SVM cache must be positive")
     if any(not 0 < x <= 1 for x in args.lda_shrinkages) or any(not 0 < x < float('inf') for x in args.logistic_c_values):
         parser.error('Shrinkage must be in (0, 1]; logistic C must be finite and positive')
     if args.bootstrap < 0 or any(not 0 < v < float('inf') for v in args.svm_c_values + args.svm_gammas):
@@ -309,6 +313,7 @@ def main():
     all_neuron_directions = {}
     linear_candidates = {'shrinkage_lda': {}, 'logistic': {}, 'rbf_svm': {}}
     train_deltas = {}
+    fit_representations = {}
     
     for l in layers_to_probe:
         print(f"Layer {l}: building A/B representations...", flush=True)
@@ -348,18 +353,20 @@ def main():
             all_direction = all_direction / torch.norm(all_direction)
         all_neuron_directions[l] = dict(target_neurons=all_neurons, down_proj=down_proj, d_v=all_direction)
         train_deltas[l] = all_v - all_p
-        print(f"Layer {l}: fitting E RBF-SVM ({2 * len(all_v)} samples)...", flush=True)
-        for parameter, estimator in fit_rbf(all_v, all_p, args.svm_c_values, args.svm_gammas):
-            candidates = linear_candidates['rbf_svm']
-            candidates[len(candidates)] = dict(layer=l, parameter=parameter, estimator=estimator,
-                target_neurons=all_neurons, down_proj=down_proj)
-        print(f"Layer {l}: fitting C/D...", flush=True)
-        for method, parameter, weight, bias in fit_linear_candidates(
-                all_v, all_p, args.lda_shrinkages, args.logistic_c_values, args.split_seed):
-            candidates = linear_candidates[method]
-            candidates[len(candidates)] = dict(layer=l, parameter=parameter,
-                target_neurons=all_neurons, down_proj=down_proj, d_v=weight, bias=bias)
+        fit_representations[l] = (all_v.detach().cpu(), all_p.detach().cpu())
         print(f"Layer {l:2d} | |N_r,l| = {len(target_neurons)}")
+
+    for layer, method, fitted in fit_jobs(
+            fit_representations, args.lda_shrinkages, args.logistic_c_values,
+            args.svm_c_values, args.svm_gammas, jobs=args.cpu_jobs,
+            seed=args.split_seed, cache_mb=args.svm_cache_mb):
+        base = all_neuron_directions[layer]
+        if 'd_v' in fitted:
+            fitted['d_v'] = fitted['d_v'].to(base['down_proj'])
+        candidates = linear_candidates[method]
+        candidates[len(candidates)] = dict(layer=layer, target_neurons=base['target_neurons'],
+                                         down_proj=base['down_proj'], **fitted)
+    del fit_representations
 
     # Keep aggregates, not per-pair arrays, in persisted diagnostics.
     plot_consistency(consistency, run_dir / 'direction_consistency.png')

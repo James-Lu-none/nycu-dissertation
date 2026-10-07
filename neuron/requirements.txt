@@ -15,4 +15,5 @@ tree-sitter-c>=0.24,<0.25
 tree-sitter-cpp>=0.23,<0.24
 datasets
 scikit-learn
+threadpoolctl
 matplotlib

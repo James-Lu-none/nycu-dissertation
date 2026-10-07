@@ -28,10 +28,13 @@ def discover_cwes(paths):
 
 def main():
     cli = argparse.ArgumentParser(description=__doc__)
+    cli.add_argument('--cpu-jobs', type=int, default=24)
     cli.add_argument('--dataset', nargs='+', required=True)
     cli.add_argument('--output-dir', type=Path, required=True)
     cli.add_argument('--cwe-source', nargs='+', help='Discover CWEs from original sources, including those with no keep pairs')
     args = cli.parse_args()
+    if args.cpu_jobs < 1:
+        cli.error("--cpu-jobs must be positive")
     counts = discover_cwes(args.dataset)
     discovered = discover_cwes(args.cwe_source or args.dataset)
     args.output_dir.mkdir(parents=True, exist_ok=True)
@@ -48,6 +51,8 @@ def main():
                 output = args.output_dir / scope
                 command = [sys.executable, '-u', str(script_dir / script), '--model', model,
                            '--dataset', *args.dataset, '--output-dir', str(output)]
+                if script == 'neuron.py':
+                    command += ['--cpu-jobs', str(args.cpu_jobs)]
                 if cwe:
                     command += ['--cwe', cwe]
                 entry = dict(scope=scope, model=model, script=script, command=command)

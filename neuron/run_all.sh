@@ -12,4 +12,5 @@ python review_dataset.py --batch-size 8
 
 python run_cwe_experiments.py --dataset dataset/review/dataset.jsonl \
   --cwe-source dataset/source/*.jsonl \
+  --cpu-jobs "${CPU_JOBS:-24}" \
   --output-dir "$pipeline_dir/experiments"
