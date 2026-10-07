@@ -1,10 +1,13 @@
 from core.nonlinear import plot_delta_clusters
 from core.experiment_report import uncertainty, write_csv
-from core.direction_consistency import direction_consistency, plot_consistency
-from core.fit_jobs import fit_jobs
+from core.direction_consistency import plot_consistency
 from core.run_output import create_run
 from core.model_config import MODELS, MAX_LENGTH, load_encoder, load_tokenizer
 import os
+from pathlib import Path
+from core.extraction import extract_all_layers
+from core.training import train_methods
+from core.training_artifacts import (extraction_metadata, fingerprint, build_cache, load_cache, save_cache, load_models, save_models)
 import argparse
 import json
 import torch
@@ -13,41 +16,38 @@ import numpy as np
 from tqdm import tqdm
 
 from core.hook_utils import ActivationExtractor
-from core.mapper import (get_line_level_activations, prepare_code_input,
-                         aggregate_region_activations)
+from core.mapper import get_line_level_activations, prepare_code_input
 from core.regions import get_aligned_regions
 from core.splits import load_paired_records, split_pairs, load_unified_records
 from core.evaluation import evaluate_localization, select_layer
-from core.attribution import get_vulnerability_specific_neurons
-from core.direction import (compute_line_representation, score_target_line,
-                            compute_pairwise_vulnerability_direction)
+from core.direction import compute_line_representation, score_target_line
 from attention_baseline import calculate_line_attention_scores
 
 def plot_all_layers(layer_directions, output_path="multi_layer_projection_modernbert.png"):
     import matplotlib.pyplot as plt
     import numpy as np
-    
+
     num_layers = len(layer_directions)
     cols = 4
     rows = (num_layers + cols - 1) // cols
     fig, axes = plt.subplots(rows, cols, figsize=(4 * cols, 3 * rows))
     axes = np.asarray(axes).reshape(-1)
-    
+
     for idx, (l, info) in enumerate(layer_directions.items()):
         ax = axes[idx]
         v_scores = info['v_scores']
         b_scores = info['b_scores']
-        
+
         mean_diff = np.mean(v_scores) - np.mean(b_scores)
         info_text = (
             f"|N_r,l|: {len(info['target_neurons'])}\n"
             f"Mean Diff: {mean_diff:.2f}\n"
             f"N: {len(v_scores)} pairs"
         )
-        
+
         ax.hist(v_scores, bins=30, alpha=0.5, color='red', label='Vulnerable', density=True)
         ax.hist(b_scores, bins=30, alpha=0.5, color='blue', label='Secure', density=True)
-        
+
         ax.set_title(f"Layer {l}")
         ax.set_yticks([])
         ax.set_xlabel("N-Score ($d_v$ Projection)")
@@ -55,10 +55,10 @@ def plot_all_layers(layer_directions, output_path="multi_layer_projection_modern
                 verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
         if idx == 0:
             ax.legend(loc='upper right', fontsize=8)
-            
+
     for i in range(num_layers, len(axes)):
         fig.delaxes(axes[i])
-        
+
     plt.tight_layout()
     plt.savefig(output_path, dpi=300)
     print(f"[+] Saved multi-layer projection plot to {output_path}")
@@ -67,38 +67,38 @@ def plot_all_layers_pca(layer_directions, output_path="multi_layer_pca_modernber
     import matplotlib.pyplot as plt
     from sklearn.decomposition import PCA
     import numpy as np
-    
+
     num_layers = len(layer_directions)
     cols = 4
     rows = (num_layers + cols - 1) // cols
     fig, axes = plt.subplots(rows, cols, figsize=(4 * cols, 3 * rows))
     axes = np.asarray(axes).reshape(-1)
-        
+
     for idx, (l, info) in enumerate(layer_directions.items()):
         ax = axes[idx]
         vul_reps = info['vul_reps']
         ben_reps = info['ben_reps']
-        
+
         all_reps = np.vstack((vul_reps, ben_reps))
         pca = PCA(n_components=2)
         pca_result = pca.fit_transform(all_reps)
-        
+
         v_pca = pca_result[:len(vul_reps)]
         b_pca = pca_result[len(vul_reps):]
-        
+
         ax.scatter(v_pca[:, 0], v_pca[:, 1], c='red', label='Vulnerable', alpha=0.5, s=10)
         ax.scatter(b_pca[:, 0], b_pca[:, 1], c='blue', label='Secure', alpha=0.5, s=10)
-        
+
         ax.set_title(f"Layer {l}")
         ax.set_xticks([])
         ax.set_yticks([])
-        
+
         if idx == 0:
             ax.legend(loc='upper right', fontsize=8)
-            
+
     for i in range(num_layers, len(axes)):
         fig.delaxes(axes[i])
-        
+
     plt.tight_layout()
     plt.savefig(output_path, dpi=300)
     print(f"[+] Saved multi-layer PCA plot to {output_path}")
@@ -156,84 +156,14 @@ def get_modified_lines(vul_code, ben_code):
         if tag in ('replace', 'insert'): ben_changed.extend(range(j1, j2))
     return vul_changed, ben_changed
 
-def extract_all_layers(vul_data, ben_data, tokenizer, model, layers_to_probe,
-                       context_lines=1, max_length=MAX_LENGTH, pair_lengths=None):
-    if len(vul_data) != len(ben_data):
-        raise ValueError("Vulnerable and patched datasets must have equal lengths")
-    if pair_lengths is not None and len(pair_lengths) != len(vul_data):
-        raise ValueError("Token length counts must match dataset length")
-    if context_lines < 0:
-        raise ValueError("context_lines must be nonnegative")
-    # Remove overlength pairs before starting the activation progress bar.
-    # Keep original indices for selecting inference examples later.
-    if pair_lengths is None:
-        pair_lengths = [
-            tuple(len(tokenizer(code, truncation=False, verbose=False)['input_ids'])
-                  for code in pair)
-            for pair in zip(vul_data, ben_data)
-        ]
-    eligible_indices = [i for i, lengths in enumerate(pair_lengths)
-                        if all(length <= max_length for length in lengths)]
-    extractors = {l: ActivationExtractor(model, l) for l in layers_to_probe}
-    # Each pair has two distinct summaries: token mean for selection, line mean
-    # for direction. Projection is linear, so projecting the latter equals the
-    # mean of the individual line representations after selecting neurons.
-    summaries = {
-        side: {kind: {l: [] for l in layers_to_probe}
-               for kind in ('token_mean', 'line_mean')}
-        for side in ('vulnerable', 'patched')
-    }
-    stats = dict(total=len(vul_data), retained=0, skipped_no_changes=0,
-                 skipped_overlength_function=len(vul_data) - len(eligible_indices),
-                 skipped_empty_region=0)
-    retained_indices = []
-    try:
-        with torch.no_grad():
-            for pair_idx in tqdm(eligible_indices, total=len(eligible_indices),
-                                 desc="Extracting Activations"):
-                vul_code, ben_code = vul_data[pair_idx], ben_data[pair_idx]
-                if vul_code == ben_code:
-                    stats['skipped_no_changes'] += 1
-                    continue
-                regions = get_aligned_regions(vul_code, ben_code, context_lines)
-                prepared = [prepare_code_input(code, tokenizer, max_length)
-                            for code in (vul_code, ben_code)]
-                valid_regions = [sorted(set(region) & data[2])
-                                 for region, data in zip(regions, prepared)]
-                if any(not region for region in valid_regions):
-                    stats['skipped_empty_region'] += 1
-                    continue
-                for side, code, region, data in zip(
-                        ('vulnerable', 'patched'), (vul_code, ben_code),
-                        valid_regions, prepared):
-                    inputs, token_to_line, _, _ = data
-                    for ext in extractors.values():
-                        ext.clear()
-                    model(**{k: v.to(model.device) for k, v in inputs.items()})
-                    for l, ext in extractors.items():
-                        acts = ext.activation[0]
-                        token_mean, line_mean = aggregate_region_activations(
-                            acts, token_to_line, region, len(code.split('\n')))
-                        summaries[side]['token_mean'][l].append(token_mean)
-                        summaries[side]['line_mean'][l].append(line_mean)
-                stats['retained'] += 1
-                retained_indices.append(pair_idx)
-        print("Pair filtering: " + json.dumps(stats))
-        if not stats['retained']:
-            raise ValueError("No valid training pairs remain after region filtering")
-        for side in summaries.values():
-            for kind in side.values():
-                for l in layers_to_probe:
-                    kind[l] = torch.stack(kind[l])
-        return summaries, extractors, stats, retained_indices
-    except Exception:
-        for ext in extractors.values():
-            ext.remove_hooks()
-        raise
 
-
-def main():
+def main(default_stage="all"):
     parser = argparse.ArgumentParser()
+    parser.add_argument('--stage', choices=['all', 'extract', 'train', 'evaluate'], default=default_stage)
+    parser.add_argument('--cache-dir')
+    parser.add_argument('--refresh-cache', action='store_true')
+    parser.add_argument('--models', help='Previously fitted models.joblib for evaluation without refitting')
+    parser.add_argument('--top-k-ratio', type=float, default=0.1)
     parser.add_argument('--svm-c-values', type=float, nargs='+', default=[0.1, 1.])
     parser.add_argument('--svm-gammas', type=float, nargs='+', default=[0.0001, 0.001])
     parser.add_argument('--cpu-jobs', type=int, default=24)
@@ -251,6 +181,12 @@ def main():
     parser.add_argument('--cwe', type=str, nargs='+', default=None,
                         help='Optional CWE ID(s) to filter by (e.g. CWE-787).')
     args = parser.parse_args()
+    if not 0 < args.top_k_ratio <= 1:
+        parser.error("--top-k-ratio must be in (0, 1]")
+    if args.stage == "evaluate" and not args.models:
+        parser.error("--stage evaluate requires --models")
+    if args.models and args.stage not in ("evaluate", "all"):
+        parser.error("--models is only used with evaluate/all")
     if args.cpu_jobs < 1 or args.svm_cache_mb < 1:
         parser.error("CPU jobs and SVM cache must be positive")
     if any(not 0 < x <= 1 for x in args.lda_shrinkages) or any(not 0 < x < float('inf') for x in args.logistic_c_values):
@@ -269,11 +205,11 @@ def main():
     print("Loading datasets...")
     import glob
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    
+
     dataset_paths = args.dataset
     if not dataset_paths:
         dataset_paths = [os.path.join(base_dir, "dataset", "source")]
-        
+
     records = []
     for path in dataset_paths:
         if os.path.isdir(path):
@@ -284,9 +220,9 @@ def main():
             records.extend(load_unified_records(path, cwe_filter=args.cwe))
         else:
             print(f"Warning: Dataset path not found: {path}")
-            
+
     print(f"Loaded {len(records)} pairs across {len(dataset_paths)} specified paths.")
-    
+
     vul_data = [v['code'] for v, _ in records]
     ben_data = [p['code'] for _, p in records]
     pair_lengths = print_dataset_summary(vul_data, ben_data, tokenizer)
@@ -300,101 +236,86 @@ def main():
     model.eval()
     layers_to_probe = list(range(model.config.num_hidden_layers))
 
-    print(f"Extracting aligned regions with context N={args.context_lines} across {layers_to_probe}...")
-    summaries, extractors, stats, retained_indices = extract_all_layers(
-        [vul_data[i] for i in splits['train']],
-        [ben_data[i] for i in splits['train']], tokenizer, model, layers_to_probe,
-        context_lines=args.context_lines,
-        pair_lengths=[pair_lengths[i] for i in splits['train']])
+    train_records = [records[i] for i in splits['train']]
+    cache_metadata = extraction_metadata(model, tokenizer, revision, train_records,
+                                         args.context_lines, MAX_LENGTH, splits)
+    cache_key = fingerprint(cache_metadata)
+    cache_dir = Path(args.cache_dir) if args.cache_dir else Path(__file__).resolve().parent / 'dataset/activation_cache'
+    cache_path = cache_dir / f'{args.model}_{cache_key}.pt'
+    payload = None
+    if args.models:
+        saved = load_models(args.models)
+        if saved['metadata']['cache_key'] != cache_key:
+            raise ValueError('Saved models do not match dataset/split/model/extraction settings')
+        payload = dict(summaries=None, stats=saved['stats'], retained_indices=saved['retained_indices'])
+        extractors = {l: ActivationExtractor(model, l) for l in layers_to_probe}
+    elif cache_path.exists() and not args.refresh_cache:
+        payload = load_cache(cache_path, cache_metadata)
+        print(f'Loaded training activation cache: {cache_path}', flush=True)
+        extractors = {l: ActivationExtractor(model, l) for l in layers_to_probe}
+    else:
+        summaries, extractors, stats, retained_indices = extract_all_layers(
+            [vul_data[i] for i in splits['train']],
+            [ben_data[i] for i in splits['train']], tokenizer, model, layers_to_probe,
+            context_lines=args.context_lines,
+            pair_lengths=[pair_lengths[i] for i in splits['train']])
+        payload = build_cache(summaries, extractors, stats, retained_indices,
+                              train_records, cache_metadata, tokenizer)
+        save_cache(cache_path, payload)
+        print(f'Saved training activation cache: {cache_path}', flush=True)
+    summaries, stats, retained_indices = (payload[k] for k in ('summaries', 'stats', 'retained_indices'))
+    (run_dir / 'training_cache.json').write_text(json.dumps(dict(path=str(cache_path), key=cache_key), indent=2))
+    if args.stage == 'extract':
+        for ext in extractors.values():
+            ext.remove_hooks()
+        return
 
-    print("Calculating vulnerability directions (d_v) for all layers...")
-    layer_directions = {}
-    consistency = {'selected_neurons': {}, 'all_neurons': {}}
-    all_neuron_directions = {}
-    linear_candidates = {'shrinkage_lda': {}, 'logistic': {}, 'rbf_svm': {}}
-    train_deltas = {}
-    fit_representations = {}
-    
-    for l in layers_to_probe:
-        print(f"Layer {l}: building A/B representations...", flush=True)
-        down_proj = extractors[l].get_down_projection_weights()
-        v_token_means = summaries['vulnerable']['token_mean'][l]
-        b_token_means = summaries['patched']['token_mean'][l]
-        target_neurons = get_vulnerability_specific_neurons(
-            v_token_means, b_token_means, down_proj, k_ratio=0.10)
+    if args.models:
+        bundle = saved
+        if bundle['metadata']['cache_key'] != cache_key:
+            raise ValueError('Saved models do not match dataset/split/model/extraction settings')
+        methods = bundle['methods']
+        layer_directions = bundle['layer_directions']
+    else:
+        methods, layer_directions, consistency, train_deltas = train_methods(
+            summaries, payload['projections'], args)
+        bundle = dict(metadata=dict(cache_key=cache_key, extraction=cache_metadata,
+                     training=vars(args), format_version=1), methods=methods,
+                     layer_directions=layer_directions, stats=stats, retained_indices=retained_indices)
+        save_models(run_dir / 'models.joblib', bundle)
+        # Keep aggregates, not per-pair arrays, in persisted diagnostics.
+        plot_consistency(consistency, run_dir / 'direction_consistency.png')
+        for layers in consistency.values():
+            for values in layers.values():
+                values.pop('delta_norms', None)
+                for key in ('cosine_to_mean', 'cosine_to_leave_one_out_mean'):
+                    values[key].pop('cosines', None)
+        with (run_dir / 'direction_consistency.json').open('w') as stream:
+            json.dump(dict(scope='train only', layers=consistency), stream, indent=2, allow_nan=False)
+        plot_delta_clusters(train_deltas, run_dir / 'delta_clusters.png', args.split_seed)
 
-        # Equal weight per valid line within each side, then equal weight per pair.
-        vul_reps = summaries['vulnerable']['line_mean'][l][:, target_neurons] @ down_proj[target_neurons]
-        ben_reps = summaries['patched']['line_mean'][l][:, target_neurons] @ down_proj[target_neurons]
-        consistency['selected_neurons'][l] = direction_consistency(vul_reps, ben_reps)
-        d_v = compute_pairwise_vulnerability_direction(vul_reps, ben_reps)
-        if torch.norm(d_v) > 0:
-            d_v = d_v / torch.norm(d_v)
-            
-        #  project representation on to vul direction d_v
-        v_scores = score_target_line(vul_reps, d_v).cpu().numpy()
-        b_scores = score_target_line(ben_reps, d_v).cpu().numpy()
-            
-        layer_directions[l] = {
-            'target_neurons': target_neurons,
-            'down_proj': down_proj,
-            'd_v': d_v,
-            'v_scores': v_scores,
-            'b_scores': b_scores,
-            'vul_reps': vul_reps.cpu().numpy(),
-            'ben_reps': ben_reps.cpu().numpy()
-        }
-        all_neurons = torch.arange(down_proj.shape[0], device=down_proj.device)
-        all_v = summaries['vulnerable']['line_mean'][l] @ down_proj
-        all_p = summaries['patched']['line_mean'][l] @ down_proj
-        consistency['all_neurons'][l] = direction_consistency(all_v, all_p)
-        all_direction = compute_pairwise_vulnerability_direction(all_v, all_p)
-        if torch.norm(all_direction) > 0:
-            all_direction = all_direction / torch.norm(all_direction)
-        all_neuron_directions[l] = dict(target_neurons=all_neurons, down_proj=down_proj, d_v=all_direction)
-        train_deltas[l] = all_v - all_p
-        fit_representations[l] = (all_v.detach().cpu(), all_p.detach().cpu())
-        print(f"Layer {l:2d} | |N_r,l| = {len(target_neurons)}")
+        # Generate the comprehensive plot
+        print("Generating training-only diagnostic plots for all probed layers...")
+        plot_all_layers(layer_directions, output_path=run_dir / "projection.png")
+        plot_all_layers_pca(layer_directions, output_path=run_dir / "pca.png")
 
-    for layer, method, fitted in fit_jobs(
-            fit_representations, args.lda_shrinkages, args.logistic_c_values,
-            args.svm_c_values, args.svm_gammas, jobs=args.cpu_jobs,
-            seed=args.split_seed, cache_mb=args.svm_cache_mb):
-        base = all_neuron_directions[layer]
-        if 'd_v' in fitted:
-            fitted['d_v'] = fitted['d_v'].to(base['down_proj'])
-        candidates = linear_candidates[method]
-        candidates[len(candidates)] = dict(layer=layer, target_neurons=base['target_neurons'],
-                                         down_proj=base['down_proj'], **fitted)
-    del fit_representations
+    if args.stage == 'train':
+        for ext in extractors.values():
+            ext.remove_hooks()
+        print(f"Saved fitted models: {run_dir / 'models.joblib'}")
+        return
 
-    # Keep aggregates, not per-pair arrays, in persisted diagnostics.
-    plot_consistency(consistency, run_dir / 'direction_consistency.png')
-    for layers in consistency.values():
-        for values in layers.values():
-            values.pop('delta_norms', None)
-            for key in ('cosine_to_mean', 'cosine_to_leave_one_out_mean'):
-                values[key].pop('cosines', None)
-    with (run_dir / 'direction_consistency.json').open('w') as stream:
-        json.dump(dict(scope='train only', layers=consistency), stream, indent=2, allow_nan=False)
-    plot_delta_clusters(train_deltas, run_dir / 'delta_clusters.png', args.split_seed)
-
-    # Generate the comprehensive plot
-    print("Generating training-only diagnostic plots for all probed layers...")
-    plot_all_layers(layer_directions, output_path=run_dir / "projection.png")
-    plot_all_layers_pca(layer_directions, output_path=run_dir / "pca.png")
-
-    methods = {'B': all_neuron_directions, 'C': linear_candidates['shrinkage_lda'],
-               'D': linear_candidates['logistic'], 'E': linear_candidates['rbf_svm']}
-    for width in (1, 2, 4, 8, 16, 'all'):
-        methods[f'A_window_{width}'] = {l: dict(info, layer=l, representation='selected',
-            window=width, parameter={'window': width}) for l, info in layer_directions.items()}
     csv_rows, selected_methods = [], {}
     counts_report = {}
+    inference_models = {}
     for method, candidates in methods.items():
         val = evaluate_localization(records, splits['validation'], tokenizer, model,
             extractors, candidates, description=f'{method} validation')
         best = select_layer(val, candidates)
+        inference_models[method] = dict(
+            {k: v for k, v in candidates[best].items()
+             if k not in ('vul_reps', 'ben_reps', 'v_scores', 'b_scores')},
+            layer=candidates[best].get('layer', best))
         # Tune parameters separately within each layer, using validation only.
         by_layer = {}
         for key, info in candidates.items():
@@ -425,11 +346,14 @@ def main():
             csv_rows.append(row)
         if method == 'A_window_1':
             selected_layer = candidates[best].get('layer', best)
+    save_models(run_dir / 'inference_models.joblib', dict(metadata=bundle['metadata'], models=inference_models))
     write_csv(run_dir / 'report.csv', csv_rows)
     report = dict(model=MODELS[args.model], model_revision=revision,
         split_sizes={k: len(v) for k, v in splits.items()}, train_filtering=stats,
         selected_methods=selected_methods, counts=counts_report,
-        results_file='report.csv', label_policy='changed/deleted lines: proxy labels',
+        results_file='report.csv', inference_models_file='inference_models.joblib',
+        fitted_models_file=str(args.models) if args.models else 'models.joblib',
+        training_cache_key=cache_key, label_policy='changed/deleted lines: proxy labels',
         significance='group bootstrap 95% MRR CI; two-sided group sign-flip vs random expectation; Holm within run',
         selection='validation MRR only; per-layer parameter selection; lower layer then smaller grid parameter on ties')
     with (run_dir / 'report.json').open('w') as stream:
@@ -442,35 +366,35 @@ def main():
         "Vulnerable (Before Patch)": vul_data[test_idx],
         "Secure (After Patch)": ben_data[test_idx]
     }
-    
+
     vul_changed_test, ben_changed_test = get_modified_lines(test_codes["Vulnerable (Before Patch)"], test_codes["Secure (After Patch)"])
     RED = '\033[91m'
     GREEN = '\033[92m'
     RESET = '\033[0m'
-    
+
     for label, code_snippet in test_codes.items():
         is_vul = "Vulnerable" in label
         changed_lines = vul_changed_test if is_vul else ben_changed_test
         color = RED if is_vul else GREEN
-        
+
         print("\n" + "="*100)
         print(f"Testing Inference on: {label}")
         print("-" * 100)
         print("Line | Attention | " + " | ".join(f"L{l}" for l in layers_to_probe)
               + f" | Selected L{selected_layer} | E tanh(margin) | Code")
         print("-" * 100)
-        
+
         inputs, token_to_line, valid_lines, _ = prepare_code_input(
             code_snippet, tokenizer, max_length=MAX_LENGTH)
         inputs = {k: v.to(model.device) for k, v in inputs.items()}
-        
+
         with torch.no_grad():
             for ext in extractors.values(): ext.clear()
             model(**inputs)
-            
+
         num_lines = len(code_snippet.split('\n'))
         lines = code_snippet.split('\n')
-        
+
         # Save line activations before the attention forward overwrites hooks.
         line_acts_by_layer = {
             l: get_line_level_activations(
@@ -485,7 +409,7 @@ def main():
         finite_scores = a_scores[torch.isfinite(a_scores)]
         if finite_scores.numel():
             a_scores = a_scores / (finite_scores.max() + 1e-9)
-        
+
         for q in range(num_lines):
             if q not in valid_lines:
                 print(f"Line {q+1:2d} | A-Score: 未評分 | N-Score: 未評分 | {lines[q]}")
@@ -494,19 +418,19 @@ def main():
             layer_scores = []
             for l in layers_to_probe:
                 line_acts = line_acts_by_layer[l]
-                
+
                 info = layer_directions[l]
                 p_q = compute_line_representation(line_acts[q], info['target_neurons'], info['down_proj'])
                 score = score_target_line(p_q, info['d_v']).item()
                 layer_scores.append(score)
-                
+
             selected_score = layer_scores[layers_to_probe.index(selected_layer)]
             a_score = a_scores[q].item()
-            
+
             code_line = lines[q]
             if q in changed_lines:
                 code_line = f"{color}{code_line}{RESET}"
-                
+
             scores_text = " | ".join(f"{value:7.4f}" for value in layer_scores)
             print(f"Line {q+1:2d} | {a_score:7.4f} | {scores_text} | "
                   f"{selected_score:7.4f} | {svm_scores[q]:7.4f} | {code_line}")
