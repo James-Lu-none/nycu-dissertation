@@ -1,5 +1,6 @@
 """Train-only linear directions on paired region representations."""
 import numpy as np
+from time import perf_counter
 import torch
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
@@ -20,12 +21,18 @@ def fit_linear_candidates(vulnerable, patched, shrinkages, c_values, seed=42):
     delta = v.mean(0) - p.mean(0)
     for shrinkage in sorted(set(shrinkages)):
         regularized = (1 - shrinkage) * covariance + shrinkage * tau * np.eye(x.shape[1])
+        print(f"LDA fit start shrinkage={shrinkage}", flush=True)
+        started = perf_counter()
         w = np.linalg.solve(regularized, delta)
+        print(f"LDA fit done seconds={perf_counter()-started:.1f}", flush=True)
         b = -0.5 * (v.mean(0) + p.mean(0)) @ w
         candidates.append(('shrinkage_lda', shrinkage, w, b))
     scaler = StandardScaler().fit(x)
     for c in sorted(set(c_values)):
+        print(f"Logistic fit start C={c}", flush=True)
+        started = perf_counter()
         probe = LogisticRegression(C=c, max_iter=3000, random_state=seed).fit(scaler.transform(x), y)
+        print(f"Logistic fit done C={c} seconds={perf_counter()-started:.1f} iterations={probe.n_iter_.tolist()}", flush=True)
         # Fold train-only scaling into coefficients for direct line scoring.
         w = probe.coef_[0] / scaler.scale_
         b = probe.intercept_[0] - w @ scaler.mean_

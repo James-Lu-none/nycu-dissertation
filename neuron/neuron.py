@@ -311,6 +311,7 @@ def main():
     train_deltas = {}
     
     for l in layers_to_probe:
+        print(f"Layer {l}: building A/B representations...", flush=True)
         down_proj = extractors[l].get_down_projection_weights()
         v_token_means = summaries['vulnerable']['token_mean'][l]
         b_token_means = summaries['patched']['token_mean'][l]
@@ -318,10 +319,8 @@ def main():
             v_token_means, b_token_means, down_proj, k_ratio=0.10)
 
         # Equal weight per valid line within each side, then equal weight per pair.
-        vul_reps = torch.stack([compute_line_representation(a, target_neurons, down_proj)
-                               for a in summaries['vulnerable']['line_mean'][l]])
-        ben_reps = torch.stack([compute_line_representation(a, target_neurons, down_proj)
-                               for a in summaries['patched']['line_mean'][l]])
+        vul_reps = summaries['vulnerable']['line_mean'][l][:, target_neurons] @ down_proj[target_neurons]
+        ben_reps = summaries['patched']['line_mean'][l][:, target_neurons] @ down_proj[target_neurons]
         consistency['selected_neurons'][l] = direction_consistency(vul_reps, ben_reps)
         d_v = compute_pairwise_vulnerability_direction(vul_reps, ben_reps)
         if torch.norm(d_v) > 0:
@@ -341,20 +340,20 @@ def main():
             'ben_reps': ben_reps.cpu().numpy()
         }
         all_neurons = torch.arange(down_proj.shape[0], device=down_proj.device)
-        all_v = torch.stack([compute_line_representation(a, all_neurons, down_proj)
-                             for a in summaries['vulnerable']['line_mean'][l]])
-        all_p = torch.stack([compute_line_representation(a, all_neurons, down_proj)
-                             for a in summaries['patched']['line_mean'][l]])
+        all_v = summaries['vulnerable']['line_mean'][l] @ down_proj
+        all_p = summaries['patched']['line_mean'][l] @ down_proj
         consistency['all_neurons'][l] = direction_consistency(all_v, all_p)
         all_direction = compute_pairwise_vulnerability_direction(all_v, all_p)
         if torch.norm(all_direction) > 0:
             all_direction = all_direction / torch.norm(all_direction)
         all_neuron_directions[l] = dict(target_neurons=all_neurons, down_proj=down_proj, d_v=all_direction)
         train_deltas[l] = all_v - all_p
+        print(f"Layer {l}: fitting E RBF-SVM ({2 * len(all_v)} samples)...", flush=True)
         for parameter, estimator in fit_rbf(all_v, all_p, args.svm_c_values, args.svm_gammas):
             candidates = linear_candidates['rbf_svm']
             candidates[len(candidates)] = dict(layer=l, parameter=parameter, estimator=estimator,
                 target_neurons=all_neurons, down_proj=down_proj)
+        print(f"Layer {l}: fitting C/D...", flush=True)
         for method, parameter, weight, bias in fit_linear_candidates(
                 all_v, all_p, args.lda_shrinkages, args.logistic_c_values, args.split_seed):
             candidates = linear_candidates[method]

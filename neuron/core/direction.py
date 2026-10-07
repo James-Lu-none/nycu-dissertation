@@ -10,7 +10,7 @@ def compute_line_representation(line_activation, target_neurons, down_proj_weigh
     Returns: Tensor of shape (embedding_size,) -> (hidden_size,)
     """
     # Extract only the target neurons
-    indices = torch.tensor(target_neurons, dtype=torch.long)
+    indices = torch.as_tensor(target_neurons, dtype=torch.long, device=line_activation.device)
     
     a_subset = line_activation[indices] # shape: (len(target_neurons),)
     r_subset = down_proj_weights[indices] # shape: (len(target_neurons), embedding_size)

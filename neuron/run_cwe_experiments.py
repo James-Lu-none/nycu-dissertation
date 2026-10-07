@@ -46,7 +46,7 @@ def main():
             for script in ('neuron.py', 'function_probe.py'):
                 scope = cwe or 'ALL'
                 output = args.output_dir / scope
-                command = [sys.executable, str(script_dir / script), '--model', model,
+                command = [sys.executable, '-u', str(script_dir / script), '--model', model,
                            '--dataset', *args.dataset, '--output-dir', str(output)]
                 if cwe:
                     command += ['--cwe', cwe]
