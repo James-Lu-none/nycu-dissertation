@@ -22,6 +22,8 @@ python review_dataset.py --batch-size "$review_batch_size"
 # Neuron reuses matching training summaries in dataset/activation_cache/.
 # C/D/E fits share the CPU job queue; validation/test activations are not cached.
 # Each neuron run saves models.joblib, inference_models.joblib, and reports.
+# E region diagnostics: rbf_region_report.csv + rbf_region_histograms/layer_*.png.
+# Histograms show tanh(margin); AUROC uses raw margins. No delta clustering plot.
 python run_cwe_experiments.py --dataset "$dataset" \
   --cwe-source dataset/source/*.jsonl \
   --cpu-jobs "$cpu_jobs" \

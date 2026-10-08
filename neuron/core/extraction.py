@@ -8,7 +8,7 @@ from .mapper import prepare_code_input, aggregate_region_activations
 from .regions import get_aligned_regions
 
 def extract_all_layers(vul_data, ben_data, tokenizer, model, layers_to_probe,
-                       context_lines=1, max_length=MAX_LENGTH, pair_lengths=None):
+                       context_lines=1, max_length=MAX_LENGTH, pair_lengths=None, allow_empty=False):
     if len(vul_data) != len(ben_data):
         raise ValueError("Vulnerable and patched datasets must have equal lengths")
     if pair_lengths is not None and len(pair_lengths) != len(vul_data):
@@ -70,12 +70,12 @@ def extract_all_layers(vul_data, ben_data, tokenizer, model, layers_to_probe,
                 stats['retained'] += 1
                 retained_indices.append(pair_idx)
         print("Pair filtering: " + json.dumps(stats))
-        if not stats['retained']:
+        if not stats['retained'] and not allow_empty:
             raise ValueError("No valid training pairs remain after region filtering")
         for side in summaries.values():
             for kind in side.values():
                 for l in layers_to_probe:
-                    kind[l] = torch.stack(kind[l])
+                    kind[l] = torch.stack(kind[l]) if kind[l] else torch.empty((0, extractors[l].get_down_projection_weights().shape[0]))
         return summaries, extractors, stats, retained_indices
     except Exception:
         for ext in extractors.values():

@@ -1,4 +1,4 @@
-from core.nonlinear import plot_delta_clusters
+from core.rbf_diagnostics import report_regions
 from core.experiment_report import uncertainty, write_csv
 from core.direction_consistency import plot_consistency
 from core.run_output import create_run
@@ -277,7 +277,7 @@ def main(default_stage="all"):
         methods = bundle['methods']
         layer_directions = bundle['layer_directions']
     else:
-        methods, layer_directions, consistency, train_deltas = train_methods(
+        methods, layer_directions, consistency = train_methods(
             summaries, payload['projections'], args)
         bundle = dict(metadata=dict(cache_key=cache_key, extraction=cache_metadata,
                      training=vars(args), format_version=1), methods=methods,
@@ -292,7 +292,6 @@ def main(default_stage="all"):
                     values[key].pop('cosines', None)
         with (run_dir / 'direction_consistency.json').open('w') as stream:
             json.dump(dict(scope='train only', layers=consistency), stream, indent=2, allow_nan=False)
-        plot_delta_clusters(train_deltas, run_dir / 'delta_clusters.png', args.split_seed)
 
         # Generate the comprehensive plot
         print("Generating training-only diagnostic plots for all probed layers...")
@@ -304,6 +303,27 @@ def main(default_stage="all"):
             ext.remove_hooks()
         print(f"Saved fitted models: {run_dir / 'models.joblib'}")
         return
+
+    # Region diagnostics do not select parameters or persist validation activations.
+    if summaries is None:
+        if cache_path.exists():
+            summaries = load_cache(cache_path, cache_metadata)['summaries']
+        else:
+            summaries, temporary_hooks, _, _ = extract_all_layers(
+                [vul_data[i] for i in splits['train']], [ben_data[i] for i in splits['train']],
+                tokenizer, model, layers_to_probe, context_lines=args.context_lines)
+            for ext in temporary_hooks.values():
+                ext.remove_hooks()
+    validation_summaries, temporary_hooks, region_stats, _ = extract_all_layers(
+        [vul_data[i] for i in splits['validation']], [ben_data[i] for i in splits['validation']],
+        tokenizer, model, layers_to_probe, context_lines=args.context_lines, allow_empty=True)
+    for ext in temporary_hooks.values():
+        ext.remove_hooks()
+    report_regions(methods['E'], summaries, validation_summaries,
+                   run_dir / 'rbf_region_histograms', args.cpu_jobs)
+    (run_dir / 'rbf_region_counts.json').write_text(json.dumps(
+        dict(train=stats, validation=region_stats), indent=2))
+    del validation_summaries
 
     csv_rows, selected_methods = [], {}
     counts_report = {}
@@ -353,7 +373,11 @@ def main(default_stage="all"):
         selected_methods=selected_methods, counts=counts_report,
         results_file='report.csv', inference_models_file='inference_models.joblib',
         fitted_models_file=str(args.models) if args.models else 'models.joblib',
-        training_cache_key=cache_key, label_policy='changed/deleted lines: proxy labels',
+        training_cache_key=cache_key,
+        region_diagnostics=dict(metrics='rbf_region_report.csv', histograms='rbf_region_histograms/',
+                                counts='rbf_region_counts.json', selection='diagnostic only; no parameter selection',
+                                balanced_accuracy_threshold=0, auroc_score='raw decision_function',
+                                histogram_score='tanh(decision_function)'), label_policy='changed/deleted lines: proxy labels',
         significance='group bootstrap 95% MRR CI; two-sided group sign-flip vs random expectation; Holm within run',
         selection='validation MRR only; per-layer parameter selection; lower layer then smaller grid parameter on ties')
     with (run_dir / 'report.json').open('w') as stream:

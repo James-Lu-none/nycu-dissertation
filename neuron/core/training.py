@@ -13,7 +13,6 @@ def train_methods(summaries, projections, args):
     consistency = {'selected_neurons': {}, 'all_neurons': {}}
     all_neuron_directions = {}
     linear_candidates = {'shrinkage_lda': {}, 'logistic': {}, 'rbf_svm': {}}
-    train_deltas = {}
     fit_representations = {}
 
     for l in layers_to_probe:
@@ -53,7 +52,6 @@ def train_methods(summaries, projections, args):
         if torch.norm(all_direction) > 0:
             all_direction = all_direction / torch.norm(all_direction)
         all_neuron_directions[l] = dict(target_neurons=all_neurons, down_proj=down_proj, d_v=all_direction)
-        train_deltas[l] = all_v - all_p
         fit_representations[l] = (all_v.detach().cpu(), all_p.detach().cpu())
         print(f"Layer {l:2d} | |N_r,l| = {len(target_neurons)}")
 
@@ -74,4 +72,4 @@ def train_methods(summaries, projections, args):
     for width in (1, 2, 4, 8, 16, 'all'):
         methods[f'A_window_{width}'] = {l: dict(info, layer=l, representation='selected',
             window=width, parameter={'window': width}) for l, info in layer_directions.items()}
-    return methods, layer_directions, consistency, train_deltas
+    return methods, layer_directions, consistency
