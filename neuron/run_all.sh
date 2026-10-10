@@ -20,7 +20,7 @@ python review_dataset.py --batch-size "$review_batch_size"
 
 # Run ALL and each CWE for ModernBERT and SecureBERT2 (neuron + function probe).
 # Neuron reuses matching training summaries in dataset/activation_cache/.
-# C/D/E fits share the CPU job queue; validation/test activations are not cached.
+# C/D/E fitting and E validation/test scoring use CPU_JOBS; no validation/test activation files.
 # Each neuron run saves models.joblib, inference_models.joblib, and reports.
 # E region diagnostics: rbf_region_report.csv + rbf_region_histograms/layer_*.png.
 # Histograms show tanh(margin); AUROC uses raw margins. No delta clustering plot.

@@ -330,7 +330,7 @@ def main(default_stage="all"):
     inference_models = {}
     for method, candidates in methods.items():
         val = evaluate_localization(records, splits['validation'], tokenizer, model,
-            extractors, candidates, description=f'{method} validation')
+            extractors, candidates, description=f'{method} validation', cpu_jobs=args.cpu_jobs)
         best = select_layer(val, candidates)
         inference_models[method] = dict(
             {k: v for k, v in candidates[best].items()
@@ -344,7 +344,7 @@ def main(default_stage="all"):
                 by_layer[layer] = key
         chosen = {key: candidates[key] for key in by_layer.values()}
         test = evaluate_localization(records, splits['test'], tokenizer, model,
-            extractors, chosen, description=f'{method} test by layer')
+            extractors, chosen, description=f'{method} test by layer', cpu_jobs=args.cpu_jobs)
         if method == 'E':
             selected_svm = candidates[best]
         selected_methods[method] = dict(layer=candidates[best].get('layer', best),

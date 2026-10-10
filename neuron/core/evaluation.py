@@ -1,6 +1,10 @@
 from core.model_config import MODEL_ID, MAX_LENGTH, load_encoder
 """Held-out localization against changed-line proxy labels, not ground truth."""
 import difflib
+from concurrent.futures import ThreadPoolExecutor
+from time import perf_counter
+from threadpoolctl import threadpool_limits
+from core.fit_jobs import worker_count
 import torch
 from tqdm import tqdm
 from core.mapper import prepare_code_input, get_line_level_activations
@@ -57,7 +61,21 @@ def window_scores(scores, valid_lines, width):
 
 
 def evaluate_localization(records, indices, tokenizer, model, extractors,
-                          layer_directions, description='Validation'):
+                          layer_directions, description='Validation', cpu_jobs=24):
+    count = sum('estimator' in info for info in layer_directions.values())
+    if not count:
+        return _evaluate_localization(records, indices, tokenizer, model, extractors,
+                                      layer_directions, description)
+    workers = min(count, worker_count(cpu_jobs))
+    print(f'{description}: {count} SVM candidates | CPU workers={workers} | valid lines only', flush=True)
+    with threadpool_limits(limits=1), ThreadPoolExecutor(max_workers=workers) as pool:
+        return _evaluate_localization(records, indices, tokenizer, model, extractors,
+                                      layer_directions, description, pool)
+
+
+def _evaluate_localization(records, indices, tokenizer, model, extractors,
+                          layer_directions, description='Validation', pool=None):
+    encoder_seconds = scoring_seconds = 0.
     random_totals = dict(hit_at_1=0., hit_at_5=0., mrr=0.)
     per_pair = []
     score_ranges = {k: {'min': None, 'max': None} for k in layer_directions}
@@ -88,8 +106,14 @@ def evaluate_localization(records, indices, tokenizer, model, extractors,
         with torch.no_grad():
             for ext in extractors.values():
                 ext.clear()
+            started = perf_counter()
             model(**{k: v.to(model.device) for k, v in inputs.items()})
+            encoder_seconds += perf_counter() - started
+            started = perf_counter()
             cached_reps = {}
+            pending_scores = {}
+            svm_inputs = {}
+            valid_order = sorted(valid_lines)
             for l, info in layer_directions.items():
                 cache_key = (info.get('layer', l), info.get('representation', 'all'))
                 if cache_key not in cached_reps:
@@ -97,10 +121,18 @@ def evaluate_localization(records, indices, tokenizer, model, extractors,
                     line_acts = get_line_level_activations(acts, mapping, len(vulnerable.split('\n')))
                     neurons = info['target_neurons']
                     cached_reps[cache_key] = line_acts[:, neurons] @ info['down_proj'][neurons]
+                if 'estimator' in info:
+                    # Share representations across candidates; score only retained lines.
+                    if cache_key not in svm_inputs:
+                        svm_inputs[cache_key] = cached_reps[cache_key][valid_order].cpu().numpy()
+                    pending_scores[l] = pool.submit(info['estimator'].decision_function, svm_inputs[cache_key])
+            for l, info in layer_directions.items():
+                cache_key = (info.get('layer', l), info.get('representation', 'all'))
                 reps = cached_reps[cache_key]
                 if 'estimator' in info:
-                    # Rank raw margins to avoid artificial ties when tanh saturates.
-                    scores = torch.from_numpy(info['estimator'].decision_function(reps.cpu().numpy()))
+                    margins = torch.from_numpy(pending_scores[l].result())
+                    scores = torch.zeros(len(reps), dtype=margins.dtype)
+                    scores[valid_order] = margins
                 else:
                     scores = (reps @ info['d_v'] + info['bias'] if 'bias' in info
                               else score_target_line(reps, info['d_v']))
@@ -117,12 +149,14 @@ def evaluate_localization(records, indices, tokenizer, model, extractors,
                 pair_result['layers'][l] = metrics
                 for key, value in metrics.items():
                     totals[l][key] += value
+        scoring_seconds += perf_counter() - started
         per_pair.append(pair_result)
         counts['evaluated_pairs'] += 1
     n = counts['evaluated_pairs']
     metrics = {l: {key: value / n if n else None for key, value in values.items()}
                for l, values in totals.items()}
     print(f'{description} changed-line proxy counts: {counts}')
+    print(f'{description} timing: encoder={encoder_seconds:.1f}s, representation/scoring/metrics={scoring_seconds:.1f}s', flush=True)
     for l, values in metrics.items():
         if n:
             print(f"Layer {l:2d} | Hit@1={values['hit_at_1']:.4f} | "
