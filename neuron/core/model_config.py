@@ -26,3 +26,17 @@ def load_encoder(device='cpu', model=MODEL_ID, revision='main', max_length=MAX_L
     if not 0 < max_length <= encoder.config.max_position_embeddings:
         raise ValueError('Input budget must be positive and within encoder capacity')
     return encoder.to(device).eval()
+
+
+ATTENTION_MODELS = {'codebert': ('microsoft/codebert-base', 512),
+                    **{name: (model_id, MAX_LENGTH) for name, model_id in MODELS.items()}}
+
+
+def load_attention_encoder(name, device='cpu'):
+    from transformers import AutoModel, AutoTokenizer
+    model_id, limit = ATTENTION_MODELS[name]
+    tokenizer = AutoTokenizer.from_pretrained(model_id, use_fast=True)
+    model = AutoModel.from_pretrained(model_id, attn_implementation='eager')
+    if model.config.model_type == 'modernbert':
+        model.config.reference_compile = False
+    return tokenizer, model.to(device).eval(), limit
