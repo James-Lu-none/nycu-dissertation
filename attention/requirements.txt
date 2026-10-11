@@ -1,0 +1,9 @@
+# Compatible with the existing neuron environment; no vLLM/CUDA stack upgrade needed.
+torch>=2.6
+transformers>=4.57.1,<5
+scikit-learn
+matplotlib
+numpy
+tqdm
+joblib
+threadpoolctl
