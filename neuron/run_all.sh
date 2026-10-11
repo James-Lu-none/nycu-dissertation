@@ -35,3 +35,16 @@ python run_cwe_experiments.py --dataset "$dataset" \
 # python evaluate_models.py --dataset "$dataset" --model modernbert --models /path/to/models.joblib
 # python inference.py --models /path/to/inference_models.joblib --code example.c --output scores.json
 # Extraction: --refresh-cache rebuilds summaries. Training: --top-k-ratio 1 selects all neurons.
+
+# Optional paper Eq.4 adaptation: requires a fine-tuned CodeBERT/LineVul checkpoint.
+# Compares attention and B on the same <=512-token subset; not full CFG Attention Distance.
+# python evaluate_attention_distance.py --dataset "$dataset" --reference-models /path/to/inference_models.joblib --checkpoint /path/to/linevul.bin --output-dir outputs/attention_comparison
+
+# Unfine-tuned attention baseline for all three models; re-run the same command to resume.
+# python evaluate_attention_distance.py --dataset "$dataset" --reference-models /path/to/inference_models.joblib --model codebert modernbert securebert2 --output-dir outputs/attention_base
+# report.csv includes native-length cohorts and the identical common test subset.
+
+# Known-CWE diagnostic: fixed B layer, train-only CWE means; <100 pairs falls back to ALL.
+# Requires matching ALL inference models and training activation cache. No code-only CWE router.
+# python evaluate_cwe_direction.py --dataset "$dataset" --reference-models /path/to/inference_models.joblib --training-cache /path/to/activation_cache/model_key.pt --min-train-pairs 100 --output-dir outputs/known_cwe_B
+# Reuse the same output directory to resume. report.csv compares ALL/CWE on identical pairs.
