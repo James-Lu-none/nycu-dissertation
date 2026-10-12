@@ -6,6 +6,7 @@ from functools import partial
 import hashlib
 import json
 import math
+import os
 from pathlib import Path
 import random
 import sys
@@ -23,6 +24,7 @@ from transformers import AutoTokenizer, AutoConfig
 from tqdm import tqdm
 from model import MODELS, load_model, line_distribution, rationale_loss
 from data import prepare, collate
+from stopping import EarlyStopping
 from core.evaluation import localization_metrics, random_ranking_metrics
 
 
@@ -52,7 +54,7 @@ def evaluate(model, loader, device, output=None, classification=True):
                 if row['label'] != 1 or not row['positive']:
                     continue
                 ids = torch.tensor(row['line_ids'], device=att.device)
-                scores = line_distribution(att[:len(ids)], ids).cpu().tolist()
+                scores = line_distribution(att[:len(ids)], ids, logits=model.scoring == "hidden").cpu().tolist()
                 metrics = localization_metrics(dict(enumerate(scores)), set(row['positive']))
                 baseline = random_ranking_metrics(len(scores), len(row['positive']))
                 localization.append(dict(pair=row['pair'], **metrics, **{'random_'+k:v for k,v in baseline.items()}))
@@ -87,7 +89,7 @@ def evaluate(model, loader, device, output=None, classification=True):
             for ax,(row,scores) in zip(axes[:,0],examples):
                 lines = [q+1 for q in row['source_lines']]
                 ax.bar(lines,scores,color=['tomato' if j in row['positive'] else 'steelblue' for j in range(len(scores))])
-                ax.set(title=f'Pair {row["pair"]}: red = changed/deleted proxy',xlabel='Source line (1-based)',ylabel='CLS line score')
+                ax.set(title=f'Pair {row["pair"]}: red = changed/deleted proxy',xlabel='Source line (1-based)',ylabel='Line probability')
                 line_rows.extend(dict(pair=row['pair'],line=q,score=s,proxy_positive=int(j in row['positive'])) for j,(q,s) in enumerate(zip(lines,scores)))
             fig.tight_layout(); fig.savefig(output/'line_scores.png'); plt.close(fig)
             write_csv(output/'line_scores.csv', line_rows)
@@ -99,9 +101,11 @@ def main():
     parser.add_argument('--dataset', nargs='+', default=['../neuron/dataset/review/dataset.jsonl'])
     parser.add_argument('--reference-models', help='Optional ALL inference_models.joblib to reproduce existing splits')
     parser.add_argument('--model', choices=list(MODELS), default='modernbert')
-    parser.add_argument('--mode', choices=['classification','rationale','random'], default='classification')
+    parser.add_argument('--mode', choices=['classification','rationale','random','hidden'], default='classification')
     parser.add_argument('--max-length',type=int,default=8192)
-    parser.add_argument('--epochs',type=int,default=3)
+    parser.add_argument('--epochs',type=int,default=100)
+    parser.add_argument('--patience',type=int,default=5, help='Epochs without sufficient validation improvement; 0 disables stopping')
+    parser.add_argument('--min-delta',type=float,default=.001)
     parser.add_argument('--batch-size',type=int,default=1)
     parser.add_argument('--accumulation',type=int,default=16)
     parser.add_argument('--lr',type=float,default=2e-5)
@@ -113,6 +117,8 @@ def main():
     args=parser.parse_args()
     if min(args.epochs,args.batch_size,args.accumulation,args.max_length,args.cpu_threads)<1 or args.lr<=0 or args.attention_weight<0:
         parser.error('Invalid positive counts/learning rate or negative attention weight')
+    if args.patience < 0 or not math.isfinite(args.min_delta) or args.min_delta < 0:
+        parser.error('patience and min-delta must be nonnegative and finite')
     torch.set_num_threads(args.cpu_threads); seed_all(args.seed)
     model_id=MODELS[args.model]
     config=AutoConfig.from_pretrained(model_id)
@@ -135,10 +141,14 @@ def main():
     write_csv(output/'data_counts.csv',[dict(split=k,**v) for k,v in metadata['counts'].items()])
     loaders={s:DataLoader(rows,batch_size=args.batch_size,shuffle=False,collate_fn=partial(collate,tokenizer=tokenizer)) for s,rows in examples.items()}
     device='cuda' if torch.cuda.is_available() else 'cpu'
-    model=load_model(args.model,revision).to(device)
+    if os.environ.get('ATTENTION_REQUIRE_CUDA') == '1' and device != 'cuda':
+        raise RuntimeError('Assigned GPU is unavailable; refusing to silently train on CPU')
+    model=load_model(args.model,revision,scoring="hidden" if args.mode == "hidden" else "attention").to(device)
     run=dict(arguments={k:str(v) if isinstance(v,Path) else v for k,v in vars(args).items()},
              **metadata,model_id=model_id,revision=revision,device=device,attention_layer=model.attention_layer,
              attention='mean heads of selected global CLS query; pre-dropout; mean token score per line, renormalized over code lines',
+             line_scoring=('final hidden states: mean tokens per line -> linear head -> softmax across valid lines'
+                           if args.mode == 'hidden' else 'CLS attention'),
              target='uniform probability over vulnerable changed/deleted lines; no patched rationale loss',
              random_control='same line count; prefer non-rationale lines; fixed per pair; NOT token-length matched',
              threshold=.5,versions={'torch':torch.__version__},
@@ -151,7 +161,7 @@ def main():
     # Untrained classification head has no meaningful function predictions.
     for split in ('validation','test'):
         score=evaluate(model,loaders[split],device,output/('pretrained_'+split),classification=False)
-        report.append(dict(stage='pretrained_cls_attention',split=split,epoch=0,**score))
+        report.append(dict(stage='untrained_hidden_head' if args.mode == 'hidden' else 'pretrained_cls_attention',split=split,epoch=0,**score))
     write_csv(output/'report.csv',report)
     balance=0.
     if args.mode!='classification':
@@ -171,6 +181,8 @@ def main():
     (output/'run.json').write_text(json.dumps(run,indent=2))
     optimizer=torch.optim.AdamW(model.parameters(),lr=args.lr,weight_decay=.01)
     history=[]; best=-math.inf
+    stopping=EarlyStopping(args.patience,args.min_delta)
+    stop_reason="max_epochs"
     for epoch in range(1,args.epochs+1):
         generator=torch.Generator().manual_seed(args.seed+epoch)
         loader=DataLoader(examples['train'],batch_size=args.batch_size,shuffle=True,generator=generator,collate_fn=partial(collate,tokenizer=tokenizer))
@@ -190,14 +202,20 @@ def main():
                 optimizer.step(); optimizer.zero_grad()
             totals += [loss.item(),ce.item(),ar.item()]
         metrics=evaluate(model,loaders['validation'],device)
-        history.append(dict(epoch=epoch,loss=totals[0]/len(loader),classification_loss=totals[1]/len(loader),
+        value=metrics[args.select_by]
+        should_stop=stopping.update(value)
+        history.append(dict(epoch=epoch,stale_epochs=stopping.stale,stopping_reference=stopping.reference,loss=totals[0]/len(loader),classification_loss=totals[1]/len(loader),
                             attention_loss=totals[2]/len(loader),seconds=time.monotonic()-start,**metrics))
         write_csv(output/'history.csv',history)
         print(json.dumps(history[-1]),flush=True)
         if metrics[args.select_by]>best:
             best=metrics[args.select_by]
             torch.save(dict(state_dict=model.state_dict(),epoch=epoch,model_id=model_id,revision=revision,
-                            attention_layer=model.attention_layer),output/'best.pt')
+                            attention_layer=model.attention_layer,scoring=model.scoring,mode=args.mode),output/'best.pt')
+        if should_stop:
+            stop_reason="early_stopping"
+            print(f"Early stopping at epoch {epoch}: {args.select_by} did not improve by more than {args.min_delta} for {args.patience} epochs",flush=True)
+            break
     checkpoint=torch.load(output/'best.pt',map_location=device,weights_only=True)
     model.load_state_dict(checkpoint['state_dict']); del checkpoint['state_dict']
     for split in ('validation','test'):
@@ -211,7 +229,9 @@ def main():
         axes[1].plot([r['epoch'] for r in history],[r[key] for r in history],label='validation '+key)
     for ax in axes: ax.set_xlabel('Epoch'); ax.legend()
     fig.tight_layout();fig.savefig(output/'training.png');plt.close(fig)
-    (output/'complete.json').write_text(json.dumps(dict(best_epoch=checkpoint['epoch'],select_by=args.select_by)))
+    (output/'complete.json').write_text(json.dumps(dict(best_epoch=checkpoint['epoch'],best_validation_score=best,
+        stopped_epoch=epoch,stop_reason=stop_reason,select_by=args.select_by,
+        patience=args.patience,min_delta=args.min_delta,stale_epochs=stopping.stale)))
     print(f'Completed: {output}',flush=True)
 
 

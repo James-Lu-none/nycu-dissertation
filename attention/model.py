@@ -50,9 +50,10 @@ def capture_legacy_cls(module, args, kwargs):
 
 
 class Classifier(nn.Module):
-    def __init__(self, encoder):
+    def __init__(self, encoder, scoring="attention"):
         super().__init__()
         self.encoder = encoder
+        self.scoring = scoring
         config = encoder.config
         if config.model_type == 'modernbert':
             config.reference_compile = False
@@ -66,28 +67,32 @@ class Classifier(nn.Module):
             attention = encoder.encoder.layer[self.attention_layer].attention.self
         else:
             raise ValueError('Only ModernBERT and RoBERTa/CodeBERT are supported')
-        attention.capture_cls = True
-        if LEGACY:
+        attention.capture_cls = scoring == "attention"
+        if LEGACY and scoring == "attention":
             attention.register_forward_pre_hook(capture_legacy_cls, with_kwargs=True)
         # Avoid registering the same module twice in state_dict.
         object.__setattr__(self, 'attention_module', attention)
         self.head = nn.Linear(config.hidden_size, 2)
+        self.line_head = nn.Linear(config.hidden_size, 1) if scoring == "hidden" else None
 
     def forward(self, inputs):
         self.attention_module.cls_attention = None
         out = self.encoder(**inputs)
+        if self.scoring == "hidden":
+            return self.head(out.last_hidden_state[:, 0]), self.line_head(out.last_hidden_state).squeeze(-1)
         attention = self.attention_module.cls_attention
         if attention is None:
             raise RuntimeError('Differentiable CLS attention was not captured')
         return self.head(out.last_hidden_state[:, 0]), attention
 
 
-def load_model(name, revision):
+def load_model(name, revision, scoring="attention"):
     return Classifier(AutoModel.from_pretrained(MODELS.get(name, name), revision=revision,
-                                               attn_implementation=ATTENTION_BACKEND))
+                                               attn_implementation=ATTENTION_BACKEND), scoring=scoring)
 
 
-def line_distribution(attention, line_ids):
+def line_distribution(attention, line_ids, logits=False):
+    """Mean tokens per line; linear(mean hidden) equals mean(linear(hidden))."""
     valid = line_ids >= 0
     if not valid.any():
         return attention.new_empty(0)
@@ -95,7 +100,7 @@ def line_distribution(attention, line_ids):
     sums = attention.new_zeros(int(ids.max()) + 1).scatter_add(0, ids, attention[valid])
     counts = torch.bincount(ids, minlength=len(sums)).to(sums)
     means = sums / counts.clamp_min(1)
-    return means / means.sum().clamp_min(1e-12)
+    return means.softmax(0) if logits else means / means.sum().clamp_min(1e-12)
 
 
 def rationale_loss(attention, examples, mode):
@@ -105,7 +110,7 @@ def rationale_loss(attention, examples, mode):
         if example['label'] != 1 or not target:
             continue
         distribution = line_distribution(row[:len(example['line_ids'])],
-                                         torch.tensor(example['line_ids'], device=row.device))
+                                         torch.tensor(example['line_ids'], device=row.device), logits=mode == 'hidden')
         # Uniform over positive lines: CE equals KL up to a target-only constant.
         losses.append(-distribution[target].clamp_min(1e-12).log().mean())
     return torch.stack(losses).mean() if losses else attention.sum() * 0

@@ -15,7 +15,7 @@ def main():
     if not rows: raise ValueError('No reports')
     with (root/'comparison.csv').open('w',newline='') as f:
         writer=csv.DictWriter(f,fieldnames=list(rows[0]));writer.writeheader();writer.writerows(rows)
-    selected=[r for r in rows if r['split']=='test' and r['stage']!='pretrained_cls_attention']
+    selected=[r for r in rows if r['split']=='test' and r['stage'] not in ('pretrained_cls_attention','untrained_hidden_head')]
     if selected:
         fig,axes=plt.subplots(1,2,figsize=(12,5))
         for ax,key in zip(axes,('mrr','auroc')):
