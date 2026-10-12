@@ -86,9 +86,10 @@ class Classifier(nn.Module):
         return self.head(out.last_hidden_state[:, 0]), attention
 
 
-def load_model(name, revision, scoring="attention"):
+def load_model(name, revision, scoring="attention", local_files_only=False):
     return Classifier(AutoModel.from_pretrained(MODELS.get(name, name), revision=revision,
-                                               attn_implementation=ATTENTION_BACKEND), scoring=scoring)
+                                               attn_implementation=ATTENTION_BACKEND,
+                                               local_files_only=local_files_only), scoring=scoring)
 
 
 def line_distribution(attention, line_ids, logits=False):

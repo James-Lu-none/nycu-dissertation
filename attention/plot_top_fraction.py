@@ -54,6 +54,7 @@ def main():
     parser.add_argument('--dataset',nargs='+',default=['../neuron/dataset/review/dataset.jsonl'])
     parser.add_argument('--split',choices=['validation','test'],default='test')
     parser.add_argument('--output-dir',type=Path,default=Path('outputs/figure6_comparison'))
+    parser.add_argument('--local-files-only',action='store_true',help='Use cached Hugging Face files only; default allows downloads')
     args=parser.parse_args()
     records=[pair for path in args.dataset for pair in load_unified_records(path)]
     digest=fingerprint(records)
@@ -63,7 +64,7 @@ def main():
         if metadata['dataset_sha256'] != digest: raise ValueError(f'Dataset/order mismatch: {run}')
         key=(metadata['model_id'],metadata['revision'])
         if key not in tokenizers:
-            tokenizers[key]=AutoTokenizer.from_pretrained(key[0],revision=key[1],use_fast=True,local_files_only=True)
+            tokenizers[key]=AutoTokenizer.from_pretrained(key[0],revision=key[1],use_fast=True,local_files_only=args.local_files_only)
         tokenizer=tokenizers[key]
         with (run/args.split/'localization.csv').open() as f: saved=list(csv.DictReader(f))
         split_ids=set(json.loads((run/'splits.json').read_text())[args.split])

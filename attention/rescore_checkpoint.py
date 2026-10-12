@@ -80,6 +80,7 @@ def main():
     parser.add_argument('--cpu-threads',type=int,default=4)
     parser.add_argument('--chunk-size',type=int,default=128)
     parser.add_argument('--device',choices=['auto','cpu','cuda'],default='auto')
+    parser.add_argument('--local-files-only',action='store_true',help='Use cached Hugging Face files only; default allows downloads')
     args=parser.parse_args()
     if args.cpu_threads<1 or args.chunk_size<1: parser.error('Thread and chunk counts must be positive')
     torch.set_num_threads(args.cpu_threads)
@@ -113,11 +114,11 @@ def main():
     done={r['pair'] for r in rows}
     if len(done)!=len(rows) or not done<=set(indices): raise ValueError('Invalid progress file')
     pending=[i for i in indices if i not in done]
-    tokenizer=AutoTokenizer.from_pretrained(run['model_id'],revision=run['revision'],use_fast=True,local_files_only=True)
+    tokenizer=AutoTokenizer.from_pretrained(run['model_id'],revision=run['revision'],use_fast=True,local_files_only=args.local_files_only)
     device=('cuda' if torch.cuda.is_available() else 'cpu') if args.device=='auto' else args.device
     if pending:
         print(f'Device={device}; pending={len(pending)}; output={output}',flush=True)
-        model=load_model(run['arguments']['model'],run['revision']).to(device).eval()
+        model=load_model(run['arguments']['model'],run['revision'],local_files_only=args.local_files_only).to(device).eval()
         model.load_state_dict(checkpoint['state_dict'],strict=True)
         del checkpoint
         collector=IncomingCollector(model.encoder,args.chunk_size)
