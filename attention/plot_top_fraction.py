@@ -39,10 +39,10 @@ def write_csv(path, rows):
 def plot(path,series,split):
     fig,ax=plt.subplots(figsize=(8,5))
     for name,values in series:
-        ax.plot([r['fraction'] for r in values],[r['hit_rate'] for r in values],marker='o',label=name)
-        ax.plot([r['fraction'] for r in values],[r['random_hit_rate'] for r in values],'--',alpha=.6,label=f'Random: {name}')
+        label={'incoming': 'attention distance', 'cls': 'cls rationales'}.get(name,name)
+        ax.plot([r['fraction'] for r in values],[r['hit_rate'] for r in values],marker='o',label=label)
     ax.set(xlabel='Fraction of valid lines inspected (top-ranked)',ylabel='Functions with >=1 proxy-line hit',
-           title=f'Figure-6-style line localization | {split}, N={series[0][1][0]["pairs"]}\nChanged/deleted-line labels; conservative ties',
+           title=f'Line-Level accuracy (N={series[0][1][0]["pairs"]})',
            xlim=(.1,1),ylim=(0,1.02))
     ax.grid(alpha=.25);ax.legend(fontsize=8)
     fig.tight_layout();fig.savefig(path.with_suffix('.png'),dpi=180);fig.savefig(path.with_suffix('.pdf'));plt.close(fig)
