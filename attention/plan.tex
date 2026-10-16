@@ -1,0 +1,156 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath,amssymb}
+\usepackage{geometry}
+\geometry{a4paper,margin=1in}
+\newcommand{\fn}[1]{{\small\texttt{\detokenize{#1}}}}
+\newcommand{\eps}{\varepsilon}
+\title{Attention Rationale Supervision: Training Objective}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{Inputs and Supervision}
+The following formulas describe a single function; sample indices are omitted.
+\begin{itemize}
+    \item \fn{data.py: prepare()} constructs vulnerable/patched function examples.
+    Each retained function is encoded in full; overlength pairs are excluded.
+    \item $x$: a function; $y=1$ for vulnerable and $y=0$ for patched.
+    These are dataset labels, not guarantees that patched code is vulnerability-free.
+    \item $V$: valid token-bearing source lines; $T_j$: tokens mapped to line $j$.
+    Special tokens with line ID $-1$ do not contribute to line scores.
+    \item $R\subseteq V$: changed/deleted lines on the vulnerable side,
+    computed by\\ \fn{changed_vulnerable_lines()}.
+    These are \textbf{proxy rationales}, not human-verified root-cause annotations.
+    Patched examples have no positive rationale targets.
+\end{itemize}
+
+\section{Function Classification Loss}
+\begin{itemize}
+    \item \fn{model.py: Classifier.forward()} applies a two-class linear head to
+    the final encoder layer's CLS hidden state $h^{(L)}_{\mathrm{CLS}}$:
+    \[
+        z=W_c h^{(L)}_{\mathrm{CLS}}+b_c,
+        \qquad \pi=\operatorname{softmax}(z).
+    \]
+    \item Both vulnerable and patched functions contribute to cross-entropy:
+    \[
+        \boxed{\mathcal L_{\mathrm{cls}}(x,y)
+        =-\log P_\theta(y\mid x)=-\log\pi_y.}
+    \]
+    \item Implementation: \fn{train.py: main()},
+    \fn{torch.nn.functional.cross_entropy()}.
+\end{itemize}
+
+\section{CLS Attention to a Line Distribution}
+\begin{itemize}
+    \item \fn{model.py: Classifier.__init__()} selects layer $\ell$:
+    the last global-attention layer for ModernBERT, or the last attention layer
+    for RoBERTa/CodeBERT. It does not sum all layers.
+    \item \fn{cls_probabilities()} computes the masked CLS-query attention
+    probabilities and averages over $H$ heads:
+    \[
+        a_t=\frac{1}{H}\sum_{h=1}^{H}
+        A^{(\ell,h)}_{\mathrm{CLS},t}.
+    \]
+    \item \fn{line_distribution()} averages tokens within each valid line,
+    then normalizes over valid lines:
+    \begin{align}
+        u_j&=\frac{1}{|T_j|}\sum_{t\in T_j}a_t,\\
+        p_j&=\frac{u_j}{\max(\sum_{k\in V}u_k,\eps)},
+        \qquad \eps=10^{-12}.
+    \end{align}
+    \item Normally $\sum_{j\in V}p_j=1$; the denominator clamp protects
+    numerical edge cases. These are relative line-attention scores,
+    \textbf{not calibrated line-level vulnerability probabilities}.
+\end{itemize}
+
+\section{Rationale Annotation Loss}
+\begin{itemize}
+    \item The target is uniform across the annotated lines:
+    \[
+        q_j=\begin{cases}
+            1/|R|,& j\in R,\\
+            0,& j\in V\setminus R.
+        \end{cases}
+    \]
+    \item Only vulnerable functions with nonempty valid targets participate
+    ($y=1$ and $|R|>0$). For one such function,
+    \[
+        \boxed{\mathcal L_{\mathrm{rat}}(x,R)
+        =-\sum_{j\in V}q_j\log p_j
+        =-\frac{1}{|R|}\sum_{j\in R}\log p_j.}
+    \]
+    Implementation: \fn{model.py: rationale_loss()} clamps $p_j$ below
+    at $\eps=10^{-12}$ before taking the logarithm.
+    \item Each eligible function receives equal weight; within it, each
+    annotated line receives equal weight. Patched examples have classification
+    loss only, with no uniform-attention or zero-attention target.
+    \item Ignoring numerical clamps, this is cross-entropy $H(q,p)$:
+    \[
+        H(q,p)=D_{\mathrm{KL}}(q\Vert p)+H(q),
+        \qquad H(q)=\log|R|.
+    \]
+    Thus its gradients match forward KL, but the scalar loss includes the
+    target-entropy constant. For two annotated lines, the per-function loss is
+    $-\tfrac12(\log p_{j_1}+\log p_{j_2})$.
+\end{itemize}
+
+\section{Combined Loss and Fixed Scale Calibration}
+\begin{itemize}
+    \item The combined objective is
+    \[
+        \boxed{\mathcal L=
+        \mathcal L_{\mathrm{cls}}
+        +\lambda b\,\mathcal L_{\mathrm{rat}}.}
+    \]
+    \item In \fn{train.py: main()}, the classification term is averaged over
+    all functions in the mini-batch; the rationale term is averaged separately
+    over eligible vulnerable functions only. With no eligible functions, the
+    rationale term is zero. The two averages can have different denominators;
+    the combined objective above uses these averaged terms during training.
+    \item $\lambda$ is \fn{--attention-weight}, default $0.1$.
+    Gradients update the encoder and classification head; attention supervision
+    is differentiable through the encoder's attention computations.
+    \item Before optimization, sample at most 128 \emph{function examples}
+    from train using the configured seed. In evaluation mode (dropout disabled),
+    estimate the initial mean losses and set
+    \[
+        b=\frac{\overline{\mathcal L}^{(0)}_{\mathrm{cls}}}
+        {\overline{\mathcal L}^{(0)}_{\mathrm{rat}}}.
+    \]
+    The bars denote arithmetic means of the initial calibration batch losses.
+    Calibration batches without eligible rationales contribute zero to the
+    denominator average. A nonpositive denominator raises an error.
+    \item $b$ is fixed for all epochs and saved as \fn{loss_balance} in
+    \fn{run.json}. At calibration, $\lambda b\,\overline{\mathcal L^{(0)}_{\mathrm{rat}}}
+    =\lambda\overline{\mathcal L^{(0)}_{\mathrm{cls}}}$;
+    this ratio is not held constant during training.
+    \item Both losses are reduced within each mini-batch. Gradient accumulation
+    averages these batch losses, rather than recomputing a single rationale
+    mean over all eligible examples across the accumulated batches.
+\end{itemize}
+
+\section{Experimental Controls and Inference}
+\begin{itemize}
+    \item \fn{classification}: $\mathcal L=\mathcal L_{\mathrm{cls}}$ only.
+    \item \fn{rationale}: the CLS-attention objective above.
+    \item \fn{random}: same objective, but replace $R$ with fixed sampled
+    lines of the same count, preferentially non-rationale lines. This is not
+    a fully uniform random-line control.
+    \item \fn{hidden}: replace the attention-derived distribution with
+    \[
+        s_j=w^\top\left(\frac{1}{|T_j|}
+        \sum_{t\in T_j}h^{(L)}_{t}\right)+c,
+        \qquad p_j=\operatorname{softmax}_{j\in V}(s_j).
+    \]
+    Use the same proxy targets and combined-loss structure, with its own
+    calibration coefficient. Implemented by the linear token head and
+    \fn{line_distribution(..., logits=True)}.
+    \item Inference receives code only. Rationale labels are used for training,
+    evaluation, and visualization, not as model inputs. Since line scores are
+    normalized, even a patched function still has a highest-scoring line.
+\end{itemize}
+
+\end{document}
