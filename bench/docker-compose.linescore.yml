@@ -1,0 +1,1266 @@
+services:
+  afl-dafl-1:
+    container_name: "${CVE}-afl-dafl-1"
+    build:
+      context: "./${CVE}"
+      dockerfile: Dockerfile.linescore
+      args:
+        - REGISTRY=${REGISTRY:-docker.io/location0717}
+    image: "${IMAGE_NAME_LINESCORE:-${CVE}:linescore}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_DAFL}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - TARGET_BIN_ASAN=${TARGET_BIN_ASAN}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+      - SESSION_ID=${SESSION_ID}
+      - TRIAL_NAME=${TRIAL_NAME}
+      - CONTAINER_NAME=${CVE}-afl-dafl-1
+    volumes:
+      - "afl-out-dafl-1:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+      - "../../artifact/${CVE}/${TRIAL_NAME}/logs:/workspace/logs"
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+
+  afl-attention-1:
+    container_name: "${CVE}-afl-attention-1"
+    image: "${IMAGE_NAME_LINESCORE:-${CVE}:linescore}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_ATTENTION}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - TARGET_BIN_ASAN=${TARGET_BIN_ASAN}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+      - SESSION_ID=${SESSION_ID}
+      - TRIAL_NAME=${TRIAL_NAME}
+      - CONTAINER_NAME=${CVE}-afl-attention-1
+    volumes:
+      - "afl-out-attention-1:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+      - "../../artifact/${CVE}/${TRIAL_NAME}/logs:/workspace/logs"
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+
+  afl-rationale-1:
+    container_name: "${CVE}-afl-rationale-1"
+    image: "${IMAGE_NAME_LINESCORE:-${CVE}:linescore}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_RATIONALE}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - TARGET_BIN_ASAN=${TARGET_BIN_ASAN}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+      - SESSION_ID=${SESSION_ID}
+      - TRIAL_NAME=${TRIAL_NAME}
+      - CONTAINER_NAME=${CVE}-afl-rationale-1
+    volumes:
+      - "afl-out-rationale-1:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+      - "../../artifact/${CVE}/${TRIAL_NAME}/logs:/workspace/logs"
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+
+  afl-dafl-2:
+    container_name: "${CVE}-afl-dafl-2"
+    image: "${IMAGE_NAME_LINESCORE:-${CVE}:linescore}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_DAFL}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - TARGET_BIN_ASAN=${TARGET_BIN_ASAN}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+      - SESSION_ID=${SESSION_ID}
+      - TRIAL_NAME=${TRIAL_NAME}
+      - CONTAINER_NAME=${CVE}-afl-dafl-2
+    volumes:
+      - "afl-out-dafl-2:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+      - "../../artifact/${CVE}/${TRIAL_NAME}/logs:/workspace/logs"
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+
+  afl-attention-2:
+    container_name: "${CVE}-afl-attention-2"
+    image: "${IMAGE_NAME_LINESCORE:-${CVE}:linescore}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_ATTENTION}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - TARGET_BIN_ASAN=${TARGET_BIN_ASAN}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+      - SESSION_ID=${SESSION_ID}
+      - TRIAL_NAME=${TRIAL_NAME}
+      - CONTAINER_NAME=${CVE}-afl-attention-2
+    volumes:
+      - "afl-out-attention-2:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+      - "../../artifact/${CVE}/${TRIAL_NAME}/logs:/workspace/logs"
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+
+  afl-rationale-2:
+    container_name: "${CVE}-afl-rationale-2"
+    image: "${IMAGE_NAME_LINESCORE:-${CVE}:linescore}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_RATIONALE}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - TARGET_BIN_ASAN=${TARGET_BIN_ASAN}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+      - SESSION_ID=${SESSION_ID}
+      - TRIAL_NAME=${TRIAL_NAME}
+      - CONTAINER_NAME=${CVE}-afl-rationale-2
+    volumes:
+      - "afl-out-rationale-2:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+      - "../../artifact/${CVE}/${TRIAL_NAME}/logs:/workspace/logs"
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+
+  afl-dafl-3:
+    container_name: "${CVE}-afl-dafl-3"
+    image: "${IMAGE_NAME_LINESCORE:-${CVE}:linescore}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_DAFL}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - TARGET_BIN_ASAN=${TARGET_BIN_ASAN}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+      - SESSION_ID=${SESSION_ID}
+      - TRIAL_NAME=${TRIAL_NAME}
+      - CONTAINER_NAME=${CVE}-afl-dafl-3
+    volumes:
+      - "afl-out-dafl-3:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+      - "../../artifact/${CVE}/${TRIAL_NAME}/logs:/workspace/logs"
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+
+  afl-attention-3:
+    container_name: "${CVE}-afl-attention-3"
+    image: "${IMAGE_NAME_LINESCORE:-${CVE}:linescore}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_ATTENTION}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - TARGET_BIN_ASAN=${TARGET_BIN_ASAN}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+      - SESSION_ID=${SESSION_ID}
+      - TRIAL_NAME=${TRIAL_NAME}
+      - CONTAINER_NAME=${CVE}-afl-attention-3
+    volumes:
+      - "afl-out-attention-3:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+      - "../../artifact/${CVE}/${TRIAL_NAME}/logs:/workspace/logs"
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+
+  afl-rationale-3:
+    container_name: "${CVE}-afl-rationale-3"
+    image: "${IMAGE_NAME_LINESCORE:-${CVE}:linescore}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_RATIONALE}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - TARGET_BIN_ASAN=${TARGET_BIN_ASAN}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+      - SESSION_ID=${SESSION_ID}
+      - TRIAL_NAME=${TRIAL_NAME}
+      - CONTAINER_NAME=${CVE}-afl-rationale-3
+    volumes:
+      - "afl-out-rationale-3:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+      - "../../artifact/${CVE}/${TRIAL_NAME}/logs:/workspace/logs"
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+
+  afl-dafl-4:
+    container_name: "${CVE}-afl-dafl-4"
+    image: "${IMAGE_NAME_LINESCORE:-${CVE}:linescore}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_DAFL}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - TARGET_BIN_ASAN=${TARGET_BIN_ASAN}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+      - SESSION_ID=${SESSION_ID}
+      - TRIAL_NAME=${TRIAL_NAME}
+      - CONTAINER_NAME=${CVE}-afl-dafl-4
+    volumes:
+      - "afl-out-dafl-4:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+      - "../../artifact/${CVE}/${TRIAL_NAME}/logs:/workspace/logs"
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+
+  afl-attention-4:
+    container_name: "${CVE}-afl-attention-4"
+    image: "${IMAGE_NAME_LINESCORE:-${CVE}:linescore}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_ATTENTION}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - TARGET_BIN_ASAN=${TARGET_BIN_ASAN}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+      - SESSION_ID=${SESSION_ID}
+      - TRIAL_NAME=${TRIAL_NAME}
+      - CONTAINER_NAME=${CVE}-afl-attention-4
+    volumes:
+      - "afl-out-attention-4:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+      - "../../artifact/${CVE}/${TRIAL_NAME}/logs:/workspace/logs"
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+
+  afl-rationale-4:
+    container_name: "${CVE}-afl-rationale-4"
+    image: "${IMAGE_NAME_LINESCORE:-${CVE}:linescore}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_RATIONALE}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - TARGET_BIN_ASAN=${TARGET_BIN_ASAN}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+      - SESSION_ID=${SESSION_ID}
+      - TRIAL_NAME=${TRIAL_NAME}
+      - CONTAINER_NAME=${CVE}-afl-rationale-4
+    volumes:
+      - "afl-out-rationale-4:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+      - "../../artifact/${CVE}/${TRIAL_NAME}/logs:/workspace/logs"
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+
+  afl-dafl-5:
+    container_name: "${CVE}-afl-dafl-5"
+    image: "${IMAGE_NAME_LINESCORE:-${CVE}:linescore}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_DAFL}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - TARGET_BIN_ASAN=${TARGET_BIN_ASAN}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+      - SESSION_ID=${SESSION_ID}
+      - TRIAL_NAME=${TRIAL_NAME}
+      - CONTAINER_NAME=${CVE}-afl-dafl-5
+    volumes:
+      - "afl-out-dafl-5:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+      - "../../artifact/${CVE}/${TRIAL_NAME}/logs:/workspace/logs"
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+
+  afl-attention-5:
+    container_name: "${CVE}-afl-attention-5"
+    image: "${IMAGE_NAME_LINESCORE:-${CVE}:linescore}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_ATTENTION}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - TARGET_BIN_ASAN=${TARGET_BIN_ASAN}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+      - SESSION_ID=${SESSION_ID}
+      - TRIAL_NAME=${TRIAL_NAME}
+      - CONTAINER_NAME=${CVE}-afl-attention-5
+    volumes:
+      - "afl-out-attention-5:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+      - "../../artifact/${CVE}/${TRIAL_NAME}/logs:/workspace/logs"
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+
+  afl-rationale-5:
+    container_name: "${CVE}-afl-rationale-5"
+    image: "${IMAGE_NAME_LINESCORE:-${CVE}:linescore}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_RATIONALE}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - TARGET_BIN_ASAN=${TARGET_BIN_ASAN}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+      - SESSION_ID=${SESSION_ID}
+      - TRIAL_NAME=${TRIAL_NAME}
+      - CONTAINER_NAME=${CVE}-afl-rationale-5
+    volumes:
+      - "afl-out-rationale-5:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+      - "../../artifact/${CVE}/${TRIAL_NAME}/logs:/workspace/logs"
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+
+  afl-dafl-6:
+    container_name: "${CVE}-afl-dafl-6"
+    image: "${IMAGE_NAME_LINESCORE:-${CVE}:linescore}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_DAFL}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - TARGET_BIN_ASAN=${TARGET_BIN_ASAN}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+      - SESSION_ID=${SESSION_ID}
+      - TRIAL_NAME=${TRIAL_NAME}
+      - CONTAINER_NAME=${CVE}-afl-dafl-6
+    volumes:
+      - "afl-out-dafl-6:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+      - "../../artifact/${CVE}/${TRIAL_NAME}/logs:/workspace/logs"
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+
+  afl-attention-6:
+    container_name: "${CVE}-afl-attention-6"
+    image: "${IMAGE_NAME_LINESCORE:-${CVE}:linescore}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_ATTENTION}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - TARGET_BIN_ASAN=${TARGET_BIN_ASAN}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+      - SESSION_ID=${SESSION_ID}
+      - TRIAL_NAME=${TRIAL_NAME}
+      - CONTAINER_NAME=${CVE}-afl-attention-6
+    volumes:
+      - "afl-out-attention-6:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+      - "../../artifact/${CVE}/${TRIAL_NAME}/logs:/workspace/logs"
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+
+  afl-rationale-6:
+    container_name: "${CVE}-afl-rationale-6"
+    image: "${IMAGE_NAME_LINESCORE:-${CVE}:linescore}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_RATIONALE}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - TARGET_BIN_ASAN=${TARGET_BIN_ASAN}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+      - SESSION_ID=${SESSION_ID}
+      - TRIAL_NAME=${TRIAL_NAME}
+      - CONTAINER_NAME=${CVE}-afl-rationale-6
+    volumes:
+      - "afl-out-rationale-6:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+      - "../../artifact/${CVE}/${TRIAL_NAME}/logs:/workspace/logs"
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+
+  afl-dafl-7:
+    container_name: "${CVE}-afl-dafl-7"
+    image: "${IMAGE_NAME_LINESCORE:-${CVE}:linescore}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_DAFL}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - TARGET_BIN_ASAN=${TARGET_BIN_ASAN}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+      - SESSION_ID=${SESSION_ID}
+      - TRIAL_NAME=${TRIAL_NAME}
+      - CONTAINER_NAME=${CVE}-afl-dafl-7
+    volumes:
+      - "afl-out-dafl-7:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+      - "../../artifact/${CVE}/${TRIAL_NAME}/logs:/workspace/logs"
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+
+  afl-attention-7:
+    container_name: "${CVE}-afl-attention-7"
+    image: "${IMAGE_NAME_LINESCORE:-${CVE}:linescore}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_ATTENTION}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - TARGET_BIN_ASAN=${TARGET_BIN_ASAN}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+      - SESSION_ID=${SESSION_ID}
+      - TRIAL_NAME=${TRIAL_NAME}
+      - CONTAINER_NAME=${CVE}-afl-attention-7
+    volumes:
+      - "afl-out-attention-7:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+      - "../../artifact/${CVE}/${TRIAL_NAME}/logs:/workspace/logs"
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+
+  afl-rationale-7:
+    container_name: "${CVE}-afl-rationale-7"
+    image: "${IMAGE_NAME_LINESCORE:-${CVE}:linescore}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_RATIONALE}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - TARGET_BIN_ASAN=${TARGET_BIN_ASAN}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+      - SESSION_ID=${SESSION_ID}
+      - TRIAL_NAME=${TRIAL_NAME}
+      - CONTAINER_NAME=${CVE}-afl-rationale-7
+    volumes:
+      - "afl-out-rationale-7:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+      - "../../artifact/${CVE}/${TRIAL_NAME}/logs:/workspace/logs"
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+
+  afl-dafl-8:
+    container_name: "${CVE}-afl-dafl-8"
+    image: "${IMAGE_NAME_LINESCORE:-${CVE}:linescore}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_DAFL}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - TARGET_BIN_ASAN=${TARGET_BIN_ASAN}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+      - SESSION_ID=${SESSION_ID}
+      - TRIAL_NAME=${TRIAL_NAME}
+      - CONTAINER_NAME=${CVE}-afl-dafl-8
+    volumes:
+      - "afl-out-dafl-8:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+      - "../../artifact/${CVE}/${TRIAL_NAME}/logs:/workspace/logs"
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+
+  afl-attention-8:
+    container_name: "${CVE}-afl-attention-8"
+    image: "${IMAGE_NAME_LINESCORE:-${CVE}:linescore}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_ATTENTION}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - TARGET_BIN_ASAN=${TARGET_BIN_ASAN}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+      - SESSION_ID=${SESSION_ID}
+      - TRIAL_NAME=${TRIAL_NAME}
+      - CONTAINER_NAME=${CVE}-afl-attention-8
+    volumes:
+      - "afl-out-attention-8:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+      - "../../artifact/${CVE}/${TRIAL_NAME}/logs:/workspace/logs"
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+
+  afl-rationale-8:
+    container_name: "${CVE}-afl-rationale-8"
+    image: "${IMAGE_NAME_LINESCORE:-${CVE}:linescore}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_RATIONALE}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - TARGET_BIN_ASAN=${TARGET_BIN_ASAN}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+      - SESSION_ID=${SESSION_ID}
+      - TRIAL_NAME=${TRIAL_NAME}
+      - CONTAINER_NAME=${CVE}-afl-rationale-8
+    volumes:
+      - "afl-out-rationale-8:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+      - "../../artifact/${CVE}/${TRIAL_NAME}/logs:/workspace/logs"
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+
+  afl-dafl-9:
+    container_name: "${CVE}-afl-dafl-9"
+    image: "${IMAGE_NAME_LINESCORE:-${CVE}:linescore}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_DAFL}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - TARGET_BIN_ASAN=${TARGET_BIN_ASAN}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+      - SESSION_ID=${SESSION_ID}
+      - TRIAL_NAME=${TRIAL_NAME}
+      - CONTAINER_NAME=${CVE}-afl-dafl-9
+    volumes:
+      - "afl-out-dafl-9:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+      - "../../artifact/${CVE}/${TRIAL_NAME}/logs:/workspace/logs"
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+
+  afl-attention-9:
+    container_name: "${CVE}-afl-attention-9"
+    image: "${IMAGE_NAME_LINESCORE:-${CVE}:linescore}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_ATTENTION}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - TARGET_BIN_ASAN=${TARGET_BIN_ASAN}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+      - SESSION_ID=${SESSION_ID}
+      - TRIAL_NAME=${TRIAL_NAME}
+      - CONTAINER_NAME=${CVE}-afl-attention-9
+    volumes:
+      - "afl-out-attention-9:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+      - "../../artifact/${CVE}/${TRIAL_NAME}/logs:/workspace/logs"
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+
+  afl-rationale-9:
+    container_name: "${CVE}-afl-rationale-9"
+    image: "${IMAGE_NAME_LINESCORE:-${CVE}:linescore}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_RATIONALE}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - TARGET_BIN_ASAN=${TARGET_BIN_ASAN}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+      - SESSION_ID=${SESSION_ID}
+      - TRIAL_NAME=${TRIAL_NAME}
+      - CONTAINER_NAME=${CVE}-afl-rationale-9
+    volumes:
+      - "afl-out-rationale-9:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+      - "../../artifact/${CVE}/${TRIAL_NAME}/logs:/workspace/logs"
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+
+  afl-dafl-10:
+    container_name: "${CVE}-afl-dafl-10"
+    image: "${IMAGE_NAME_LINESCORE:-${CVE}:linescore}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_DAFL}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - TARGET_BIN_ASAN=${TARGET_BIN_ASAN}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+      - SESSION_ID=${SESSION_ID}
+      - TRIAL_NAME=${TRIAL_NAME}
+      - CONTAINER_NAME=${CVE}-afl-dafl-10
+    volumes:
+      - "afl-out-dafl-10:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+      - "../../artifact/${CVE}/${TRIAL_NAME}/logs:/workspace/logs"
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+
+  afl-attention-10:
+    container_name: "${CVE}-afl-attention-10"
+    image: "${IMAGE_NAME_LINESCORE:-${CVE}:linescore}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_ATTENTION}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - TARGET_BIN_ASAN=${TARGET_BIN_ASAN}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+      - SESSION_ID=${SESSION_ID}
+      - TRIAL_NAME=${TRIAL_NAME}
+      - CONTAINER_NAME=${CVE}-afl-attention-10
+    volumes:
+      - "afl-out-attention-10:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+      - "../../artifact/${CVE}/${TRIAL_NAME}/logs:/workspace/logs"
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+
+  afl-rationale-10:
+    container_name: "${CVE}-afl-rationale-10"
+    image: "${IMAGE_NAME_LINESCORE:-${CVE}:linescore}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_RATIONALE}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - TARGET_BIN_ASAN=${TARGET_BIN_ASAN}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+      - SESSION_ID=${SESSION_ID}
+      - TRIAL_NAME=${TRIAL_NAME}
+      - CONTAINER_NAME=${CVE}-afl-rationale-10
+    volumes:
+      - "afl-out-rationale-10:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+      - "../../artifact/${CVE}/${TRIAL_NAME}/logs:/workspace/logs"
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+
+  afl-dafl-11:
+    container_name: "${CVE}-afl-dafl-11"
+    image: "${IMAGE_NAME_LINESCORE:-${CVE}:linescore}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_DAFL}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - TARGET_BIN_ASAN=${TARGET_BIN_ASAN}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+      - SESSION_ID=${SESSION_ID}
+      - TRIAL_NAME=${TRIAL_NAME}
+      - CONTAINER_NAME=${CVE}-afl-dafl-11
+    volumes:
+      - "afl-out-dafl-11:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+      - "../../artifact/${CVE}/${TRIAL_NAME}/logs:/workspace/logs"
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+
+  afl-attention-11:
+    container_name: "${CVE}-afl-attention-11"
+    image: "${IMAGE_NAME_LINESCORE:-${CVE}:linescore}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_ATTENTION}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - TARGET_BIN_ASAN=${TARGET_BIN_ASAN}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+      - SESSION_ID=${SESSION_ID}
+      - TRIAL_NAME=${TRIAL_NAME}
+      - CONTAINER_NAME=${CVE}-afl-attention-11
+    volumes:
+      - "afl-out-attention-11:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+      - "../../artifact/${CVE}/${TRIAL_NAME}/logs:/workspace/logs"
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+
+  afl-rationale-11:
+    container_name: "${CVE}-afl-rationale-11"
+    image: "${IMAGE_NAME_LINESCORE:-${CVE}:linescore}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_RATIONALE}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - TARGET_BIN_ASAN=${TARGET_BIN_ASAN}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+      - SESSION_ID=${SESSION_ID}
+      - TRIAL_NAME=${TRIAL_NAME}
+      - CONTAINER_NAME=${CVE}-afl-rationale-11
+    volumes:
+      - "afl-out-rationale-11:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+      - "../../artifact/${CVE}/${TRIAL_NAME}/logs:/workspace/logs"
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+
+  afl-dafl-12:
+    container_name: "${CVE}-afl-dafl-12"
+    image: "${IMAGE_NAME_LINESCORE:-${CVE}:linescore}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_DAFL}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - TARGET_BIN_ASAN=${TARGET_BIN_ASAN}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+      - SESSION_ID=${SESSION_ID}
+      - TRIAL_NAME=${TRIAL_NAME}
+      - CONTAINER_NAME=${CVE}-afl-dafl-12
+    volumes:
+      - "afl-out-dafl-12:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+      - "../../artifact/${CVE}/${TRIAL_NAME}/logs:/workspace/logs"
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+
+  afl-attention-12:
+    container_name: "${CVE}-afl-attention-12"
+    image: "${IMAGE_NAME_LINESCORE:-${CVE}:linescore}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_ATTENTION}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - TARGET_BIN_ASAN=${TARGET_BIN_ASAN}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+      - SESSION_ID=${SESSION_ID}
+      - TRIAL_NAME=${TRIAL_NAME}
+      - CONTAINER_NAME=${CVE}-afl-attention-12
+    volumes:
+      - "afl-out-attention-12:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+      - "../../artifact/${CVE}/${TRIAL_NAME}/logs:/workspace/logs"
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+
+  afl-rationale-12:
+    container_name: "${CVE}-afl-rationale-12"
+    image: "${IMAGE_NAME_LINESCORE:-${CVE}:linescore}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_RATIONALE}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - TARGET_BIN_ASAN=${TARGET_BIN_ASAN}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+      - SESSION_ID=${SESSION_ID}
+      - TRIAL_NAME=${TRIAL_NAME}
+      - CONTAINER_NAME=${CVE}-afl-rationale-12
+    volumes:
+      - "afl-out-rationale-12:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+      - "../../artifact/${CVE}/${TRIAL_NAME}/logs:/workspace/logs"
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+
+  afl-dafl-13:
+    container_name: "${CVE}-afl-dafl-13"
+    image: "${IMAGE_NAME_LINESCORE:-${CVE}:linescore}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_DAFL}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - TARGET_BIN_ASAN=${TARGET_BIN_ASAN}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+      - SESSION_ID=${SESSION_ID}
+      - TRIAL_NAME=${TRIAL_NAME}
+      - CONTAINER_NAME=${CVE}-afl-dafl-13
+    volumes:
+      - "afl-out-dafl-13:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+      - "../../artifact/${CVE}/${TRIAL_NAME}/logs:/workspace/logs"
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+
+  afl-attention-13:
+    container_name: "${CVE}-afl-attention-13"
+    image: "${IMAGE_NAME_LINESCORE:-${CVE}:linescore}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_ATTENTION}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - TARGET_BIN_ASAN=${TARGET_BIN_ASAN}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+      - SESSION_ID=${SESSION_ID}
+      - TRIAL_NAME=${TRIAL_NAME}
+      - CONTAINER_NAME=${CVE}-afl-attention-13
+    volumes:
+      - "afl-out-attention-13:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+      - "../../artifact/${CVE}/${TRIAL_NAME}/logs:/workspace/logs"
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+
+  afl-rationale-13:
+    container_name: "${CVE}-afl-rationale-13"
+    image: "${IMAGE_NAME_LINESCORE:-${CVE}:linescore}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_RATIONALE}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - TARGET_BIN_ASAN=${TARGET_BIN_ASAN}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+      - SESSION_ID=${SESSION_ID}
+      - TRIAL_NAME=${TRIAL_NAME}
+      - CONTAINER_NAME=${CVE}-afl-rationale-13
+    volumes:
+      - "afl-out-rationale-13:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+      - "../../artifact/${CVE}/${TRIAL_NAME}/logs:/workspace/logs"
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+
+  afl-dafl-14:
+    container_name: "${CVE}-afl-dafl-14"
+    image: "${IMAGE_NAME_LINESCORE:-${CVE}:linescore}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_DAFL}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - TARGET_BIN_ASAN=${TARGET_BIN_ASAN}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+      - SESSION_ID=${SESSION_ID}
+      - TRIAL_NAME=${TRIAL_NAME}
+      - CONTAINER_NAME=${CVE}-afl-dafl-14
+    volumes:
+      - "afl-out-dafl-14:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+      - "../../artifact/${CVE}/${TRIAL_NAME}/logs:/workspace/logs"
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+
+  afl-attention-14:
+    container_name: "${CVE}-afl-attention-14"
+    image: "${IMAGE_NAME_LINESCORE:-${CVE}:linescore}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_ATTENTION}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - TARGET_BIN_ASAN=${TARGET_BIN_ASAN}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+      - SESSION_ID=${SESSION_ID}
+      - TRIAL_NAME=${TRIAL_NAME}
+      - CONTAINER_NAME=${CVE}-afl-attention-14
+    volumes:
+      - "afl-out-attention-14:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+      - "../../artifact/${CVE}/${TRIAL_NAME}/logs:/workspace/logs"
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+
+  afl-rationale-14:
+    container_name: "${CVE}-afl-rationale-14"
+    image: "${IMAGE_NAME_LINESCORE:-${CVE}:linescore}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_RATIONALE}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - TARGET_BIN_ASAN=${TARGET_BIN_ASAN}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+      - SESSION_ID=${SESSION_ID}
+      - TRIAL_NAME=${TRIAL_NAME}
+      - CONTAINER_NAME=${CVE}-afl-rationale-14
+    volumes:
+      - "afl-out-rationale-14:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+      - "../../artifact/${CVE}/${TRIAL_NAME}/logs:/workspace/logs"
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+
+  afl-dafl-15:
+    container_name: "${CVE}-afl-dafl-15"
+    image: "${IMAGE_NAME_LINESCORE:-${CVE}:linescore}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_DAFL}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - TARGET_BIN_ASAN=${TARGET_BIN_ASAN}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+      - SESSION_ID=${SESSION_ID}
+      - TRIAL_NAME=${TRIAL_NAME}
+      - CONTAINER_NAME=${CVE}-afl-dafl-15
+    volumes:
+      - "afl-out-dafl-15:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+      - "../../artifact/${CVE}/${TRIAL_NAME}/logs:/workspace/logs"
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+
+  afl-attention-15:
+    container_name: "${CVE}-afl-attention-15"
+    image: "${IMAGE_NAME_LINESCORE:-${CVE}:linescore}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_ATTENTION}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - TARGET_BIN_ASAN=${TARGET_BIN_ASAN}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+      - SESSION_ID=${SESSION_ID}
+      - TRIAL_NAME=${TRIAL_NAME}
+      - CONTAINER_NAME=${CVE}-afl-attention-15
+    volumes:
+      - "afl-out-attention-15:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+      - "../../artifact/${CVE}/${TRIAL_NAME}/logs:/workspace/logs"
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+
+  afl-rationale-15:
+    container_name: "${CVE}-afl-rationale-15"
+    image: "${IMAGE_NAME_LINESCORE:-${CVE}:linescore}"
+    command: bash -c "bash script.sh && sleep infinity"
+    working_dir: /workspace
+    pid: "host"
+    environment:
+      - TARGET_BIN=${TARGET_BIN_RATIONALE}
+      - TARGET_ARGS=${TARGET_ARGS}
+      - TARGET_BIN_ASAN=${TARGET_BIN_ASAN}
+      - FUZZER_BIN=afl-fuzz
+      - FUZZER_ROLE=M
+      - FUZZER_NAME=main
+      - SESSION_ID=${SESSION_ID}
+      - TRIAL_NAME=${TRIAL_NAME}
+      - CONTAINER_NAME=${CVE}-afl-rationale-15
+    volumes:
+      - "afl-out-rationale-15:/workspace/out"
+      - "./script.sh:/workspace/script.sh:ro"
+      - "../../artifact/${CVE}/${TRIAL_NAME}/logs:/workspace/logs"
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+
+volumes:
+  afl-out-dafl-1:
+    name: "${CVE}-afl-out-dafl-1"
+
+  afl-out-attention-1:
+    name: "${CVE}-afl-out-attention-1"
+
+  afl-out-rationale-1:
+    name: "${CVE}-afl-out-rationale-1"
+
+  afl-out-dafl-2:
+    name: "${CVE}-afl-out-dafl-2"
+
+  afl-out-attention-2:
+    name: "${CVE}-afl-out-attention-2"
+
+  afl-out-rationale-2:
+    name: "${CVE}-afl-out-rationale-2"
+
+  afl-out-dafl-3:
+    name: "${CVE}-afl-out-dafl-3"
+
+  afl-out-attention-3:
+    name: "${CVE}-afl-out-attention-3"
+
+  afl-out-rationale-3:
+    name: "${CVE}-afl-out-rationale-3"
+
+  afl-out-dafl-4:
+    name: "${CVE}-afl-out-dafl-4"
+
+  afl-out-attention-4:
+    name: "${CVE}-afl-out-attention-4"
+
+  afl-out-rationale-4:
+    name: "${CVE}-afl-out-rationale-4"
+
+  afl-out-dafl-5:
+    name: "${CVE}-afl-out-dafl-5"
+
+  afl-out-attention-5:
+    name: "${CVE}-afl-out-attention-5"
+
+  afl-out-rationale-5:
+    name: "${CVE}-afl-out-rationale-5"
+
+  afl-out-dafl-6:
+    name: "${CVE}-afl-out-dafl-6"
+
+  afl-out-attention-6:
+    name: "${CVE}-afl-out-attention-6"
+
+  afl-out-rationale-6:
+    name: "${CVE}-afl-out-rationale-6"
+
+  afl-out-dafl-7:
+    name: "${CVE}-afl-out-dafl-7"
+
+  afl-out-attention-7:
+    name: "${CVE}-afl-out-attention-7"
+
+  afl-out-rationale-7:
+    name: "${CVE}-afl-out-rationale-7"
+
+  afl-out-dafl-8:
+    name: "${CVE}-afl-out-dafl-8"
+
+  afl-out-attention-8:
+    name: "${CVE}-afl-out-attention-8"
+
+  afl-out-rationale-8:
+    name: "${CVE}-afl-out-rationale-8"
+
+  afl-out-dafl-9:
+    name: "${CVE}-afl-out-dafl-9"
+
+  afl-out-attention-9:
+    name: "${CVE}-afl-out-attention-9"
+
+  afl-out-rationale-9:
+    name: "${CVE}-afl-out-rationale-9"
+
+  afl-out-dafl-10:
+    name: "${CVE}-afl-out-dafl-10"
+
+  afl-out-attention-10:
+    name: "${CVE}-afl-out-attention-10"
+
+  afl-out-rationale-10:
+    name: "${CVE}-afl-out-rationale-10"
+
+  afl-out-dafl-11:
+    name: "${CVE}-afl-out-dafl-11"
+
+  afl-out-attention-11:
+    name: "${CVE}-afl-out-attention-11"
+
+  afl-out-rationale-11:
+    name: "${CVE}-afl-out-rationale-11"
+
+  afl-out-dafl-12:
+    name: "${CVE}-afl-out-dafl-12"
+
+  afl-out-attention-12:
+    name: "${CVE}-afl-out-attention-12"
+
+  afl-out-rationale-12:
+    name: "${CVE}-afl-out-rationale-12"
+
+  afl-out-dafl-13:
+    name: "${CVE}-afl-out-dafl-13"
+
+  afl-out-attention-13:
+    name: "${CVE}-afl-out-attention-13"
+
+  afl-out-rationale-13:
+    name: "${CVE}-afl-out-rationale-13"
+
+  afl-out-dafl-14:
+    name: "${CVE}-afl-out-dafl-14"
+
+  afl-out-attention-14:
+    name: "${CVE}-afl-out-attention-14"
+
+  afl-out-rationale-14:
+    name: "${CVE}-afl-out-rationale-14"
+
+  afl-out-dafl-15:
+    name: "${CVE}-afl-out-dafl-15"
+
+  afl-out-attention-15:
+    name: "${CVE}-afl-out-attention-15"
+
+  afl-out-rationale-15:
+    name: "${CVE}-afl-out-rationale-15"
