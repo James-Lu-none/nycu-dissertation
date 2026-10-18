@@ -11,3 +11,7 @@ logs
 tmp
 visualizations*
 models*
+outputs
+*.jsonl
+bench/src
+analysis_tmp
