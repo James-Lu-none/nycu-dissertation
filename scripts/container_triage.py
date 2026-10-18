@@ -23,7 +23,13 @@ def get_triage_function_name(cve):
 
 def get_crash_time(filename):
     time_match = re.search(r'time:(\d+)', filename)
-    return int(time_match.group(1)) if time_match else float('inf')
+    if time_match:
+        return int(time_match.group(1))
+    # Support AFLGo format: id:000000,12345,sig:...
+    aflgo_match = re.search(r'id:\d+,(\d+),', filename)
+    if aflgo_match:
+        return int(aflgo_match.group(1))
+    return float('inf')
 
 def is_frame_match(f1, f2, line_tolerance=5):
     if f1 == f2:
@@ -37,9 +43,31 @@ def is_frame_match(f1, f2, line_tolerance=5):
         pass
     return False
 
+def find_symbolizer():
+    import shutil
+    symbolizer = shutil.which("llvm-symbolizer")
+    if symbolizer:
+        return symbolizer
+    for ver in range(22, 10, -1):
+        candidates = [
+            f"/usr/lib/llvm-{ver}/bin/llvm-symbolizer",
+            f"/usr/bin/llvm-symbolizer-{ver}",
+            f"/usr/local/llvm-{ver}/bin/llvm-symbolizer",
+        ]
+        for c in candidates:
+            if os.path.exists(c) and os.access(c, os.X_OK):
+                return c
+    return None
+
 def main():
     binary = sys.argv[1]
     flags = sys.argv[2:]
+    
+    symbolizer_path = find_symbolizer()
+    if symbolizer_path:
+        print(f"DEBUG: Using ASAN symbolizer: {symbolizer_path}")
+    else:
+        print("DEBUG: llvm-symbolizer not found, relying on default PATH search")
     
     # Copy binary to /tmp to avoid NFS/Lustre latency during symbolization
     import shutil
@@ -92,7 +120,10 @@ def main():
             if k.startswith("AFL_") or k.startswith("__AFL_"):
                 env.pop(k, None)
         env["ASAN_OPTIONS"] = "allocator_may_return_null=1,detect_leaks=0,symbolize=1"
-        env["ASAN_SYMBOLIZER_PATH"] = "/usr/lib/llvm-20/bin/llvm-symbolizer"
+        if symbolizer_path:
+            env["ASAN_SYMBOLIZER_PATH"] = symbolizer_path
+        else:
+            env.pop("ASAN_SYMBOLIZER_PATH", None)
         
         t_start = time.time()
         try:
