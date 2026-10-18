@@ -102,11 +102,17 @@ def main():
     parser.add_argument("--registry", type=str, default="docker.io/location0717", help="Docker registry URL")
     parser.add_argument("--build", action="store_true", help="Build docker images before running (Step A)")
     parser.add_argument("--linescore", action="store_true", help="Run linescore experiment using Dockerfile.linescore")
+    parser.add_argument("--aflgo-linescore", action="store_true", help="Run AFLGo linescore experiment using Dockerfile.aflgo-linescore")
     args = parser.parse_args()
     
     iterations = args.iterations
     trials = args.trials
-    linescore_flags = ["--linescore"] if args.linescore else []
+    if args.aflgo_linescore:
+        linescore_flags = ["--aflgo-linescore"]
+    elif args.linescore:
+        linescore_flags = ["--linescore"]
+    else:
+        linescore_flags = []
     
     # Import get_cves from manage.py
     sys.path.append(root_dir)
@@ -126,7 +132,9 @@ def main():
         print(f"  - {cve}")
     print(f"\033[1;32m[Loop Runner All] Total loop iterations: {iterations}\033[0m")
     print(f"\033[1;32m[Loop Runner All] Trials per CVE: {trials}\033[0m")
-    if args.linescore:
+    if args.aflgo_linescore:
+        print(f"\033[1;32m[Loop Runner All] Mode: AFLGO-LINESCORE (aflgo, attention, rationale)\033[0m")
+    elif args.linescore:
         print(f"\033[1;32m[Loop Runner All] Mode: LINESCORE (dafl, attention, rationale)\033[0m")
     
     python_bin = sys.executable

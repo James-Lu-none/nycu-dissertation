@@ -95,7 +95,7 @@ def get_active_trial_name(root_dir, cve):
     return "trial_default"
 
 def print_usage():
-    print("Usage: python3 manage.py {up|down|stop|build|status|log|clean|copy|stat_plot|tte_check|tte_queue_check|tte_plot|ttr|arm_plot|summary} [cve_name|dafl|cafl|muoafl] [trials] [trial_name] [--linescore] [--all] [-y] [--tag tag_name] [--registry registry_url] [--artifact dir_name]")
+    print("Usage: python3 manage.py {up|down|stop|build|status|log|clean|copy|stat_plot|tte_check|tte_queue_check|tte_plot|ttr|arm_plot|summary} [cve_name|dafl|cafl|muoafl] [trials] [trial_name] [--linescore] [--aflgo-linescore] [--all] [-y] [--tag tag_name] [--registry registry_url] [--artifact dir_name]")
     print("\nCommands:")
     print("  up        : Start docker containers for CVE trials")
     print("  down      : Stop docker containers and remove named volumes (-v)")
@@ -115,7 +115,8 @@ def print_usage():
     print("  classify  : Run target block classification (clustering) on benchmarks using classify_block.py")
     print("  classify_plot: Generate UMAP 2D visualization of the clusters and output to visualizations/")
     print("\nOptions:")
-    print("  --linescore : Run linescore experiment (dafl, attention, rationale) using Dockerfile.linescore")
+    print("  --linescore       : Run linescore experiment (dafl, attention, rationale) using Dockerfile.linescore")
+    print("  --aflgo-linescore : Run AFLGo linescore experiment (aflgo, attention, rationale) using Dockerfile.aflgo-linescore")
 
 def build_fuzzer_image(root_dir, target, tag_value, registry_value, extra_args=None):
     if extra_args is None:
@@ -179,6 +180,7 @@ def parse_arguments(root_dir):
     tags_value = None
     only_crashes = False
     linescore = False
+    aflgo_linescore = False
     extra_args = []
     
     valid_commands = ["up", "down", "stop", "build", "status", "log", "clean", "copy", "stat_plot", "tte_check", "tte_queue_check", "tte_plot", "ttr", "arm_plot", "summary", "matrix_plot", "classify", "classify_plot"]
@@ -205,6 +207,8 @@ def parse_arguments(root_dir):
             run_all = True
         elif arg_lower == "--linescore":
             linescore = True
+        elif arg_lower in ["--aflgo-linescore", "--aflgo"]:
+            aflgo_linescore = True
         elif arg_lower in ["-y", "--yes", "--non-interactive"]:
             yes = True
         elif arg_lower in ["-h", "--help"]:
@@ -227,7 +231,7 @@ def parse_arguments(root_dir):
             
         i += 1
             
-    return command, target_cve, num_trials, trial_name, run_all, yes, tags_value, registry_value, only_crashes, linescore, extra_args
+    return command, target_cve, num_trials, trial_name, run_all, yes, tags_value, registry_value, only_crashes, linescore, aflgo_linescore, extra_args
 
 def select_cve_interactively(root_dir, action, yes):
     all_cves = get_cves(root_dir)
@@ -289,9 +293,11 @@ def run_clean():
     subprocess.run(["docker", "ps", "-a"])
     print("\n\033[1;32mDone.\033[0m")
 
-def run_docker_compose_command(root_dir, command, cve_list, num_trials, run_all, yes, tags_value, registry_value, extra_args, trial_name_arg=None, linescore=False):
+def run_docker_compose_command(root_dir, command, cve_list, num_trials, run_all, yes, tags_value, registry_value, extra_args, trial_name_arg=None, linescore=False, aflgo_linescore=False):
     python_bin = sys.executable
-    if linescore:
+    if aflgo_linescore:
+        gen_cmd = [python_bin, os.path.join(root_dir, "scripts/generate_master_compose_aflgo_linescore.py"), str(num_trials)]
+    elif linescore:
         gen_cmd = [python_bin, os.path.join(root_dir, "scripts/generate_master_compose_linescore.py"), str(num_trials)]
     else:
         tags_list = [t.strip() for t in (tags_value or "v1").split(",") if t.strip()]
@@ -356,7 +362,26 @@ def run_docker_compose_command(root_dir, command, cve_list, num_trials, run_all,
                         elif k == "TARGET_BIN_BASE":
                             parsed_base_bin = v
                             
-        if linescore:
+        if aflgo_linescore:
+            target_prefix = None
+            if parsed_asan_bin and "-asan" in parsed_asan_bin:
+                target_prefix = parsed_asan_bin.replace("-asan", "")
+            elif parsed_base_bin and "-base" in parsed_base_bin:
+                target_prefix = parsed_base_bin.replace("-base", "")
+                
+            if target_prefix:
+                target_prefix = os.path.basename(target_prefix)
+                env_dict["TARGET_BIN_AFLGO"] = f"/workspace/{target_prefix}-aflgo"
+                env_dict["TARGET_BIN_ATTENTION"] = f"/workspace/{target_prefix}-attention"
+                env_dict["TARGET_BIN_RATIONALE"] = f"/workspace/{target_prefix}-rationale"
+                env_dict["TARGET_BIN_ASAN"] = f"/workspace/{target_prefix}-asan"
+                
+            aflgo_img = f"{cve.lower()}:aflgo-linescore"
+            if command != "build" and registry_value:
+                env_dict["IMAGE_NAME_AFLGO_LINESCORE"] = f"{registry_value}/{aflgo_img}"
+            else:
+                env_dict["IMAGE_NAME_AFLGO_LINESCORE"] = aflgo_img
+        elif linescore:
             target_prefix = None
             if parsed_asan_bin and "-asan" in parsed_asan_bin:
                 target_prefix = parsed_asan_bin.replace("-asan", "")
@@ -390,10 +415,15 @@ def run_docker_compose_command(root_dir, command, cve_list, num_trials, run_all,
             
         cmd_args = ["docker", "compose", "--progress=plain"]
         if command == "up":
-            cmd_args += ["up", "-d", "--build", "--pull", "always"] + extra_args
+            if aflgo_linescore:
+                cmd_args += ["up", "-d", "--build"] + extra_args
+            else:
+                cmd_args += ["up", "-d", "--build", "--pull", "always"] + extra_args
             services = []
             for i in range(1, num_trials + 1):
-                if linescore:
+                if aflgo_linescore:
+                    services += [f"afl-aflgo-{i}", f"afl-attention-{i}", f"afl-rationale-{i}"]
+                elif linescore:
                     services += [f"afl-dafl-{i}", f"afl-attention-{i}", f"afl-rationale-{i}"]
                 else:
                     if run_all:
@@ -409,7 +439,10 @@ def run_docker_compose_command(root_dir, command, cve_list, num_trials, run_all,
             else:
                 cmd_args += extra_args
         elif command == "build":
-            cmd_args += ["build", "--pull"] + extra_args
+            if aflgo_linescore:
+                cmd_args += ["build"] + extra_args
+            else:
+                cmd_args += ["build", "--pull"] + extra_args
             
         if command == "build":
             log_dir = os.path.join(root_dir, "logs")
@@ -433,8 +466,13 @@ def run_docker_compose_command(root_dir, command, cve_list, num_trials, run_all,
             sys.exit(1)
             
         if command == "build" and build_res.returncode == 0:
-            image_name = env_dict.get("IMAGE_NAME_LINESCORE") if linescore else env_dict.get("IMAGE_NAME")
-            if not image_name and not linescore and parsed_image_name:
+            if aflgo_linescore:
+                image_name = env_dict.get("IMAGE_NAME_AFLGO_LINESCORE")
+            elif linescore:
+                image_name = env_dict.get("IMAGE_NAME_LINESCORE")
+            else:
+                image_name = env_dict.get("IMAGE_NAME")
+            if not image_name and not linescore and not aflgo_linescore and parsed_image_name:
                 image_name = parsed_image_name
             if image_name:
                 registry_tag = f"{registry_value}/{image_name}"
@@ -1321,7 +1359,7 @@ def main():
     venv_python = os.path.abspath(os.path.join(root_dir, "../.venv/bin/python3"))
     if os.path.isfile(venv_python) and os.path.abspath(sys.executable) != venv_python:
         os.execv(venv_python, [venv_python] + sys.argv)
-    command, target_cve, num_trials, trial_name_arg, run_all, yes, tags_value, registry_value, only_crashes, linescore, extra_args = parse_arguments(root_dir)
+    command, target_cve, num_trials, trial_name_arg, run_all, yes, tags_value, registry_value, only_crashes, linescore, aflgo_linescore, extra_args = parse_arguments(root_dir)
     
     if not command:
         print("Error: Command (up, down, build, status, log, clean, copy, stat_plot, tte_check, tte_queue_check, tte_plot, ttr, summary, matrix_plot) is required.")
@@ -1376,7 +1414,7 @@ def main():
 
     # Execute commands
     if command in ["up", "down", "build"]:
-        run_docker_compose_command(root_dir, command, cve_list, num_trials, run_all, yes, tags_value, registry_value, extra_args, trial_name_arg, linescore=linescore)
+        run_docker_compose_command(root_dir, command, cve_list, num_trials, run_all, yes, tags_value, registry_value, extra_args, trial_name_arg, linescore=linescore, aflgo_linescore=aflgo_linescore)
     elif command == "stop":
         run_stop(cve_list)
     elif command == "copy":
