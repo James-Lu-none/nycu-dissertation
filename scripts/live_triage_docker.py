@@ -136,6 +136,7 @@ def main():
                     continue
 
         crashes_dir = "/workspace/out/main/crashes"
+        subprocess.run(["docker", "exec", c_name, "mkdir", "-p", crashes_dir], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         
         # Push files to container
         subprocess.run(["docker", "cp", local_trace_path, f"{c_name}:{crashes_dir}/.target_trace"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

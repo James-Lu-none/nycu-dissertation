@@ -466,7 +466,12 @@ def main():
                     
                 def get_crash_time(filename):
                     time_match = re.search(r'time:(\d+)', filename)
-                    return int(time_match.group(1)) if time_match else float('inf')
+                    if time_match:
+                        return int(time_match.group(1))
+                    aflgo_match = re.search(r'id:\d+,(\d+),', filename)
+                    if aflgo_match:
+                        return int(aflgo_match.group(1))
+                    return float('inf')
                     
                 crash_files.sort(key=get_crash_time)
                 
