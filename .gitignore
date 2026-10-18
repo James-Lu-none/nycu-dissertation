@@ -3,6 +3,7 @@
 **/.current_session
 cves.env
 bench/docker-compose.master.yml
+bench/docker-compose.aflgo-linescore.yml
 *.pyc
 logs
 *.sif
