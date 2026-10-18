@@ -69,6 +69,10 @@ def check_all_methods_success(cve, root_dir, expected_total=0):
                             match = re.search(r'time:(\d+)', content)
                             if match:
                                 ttes.append(int(match.group(1)) / 1000.0)  # Convert ms to seconds
+                            else:
+                                aflgo_match = re.search(r'id:\d+,(\d+),', content)
+                                if aflgo_match:
+                                    ttes.append(int(aflgo_match.group(1)) / 1000.0)
                 except Exception:
                     pass
                     
