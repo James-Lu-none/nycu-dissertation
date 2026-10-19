@@ -51,17 +51,19 @@ def is_cve(root_dir, arg):
     return False
 
 def get_active_trial_name(root_dir, cve):
-    container_name = f"{cve}-afl-base-1"
-    try:
-        res = subprocess.run(["docker", "ps", "-a", "-q", "-f", f"name=^/{container_name}$"], capture_output=True, text=True)
-        if res.returncode == 0 and res.stdout.strip():
-            inspect_res = subprocess.run(["docker", "inspect", "--format", "{{range .Config.Env}}{{println .}}{{end}}", container_name], capture_output=True, text=True)
-            if inspect_res.returncode == 0:
-                for line in inspect_res.stdout.splitlines():
-                    if line.startswith("TRIAL_NAME="):
-                        return line.split("=", 1)[1].strip()
-    except Exception:
-        pass
+    candidate_suffixes = ["afl-base-1", "afl-aflgo-1", "afl-dafl-1", "afl-attention-1", "afl-rationale-1"]
+    for suffix in candidate_suffixes:
+        container_name = f"{cve}-{suffix}"
+        try:
+            res = subprocess.run(["docker", "ps", "-a", "-q", "-f", f"name=^/{container_name}$"], capture_output=True, text=True)
+            if res.returncode == 0 and res.stdout.strip():
+                inspect_res = subprocess.run(["docker", "inspect", "--format", "{{range .Config.Env}}{{println .}}{{end}}", container_name], capture_output=True, text=True)
+                if inspect_res.returncode == 0:
+                    for line in inspect_res.stdout.splitlines():
+                        if line.startswith("TRIAL_NAME="):
+                            return line.split("=", 1)[1].strip()
+        except Exception:
+            pass
 
     curr_session_path = os.path.join(root_dir, "bench", cve, ".current_session")
     if os.path.isfile(curr_session_path):
