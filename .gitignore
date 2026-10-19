@@ -15,3 +15,8 @@ outputs
 *.jsonl
 bench/src
 analysis_tmp
+BBcalls.txt
+BBnames.txt
+BBtargets.txt
+distance.cfg.txt
+provenance.json
