@@ -29,7 +29,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / "attention"), str(ROOT / "neuron"), str(ROOT / "aflgo/scripts")]
+sys.path[:0] = [str(ROOT / "attention"), str(ROOT / "neuron"), str(ROOT / "scripts")]
 
 import numpy as np
 import torch
@@ -82,6 +82,28 @@ def load_sources_map():
     return project_to_src
 
 
+def extract_function_name(node, data):
+    name = function_name(node, data)
+    if name:
+        return name
+    def search_id(n):
+        if not n:
+            return None
+        if n.type == "function_declarator":
+            for c in n.children:
+                if c.type in ("identifier", "field_identifier"):
+                    return data[c.start_byte:c.end_byte].decode("utf-8", errors="replace")
+                res = search_id(c)
+                if res:
+                    return res
+        for c in n.children:
+            res = search_id(c)
+            if res:
+                return res
+        return None
+    return search_id(node)
+
+
 def scan_source_functions(source_files, source_root):
     """Scan source files with Tree-sitter to locate all valid function definitions."""
     from tree_sitter import Language, Parser
@@ -124,21 +146,21 @@ def scan_source_functions(source_files, source_root):
             file_status.append(dict(file=rel, status="parse_timeout", functions=0))
             continue
 
+        file_funcs = []
         stack = [tree.root_node]
-        count = 0
         while stack:
             node = stack.pop()
             if node.type != "function_definition":
                 stack.extend(reversed(node.named_children))
                 continue
 
-            name = function_name(node, data)
+            name = extract_function_name(node, data)
             start, end = node.start_point.row, node.end_point.row
             code = " " * node.start_point.column + data[node.start_byte:node.end_byte].decode("utf-8")
             fid = hashlib.sha256(code.encode("utf-8")).hexdigest()
             boundary_ok = bool(name) and (not node.has_error or valid_function_boundary(node, data))
 
-            functions.append(
+            file_funcs.append(
                 dict(
                     file=rel,
                     abs_path=str(path.resolve()),
@@ -150,10 +172,46 @@ def scan_source_functions(source_files, source_root):
                     code_sha256=fid,
                 )
             )
-            count += 1
+
+        # Fallback recovery pass for functions inside ERROR or unclosed statement blocks (e.g. libming parser.c)
+        def recover_broken_functions(parent):
+            rec = []
+            children = parent.children
+            for i in range(len(children) - 1):
+                c1 = children[i]
+                c2 = children[i + 1]
+                if c2.type == "compound_statement":
+                    fn_name = extract_function_name(c1, data)
+                    if fn_name:
+                        s_row = c1.start_point.row + 1
+                        e_row = c2.end_point.row + 1
+                        if not any(f["start"] <= s_row and e_row <= f["end"] for f in file_funcs) and \
+                           not any(f["start"] <= s_row and e_row <= f["end"] for f in rec):
+                            code = data[c1.start_byte:c2.end_byte].decode("utf-8", errors="replace")
+                            fid = hashlib.sha256(code.encode("utf-8")).hexdigest()
+                            rec.append(
+                                dict(
+                                    file=rel,
+                                    abs_path=str(path.resolve()),
+                                    name=fn_name,
+                                    start=s_row,
+                                    end=e_row,
+                                    status="ok",
+                                    code=code,
+                                    code_sha256=fid,
+                                )
+                            )
+            for c in children:
+                if c.type in ("case_statement", "compound_statement", "ERROR"):
+                    rec.extend(recover_broken_functions(c))
+            return rec
+
+        recovered = recover_broken_functions(tree.root_node)
+        file_funcs.extend(recovered)
+        functions.extend(file_funcs)
 
         file_status.append(
-            dict(file=rel, status="file_has_parse_errors" if tree.root_node.has_error else "ok", functions=count)
+            dict(file=rel, status="file_has_parse_errors" if tree.root_node.has_error else "ok", functions=len(file_funcs))
         )
 
     return functions, file_status
@@ -342,7 +400,11 @@ def generate_distances_for_benchmark(
     if not selected_functions:
         raise RuntimeError(f"[{bench_name}] Zero functions matched reachable CFG blocks!")
 
-    candidates_by_fid = {f["code_sha256"]: f["code"] for f in selected_functions if f["status"] == "ok"}
+    candidates_by_fid = {
+        f["code_sha256"]: f["code"]
+        for f in selected_functions
+        if f["status"] == "ok" or (f.get("code") and f["code"].count("{") == f["code"].count("}"))
+    }
     print(f"[{bench_name}] {len(candidates_by_fid)} candidate functions ready for model scoring")
 
     # 5. Run model scoring
