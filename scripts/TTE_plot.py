@@ -201,18 +201,26 @@ def generate_tte_table_image(method_ttes, output_path, cve):
         m_low = m.lower()
         import re
         parts = [int(c) if c.isdigit() else c for c in re.split(r'(\d+)', m_low)]
-        if "muoafl" in m_low:
-            return (3, parts)
-        elif "cd" in m_low:
+        if "base" in m_low or "aflgo" == m_low or "dafl" == m_low:
+            return (0, parts)
+        elif "attention" in m_low:
+            return (1, parts)
+        elif "rationale" in m_low:
             return (2, parts)
         elif "dd" in m_low:
-            return (1, parts)
-        elif "base" in m_low:
-            return (0, parts)
-        return (5, parts)
+            return (3, parts)
+        elif "cd" in m_low:
+            return (4, parts)
+        elif "muoafl" in m_low:
+            return (5, parts)
+        return (6, parts)
     sorted_methods = sorted(method_ttes.keys(), key=get_sort_key)
     
     base_method = next((m for m in method_ttes.keys() if 'base' in m.lower()), None)
+    if not base_method:
+        base_method = next((m for m in method_ttes.keys() if 'aflgo' in m.lower()), None)
+    if not base_method:
+        base_method = next((m for m in method_ttes.keys() if 'dafl' in m.lower() and 'attention' not in m.lower() and 'rationale' not in m.lower()), None)
     if not base_method:
         base_method = next((m for m in method_ttes.keys() if 'dd' in m.lower() and 'cd' not in m.lower()), None)
     base_geo_mean = None

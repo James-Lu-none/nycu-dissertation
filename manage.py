@@ -1142,6 +1142,7 @@ def run_matrix_plot(root_dir, cve_list):
 def run_summary(root_dir):
     import csv
     import os
+    import re
     import subprocess
     
     artifact_root = os.path.join(root_dir, ARTIFACT_DIR_NAME)
@@ -1153,74 +1154,79 @@ def run_summary(root_dir):
     for item in sorted(os.listdir(artifact_root)):
         item_path = os.path.join(artifact_root, item)
         if os.path.isdir(item_path):
-            csv_path = os.path.join(item_path, "plot", "TTE_summary_table_dd_muoafl.csv")
-            if os.path.isfile(csv_path):
-                benchmarks.append((item, csv_path))
+            csv_path = os.path.join(item_path, "plot", "TTE_summary_table.csv")
+            if not os.path.isfile(csv_path):
+                csv_path_old = os.path.join(item_path, "plot", "TTE_summary_table_dd_muoafl.csv")
+                if os.path.isfile(csv_path_old):
+                    csv_path = csv_path_old
+                else:
+                    continue
+            benchmarks.append((item, csv_path))
                 
     if not benchmarks:
-        print("No TTE_summary_table_dd_muoafl.csv files found.")
+        print("No TTE_summary_table.csv files found.")
         return
         
-    # Pass 1: Find all muoafl configurations
-    muoafl_configs = set()
+    # Pass 1: Find all configurations across benchmarks
+    all_configs = set()
     for cve, csv_path in benchmarks:
         try:
             with open(csv_path, mode='r', encoding='utf-8') as f:
-                import csv
                 reader = csv.DictReader(f)
                 for row in reader:
                     config = row.get("Configuration", "").strip()
-                    if "muoafl" in config.lower():
-                        muoafl_configs.add(config)
+                    if config:
+                        all_configs.add(config)
         except Exception:
             pass
             
-    # Sort muoafl configs naturally
-    import re
-    def natural_sort_key(s):
-        return [int(c) if c.isdigit() else c for c in re.split(r'(\d+)', s.lower())]
-    muoafl_configs = sorted(list(muoafl_configs), key=natural_sort_key)
+    # Sort configurations logically: base methods first, then evaluation methods
+    def config_sort_key(cfg):
+        cfg_low = cfg.lower()
+        if cfg_low in ("aflgo", "dafl", "base", "dd"):
+            priority = 0
+        elif "attention" in cfg_low:
+            priority = 1
+        elif "rationale" in cfg_low:
+            priority = 2
+        elif "muoafl" in cfg_low:
+            priority = 3
+        else:
+            priority = 4
+        parts = [int(c) if c.isdigit() else c for c in re.split(r'(\d+)', cfg_low)]
+        return (priority, parts)
+
+    sorted_configs = sorted(list(all_configs), key=config_sort_key)
     
     summary_data = []
     for cve, csv_path in benchmarks:
         try:
-            dd_row = {}
-            muoafl_rows = {}
+            config_rows = {}
             with open(csv_path, mode='r', encoding='utf-8') as f:
                 reader = csv.DictReader(f)
                 for row in reader:
                     config = row.get("Configuration", "").strip()
-                    config_low = config.lower()
-                    if "dd" in config_low and "muoafl" not in config_low:
-                        dd_row = row
-                    elif config in muoafl_configs:
-                        muoafl_rows[config] = row
+                    if config:
+                        config_rows[config] = row
             
             row_data = {"CVE": cve}
-            
-            dd_geo = dd_row.get("Geo Mean TTE", "N.A.")
-            dd_success = dd_row.get("Success Rate", "N.A.")
-            if dd_geo != "N.A." and dd_success != "N.A.":
-                row_data["dd Result"] = f"{dd_geo} ({dd_success})"
-            else:
-                row_data["dd Result"] = "N.A."
+            for idx, cfg in enumerate(sorted_configs):
+                crow = config_rows.get(cfg, {})
+                geo = crow.get("Geo Mean TTE", "N.A.")
+                success = crow.get("Success Rate", "N.A.")
+                speedup = crow.get("Speedup", "N.A.")
+                pval = crow.get("p-value", "N.A.")
                 
-            for m in muoafl_configs:
-                mrow = muoafl_rows.get(m, {})
-                m_geo = mrow.get("Geo Mean TTE", "N.A.")
-                m_success = mrow.get("Success Rate", "N.A.")
-                speedup = mrow.get("Speedup", "N.A.")
-                pval = mrow.get("p-value", "N.A.")
-                
-                if m_geo != "N.A." and m_success != "N.A.":
-                    base_str = f"{m_geo} ({m_success})"
+                if geo != "N.A." and success != "N.A.":
+                    base_str = f"{geo} ({success})"
                 else:
                     base_str = "N.A."
                     
-                if speedup != "N.A." and pval != "N.A.":
-                    row_data[f"{m} Result"] = f"{base_str}\n{speedup} (p={pval})"
+                # Baseline (idx == 0) only displays base_str; non-baselines show speedup & p-val if available
+                if idx > 0 and speedup != "N.A." and pval not in ("N.A.", "-"):
+                    row_data[f"{cfg} Result"] = f"{base_str}\n{speedup} (p={pval})"
                 else:
-                    row_data[f"{m} Result"] = base_str
+                    row_data[f"{cfg} Result"] = base_str
 
             summary_data.append(row_data)
         except Exception as e:
@@ -1230,23 +1236,22 @@ def run_summary(root_dir):
         print("No summary data could be parsed.")
         return
 
-    # Sort summary_data by dd Result time descending (largest to smallest, N.A. at the end)
-    def get_dd_sort_key(row):
-        dd_res = row.get("dd Result", "")
-        if dd_res != "N.A." and " s" in dd_res:
+    # Sort summary_data by baseline column time descending (largest to smallest, N.A. at the end)
+    baseline_col = f"{sorted_configs[0]} Result" if sorted_configs else "CVE"
+    def get_sort_key(row):
+        res = row.get(baseline_col, "")
+        if res != "N.A." and " s" in res:
             try:
-                return (True, float(dd_res.split(" s")[0]))
+                return (True, float(res.split(" s")[0]))
             except (ValueError, IndexError):
                 pass
         return (False, 0.0)
 
-    summary_data.sort(key=get_dd_sort_key, reverse=True)
+    summary_data.sort(key=get_sort_key, reverse=True)
 
     # Write to a CSV file in artifact root
     output_csv = os.path.join(artifact_root, "TTE_overall_summary.csv")
-    headers = ["CVE", "dd Result"]
-    for m in muoafl_configs:
-        headers.extend([f"{m} Result"])
+    headers = ["CVE"] + [f"{cfg} Result" for cfg in sorted_configs]
         
     try:
         with open(output_csv, mode='w', newline='', encoding='utf-8') as f:
@@ -1263,12 +1268,12 @@ def run_summary(root_dir):
         import matplotlib.pyplot as plt
         cell_text = []
         for row in summary_data:
-            row_vals = [row["CVE"], row["dd Result"]]
-            for m in muoafl_configs:
-                row_vals.extend([row[f"{m} Result"]])
+            row_vals = [row["CVE"]]
+            for cfg in sorted_configs:
+                row_vals.append(row.get(f"{cfg} Result", "N.A."))
             cell_text.append(row_vals)
         
-        fig, ax = plt.subplots(figsize=(8.0 + len(muoafl_configs) * 2.5, len(summary_data) * 0.5 + 0.8))
+        fig, ax = plt.subplots(figsize=(max(8.0, 3.0 + len(sorted_configs) * 2.8), len(summary_data) * 0.5 + 0.8))
         ax.axis('off')
         
         table = ax.table(
@@ -1316,7 +1321,6 @@ def run_summary(root_dir):
                 
                 if col_idx == best_col:
                     cell.set_text_props(weight='bold')
-                
                 
         plt.tight_layout()
         plt.savefig(output_png, dpi=300, bbox_inches='tight')
