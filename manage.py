@@ -1150,10 +1150,39 @@ def run_summary(root_dir):
         print(f"Error: Artifact directory {artifact_root} not found.")
         return
 
+    venv_activate = os.path.join(root_dir, "../.venv/bin/activate")
+    python_bin = sys.executable
+    if os.path.isfile(venv_activate):
+        python_bin = os.path.abspath(os.path.join(root_dir, "../.venv/bin/python3"))
+
+    # Auto-refresh any benchmarks that have trial sessions but missing/outdated p-values
+    for item in sorted(os.listdir(artifact_root)):
+        item_path = os.path.join(artifact_root, item)
+        if os.path.isdir(item_path) and item not in ["plot", "TTE_check"]:
+            sessions = [s for s in os.listdir(item_path) if os.path.isdir(os.path.join(item_path, s)) and s not in ["plot", "TTE_check"]]
+            if not sessions:
+                continue
+            csv_path = os.path.join(item_path, "plot", "TTE_summary_table.csv")
+            needs_update = False
+            if not os.path.isfile(csv_path):
+                needs_update = True
+            else:
+                try:
+                    with open(csv_path, encoding='utf-8') as f:
+                        reader = csv.DictReader(f)
+                        rows = list(reader)
+                        if any(r.get("Configuration") in ("attention", "rationale") and r.get("p-value") == "N.A." for r in rows):
+                            needs_update = True
+                except Exception:
+                    needs_update = True
+            if needs_update:
+                cmd = [python_bin, "scripts/TTE_plot.py", "--bench", item, "--root", ARTIFACT_DIR_NAME]
+                subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
     benchmarks = []
     for item in sorted(os.listdir(artifact_root)):
         item_path = os.path.join(artifact_root, item)
-        if os.path.isdir(item_path):
+        if os.path.isdir(item_path) and item not in ["plot", "TTE_check"]:
             csv_path = os.path.join(item_path, "plot", "TTE_summary_table.csv")
             if not os.path.isfile(csv_path):
                 csv_path_old = os.path.join(item_path, "plot", "TTE_summary_table_dd_muoafl.csv")
@@ -1219,12 +1248,22 @@ def run_summary(root_dir):
                 
                 if geo != "N.A." and success != "N.A.":
                     base_str = f"{geo} ({success})"
+                elif success != "N.A.":
+                    base_str = f"N.A. ({success})"
                 else:
                     base_str = "N.A."
                     
                 # Baseline (idx == 0) only displays base_str; non-baselines show speedup & p-val if available
-                if idx > 0 and speedup != "N.A." and pval not in ("N.A.", "-"):
-                    row_data[f"{cfg} Result"] = f"{base_str}\n{speedup} (p={pval})"
+                if idx > 0 and (speedup != "N.A." or pval not in ("N.A.", "-")):
+                    details = []
+                    if speedup != "N.A.":
+                        details.append(speedup)
+                    if pval not in ("N.A.", "-"):
+                        details.append(f"p={pval}")
+                    if details:
+                        row_data[f"{cfg} Result"] = f"{base_str}\n{', '.join(details)}"
+                    else:
+                        row_data[f"{cfg} Result"] = base_str
                 else:
                     row_data[f"{cfg} Result"] = base_str
 

@@ -251,6 +251,10 @@ def generate_tte_table_image(method_ttes, output_path, cve):
             if base_geo_mean and geo_mean_val > 0:
                 speedup_val = base_geo_mean / geo_mean_val
                 speedup_str = f"{speedup_val:.2f}x"
+            elif not base_geo_mean and geo_mean_val > 0:
+                # Base had 0 reaches (timed out at 21600s), calculate lower bound speedup
+                speedup_val = 21600.0 / geo_mean_val
+                speedup_str = f">{speedup_val:.2f}x"
             else:
                 speedup_str = "1.00x" if method == base_method else "N.A."
         else:
@@ -258,7 +262,7 @@ def generate_tte_table_image(method_ttes, output_path, cve):
             mean_str = "N.A."
             var_str = "N.A."
             max_str = "N.A."
-            speedup_str = "N.A."
+            speedup_str = "1.00x" if method == base_method else "N.A."
             
         p_val_str = "-"
         if method != base_method:
@@ -274,6 +278,25 @@ def generate_tte_table_image(method_ttes, output_path, cve):
                         p_val_str = "error"
                 else:
                     p_val_str = "no scipy"
+            elif (valid_ttes or base_valid) and (base_method in method_ttes):
+                # When one method reached the target but the other had 0 reaches,
+                # use right-censoring at timeout (21600s) for Mann-Whitney U test
+                if mannwhitneyu is not None:
+                    try:
+                        timeout_val = 21600.0
+                        cens_m = [t if t is not None else timeout_val for t in ttes]
+                        cens_b = [t if t is not None else timeout_val for t in method_ttes[base_method]]
+                        _, p_val = mannwhitneyu(cens_m, cens_b, alternative='two-sided')
+                        if p_val < 0.0001:
+                            p_val_str = f"{p_val:.2e}"
+                        else:
+                            p_val_str = f"{p_val:.4f}"
+                    except Exception as e:
+                        p_val_str = "error"
+                else:
+                    p_val_str = "no scipy"
+            elif not valid_ttes and not base_valid:
+                p_val_str = "-"
             else:
                 p_val_str = "N.A."
 
