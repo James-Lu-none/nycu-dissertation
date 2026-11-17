@@ -1,0 +1,11 @@
+cases
+build
+checkpoints
+synthetic
+build_test
+reports
+cache
+*.aux
+*.log
+*.out
+*.pdf

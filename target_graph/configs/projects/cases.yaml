@@ -1,0 +1,157 @@
+version: "1.0"
+cases:
+  # =========================================================================
+  # Original 5 Benchmark Cases (Binutils, Libjpeg, Libxml2, Libming, Lrzip)
+  # =========================================================================
+  - case_id: "binutils-2.26_cxxfilt_CVE-2016-4487"
+    project: "binutils"
+    cve: "CVE-2016-4487"
+    target_binary: "cxxfilt"
+    vulnerable_version: "binutils-2.26"
+    fixed_commit: "e02d665e89d1b6cf1c70e2a2c0777e4ad0e43d3b"
+    poc_path: "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.26/poc/2016-4487-a"
+    poc_cmd: ["{binary}"]
+    poc_stdin: "{poc}"
+    expected_oracle:
+      sanitizer: "SEGV"
+      function: "register_Btype"
+      file: "cplus-dem.c"
+      line: 4319
+
+  - case_id: "libjpeg-1.5.90_cjpeg_CVE-2018-14498"
+    project: "libjpeg-turbo"
+    cve: "CVE-2018-14498"
+    target_binary: "cjpeg"
+    vulnerable_version: "1.5.90"
+    fixed_commit: "9c78a04df48881d9d5113e622832345b25b63032"
+    poc_path: "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libjpeg-1.5.90/poc/2018-14498"
+    poc_cmd: ["{binary}", "{poc}"]
+    poc_stdin: null
+    expected_oracle:
+      sanitizer: "heap-buffer-overflow"
+      function: "get_8bit_row"
+      file: "rdbmp.c"
+      line: 209
+
+  - case_id: "libxml2-2.9.4_xmllint_CVE-2017-5969"
+    project: "libxml2"
+    cve: "CVE-2017-5969"
+    target_binary: "xmllint"
+    vulnerable_version: "v2.9.4"
+    fixed_commit: "94112de8979927b52479e0a0d92ee097d6229de9"
+    poc_path: "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libxml2-2.9.4/poc/2017-5969"
+    poc_cmd: ["{binary}", "--recover", "--valid", "{poc}"]
+    poc_stdin: null
+    expected_oracle:
+      sanitizer: "SEGV"
+      function: "xmlDumpElementContent"
+      file: "valid.c"
+      line: 1181
+
+  - case_id: "libming-4.7.1_swftophp_CVE-2017-7578"
+    project: "libming"
+    cve: "CVE-2017-7578"
+    target_binary: "swftophp"
+    vulnerable_version: "ming-0_4_7"
+    fixed_commit: "d279ca17a935ff5e02410f8df9287315579979b0"
+    poc_path: "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.7.1/poc/2017-7578"
+    poc_cmd: ["{binary}", "{poc}"]
+    poc_stdin: null
+    expected_oracle:
+      sanitizer: "heap-buffer-overflow"
+      function: "parseSWF_RGBA"
+      file: "parser.c"
+      line: 68
+
+  - case_id: "lrzip-ed51e14_lrzip_CVE-2018-11496"
+    project: "lrzip"
+    cve: "CVE-2018-11496"
+    target_binary: "lrzip"
+    vulnerable_version: "ed51e14"
+    fixed_commit: "4a7061d368d18991a7e28dd71efc562da8d5a643"
+    poc_path: "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/lrzip-ed51e14/poc/2018-11496"
+    poc_cmd: ["{binary}", "-t", "{poc}"]
+    poc_stdin: null
+    expected_oracle:
+      sanitizer: "heap-use-after-free"
+      function: "read_stream"
+      file: "stream.c"
+      line: 1756
+
+  # =========================================================================
+  # 5 Non-Benchmark Cases (Lua, cJSON, Jhead, Libtiff, LAME)
+  # =========================================================================
+  - case_id: "lua-5.3.5_lua_CVE-2019-6706"
+    project: "lua"
+    cve: "CVE-2019-6706"
+    target_binary: "lua"
+    vulnerable_version: "5.3.5"
+    fixed_commit: "89aee84cbc9224f638f3b7951b306d2ee8ecb71e"
+    poc_path: "/home/user/workspace/nycu-dissertation/target_graph/cases/lua-5.3.5_lua_CVE-2019-6706/poc.lua"
+    poc_cmd: ["{binary}", "{poc}"]
+    poc_stdin: null
+    expected_oracle:
+      sanitizer: "heap-use-after-free"
+      function: "lua_upvaluejoin"
+      file: "lapi.c"
+      line: 1294
+
+  - case_id: "cJSON-1.7.8_cJSON_CVE-2019-1010239"
+    project: "cJSON"
+    cve: "CVE-2019-1010239"
+    target_binary: "cjson_test"
+    vulnerable_version: "1.7.8"
+    fixed_commit: "94200676449174092b7754388839df48ff3c706e"
+    poc_path: "/home/user/workspace/nycu-dissertation/target_graph/cases/cJSON-1.7.8_cJSON_CVE-2019-1010239/poc.json"
+    poc_cmd: ["{binary}", "{poc}"]
+    poc_stdin: null
+    expected_oracle:
+      sanitizer: "SEGV"
+      function: "get_object_item"
+      file: "cJSON.c"
+      line: 1784
+
+  - case_id: "jhead-3.04_jhead_issue54"
+    project: "jhead"
+    cve: "issue54"
+    target_binary: "jhead"
+    vulnerable_version: "3.04"
+    fixed_commit: "bf9a18789e5b6125f4a5b928f98b569a16076a96"
+    poc_path: "/home/user/workspace/nycu-dissertation/target_graph/cases/jhead-3.04_jhead_issue54/dummy.jpg"
+    poc_cmd: ["{binary}", "-ds2020:01:01:1111111111111111111111111111111111111111", "{poc}"]
+    poc_stdin: null
+    expected_oracle:
+      sanitizer: "global-buffer-overflow"
+      function: "main"
+      file: "jhead.c"
+      line: 1637
+
+  - case_id: "libtiff-4.0.6_tiffcrop_CVE-2016-10092"
+    project: "libtiff"
+    cve: "CVE-2016-10092"
+    target_binary: "tiffcrop"
+    vulnerable_version: "4.0.6"
+    fixed_commit: "9657bbe3cdce4aaa90e07d50c1c70ae52da0ba6a"
+    poc_path: "/home/user/workspace/nycu-dissertation/target_graph/cases/libtiff-4.0.6_tiffcrop_CVE-2016-10092/poc.tif"
+    poc_cmd: ["{binary}", "-i", "{poc}", "/tmp/out.tif"]
+    poc_stdin: null
+    expected_oracle:
+      sanitizer: "heap-buffer-overflow"
+      function: "DumpModeDecode"
+      file: "tif_dumpmode.c"
+      line: 103
+
+  - case_id: "lame-3.99.5_lame_CVE-2015-9101"
+    project: "lame"
+    cve: "CVE-2015-9101"
+    target_binary: "lame"
+    vulnerable_version: "3.99.5"
+    fixed_commit: "1ea4eac3e7d57dbad42fb067a32ac1600a0397a0"
+    poc_path: "/home/user/workspace/nycu-dissertation/target_graph/cases/lame-3.99.5_lame_CVE-2015-9101/poc.wav"
+    poc_cmd: ["{binary}", "{poc}", "/dev/null"]
+    poc_stdin: null
+    expected_oracle:
+      sanitizer: "SEGV"
+      function: "fill_buffer_resample"
+      file: "util.c"
+      line: 606

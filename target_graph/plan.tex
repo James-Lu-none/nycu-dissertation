@@ -1,0 +1,274 @@
+\documentclass[10pt,a4paper]{article}
+\usepackage[margin=19mm]{geometry}
+\usepackage{amsmath,amssymb,booktabs,array,enumitem,xcolor,hyperref,listings}
+\hypersetup{colorlinks=true,urlcolor=blue}
+\setlist{nosep,leftmargin=*}
+\emergencystretch=3em
+\sloppy
+\lstset{basicstyle=\ttfamily\footnotesize,breaklines=true,frame=single,columns=fullflexible}
+\title{Implementation Guideline v3: Target-Conditioned Program Graph Learning}
+\author{Codex Engineering Specification}
+\date{2026-11-17}
+\begin{document}
+\maketitle
+\vspace{-1.2em}
+\section{Scope and non-negotiable rules}
+Build a reproducible Python-first research system for (i) C/C++ PoC-driven target-label generation, (ii) LLVM program graph extraction, (iii) frozen Qwen2.5-Coder-7B BB embeddings, and (iv) graph-based target ranking / vulnerability detection; leave graph-guided repair as an optional downstream experiment. Use Bash only as thin orchestration. All program building, PoC execution, and IR analysis must occur in version-pinned Docker images. Never infer a label from an unverified crash or a diff alone.
+
+\paragraph{Research priorities and acceptance criteria.}
+\textbf{Phase I:} a correct end-to-end \emph{target ranking pipeline}, from reproducible PoC and graph/BB alignment through label audit, eligible ranking training and held-out ranking metrics. Completing the pipeline is not evidence of ranking gain. \textbf{Phase II:} integrate scores into AFLGo and evaluate repeated-run time-to-exposure (TTE), keeping original AFLGo guidance as an explicit baseline. TTE improvement is an empirical objective, \emph{not} a Phase-I pass gate. \textbf{Parallel research track:} Security-Aware Program Representation Learning using the same frozen Qwen backbone and graph encoder, with separately trained Detection, Localization and optional Secure Code Repair heads. Train and report each task independently \emph{before} exploring weighted multitask losses. Detection must not be substituted for unmeasured DGF results.
+
+\section{Input datasets and provenance}
+\begin{itemize}
+\item Existing dataset: \texttt{nycu-dissertation/neuron/dataset/review/dataset.jsonl}, reported 22,251 reviewed vulnerable/patched pairs from Big-Vul, CVEfixes, MegaVul. \textbf{Inspect the actual JSONL schema first}; do not assume field names or trust count until validated.
+\item Use reviewed pairs for function-level vulnerability detection, pairwise repair, patch contrastive pretraining, and cross-project generalization. Do \emph{not} use patch modifications as ground-truth target-path labels.
+\item Separate PoC corpus: public OSS-Fuzz/Magma reproducer cases or independently verified CVE PoCs. Persist CVE/bug ID, repository URL, immutable vulnerable/fixed commits, patch SHA, harness, PoC URL/checksum, license, build recipe, and provenance. Never auto-execute arbitrary fetched scripts.
+\item Deduplicate by CVE/commit/function hash and near-duplicate source; group train/validation/test by project and CVE, and exclude all overlapping origins across both corpora. Fix splits before feature extraction or model selection.
+\end{itemize}
+
+\section{Dockerized PoC, build, instrumentation, trace}
+\begin{enumerate}
+\item \textbf{Acquire}: \texttt{fetch\_cases.py} resolves an allowlisted public source, pins commits/harness, downloads checksum-verified testcase bytes, and writes \texttt{case.yaml}. Network enabled only in acquisition container; never execute content during acquisition.
+\item \textbf{Build}: separate per-project adapter for CMake/Autotools/Make. Use pinned matching Clang/LLVM versions and debug symbols (e.g. \texttt{-g -O1 -fno-omit-frame-pointer}); build vulnerable and fixed commits with identical compatible flags. Avoid changing semantics through harness edits. Set reproducible build metadata.
+\item \textbf{Whole-program IR}: compile relevant translation units to \texttt{.bc} (Clang \texttt{-emit-llvm}) or capture build bitcode via a supported wrapper; link compatible modules via \texttt{llvm-link}. Record external libraries, dynamically linked components, unresolved indirect calls, missing TUs. \textbf{Do not claim whole-program coverage if incomplete}; reject or mark partial. Graph analysis uses a preserved \emph{pre-instrumentation} IR snapshot.
+\item \textbf{Stable BB map}: custom LLVM New-PM pass emits \texttt{bb\_map.jsonl} before sanitizer/coverage transformations: \texttt{build\_id, module, function, bb\_id, debug\_locations, successors, callsite}. BB IDs are build-local and must not be assumed equal between vulnerable/fixed versions. Save compiler/version/flags/IR hash.
+\item \textbf{Instrument}: use ASan and/or UBSan according to bug type, plus \texttt{-fsanitize-coverage=bb,no-prune,trace-pc-guard,pc-table} where supported. Implement and test a lightweight runtime callback for \emph{ordered} trace events, including guard/PC, thread ID, timestamp or sequence number, and build ID. PC-table may need linker constraints; verify at startup. A custom LLVM BB-ID probe is an acceptable alternative if callback-to-IR identity cannot be verified. Plain \texttt{.sancov} coverage is not an ordered path.
+\item \textbf{Run}: Re-run PoC $\ge 3$ times in built docker image with instrumented target executable and all tools inside, store stdout/stderr, sanitizer report, exit status, ordered BB trace and maps. No PoC executes on the GPU/training host.
+\item \textbf{Verify}: vulnerable build must reproducibly trigger the expected bug (sanitizer type/site plus bug-specific oracle when available); patched build should not trigger that bug on the same input. Patch may fail for unrelated reasons: report \texttt{unverified}, not \texttt{fixed}. Map sanitizer fault PC/source to target BB with confidence; unresolved mappings are excluded from supervised training.
+\end{enumerate}
+\noindent Output under \texttt{cases/CASE\_ID/}: manifest, bitcode, BB map, vulnerable/fixed traces, sanitizer report, and target metadata.
+
+
+
+\section{LLVM graph construction and edge schema}
+\textbf{Graph input:} pinned, pre-instrumentation LLVM IR from Section 3. Construct the vulnerable and fixed graphs independently; never assume equal BB IDs across builds. The required baseline is a \emph{BB-node, typed-edge, directed multigraph}:
+\[
+ G_B=(V_B,E_B,\mathcal R),\quad V_B=\{\text{LLVM basic blocks}\},\quad X\in\mathbb R^{|V_B|\times d_x}.
+\]
+Use LLVM New-PM for CFG, callsites, instruction SSA uses, debug locations and post-dominators; use pinned SVF or a documented alternative for conservative memory/value-flow evidence. \textbf{PDG = DDG + CDG, not CFG.} No tool should claim complete interprocedural dependencies when libraries, aliases or indirect calls remain unresolved.
+
+\paragraph{Stable identities and source mapping.}
+Assign \texttt{bb\_id = hash(build\_id,module,function,BB\_ordinal)} and stable build-local instruction/callsite IDs. Persist source file, start/end line/column, inline/macro origin, mapping confidence, entry/exit flag, and function membership. Retain synthetic/unmapped BBs for graph connectivity; do not invent source text for them. Assert that trace probes map to the original pre-instrumentation BB IDs using the saved instrumentation manifest (Section 3).
+
+\paragraph{Required relation vocabulary.}
+\begin{center}\small
+\begin{tabular}{p{26mm}p{93mm}}
+\toprule
+Relation & Semantic source $\rightarrow$ destination \\
+\midrule
+\texttt{CFG\_T/F} & Conditional branch BB $\rightarrow$ true/false successor BB \\
+\texttt{CFG\_NEXT} & Unconditional branch BB $\rightarrow$ successor BB \\
+\texttt{CFG\_OTHER} & Switch, invoke, indirect or exceptional successor; persist case/edge-kind evidence \\
+\texttt{DDG\_SSA} & Defining instruction's BB $\rightarrow$ using instruction's BB \\
+\texttt{DDG\_MEM} & May-/must-dependence, supported by memory/points-to analysis \\
+\texttt{CDG} & Predicate/controlling BB $\rightarrow$ control-dependent BB \\
+\texttt{CALL} & Callsite BB $\rightarrow$ resolved callee entry BB \\
+\texttt{RETURN} & Resolved callee exit BB $\rightarrow$ post-call continuation BB \\
+\bottomrule
+\end{tabular}
+\end{center}
+\texttt{CALL/RETURN} must carry a \texttt{callsite\_id}; preserve multiple callsites and multiple possible callees. The function-level call graph is derived from these resolved callsites, not from textual name matching. Mark unresolved indirect calls explicitly in metadata. Never treat missing edges as proven non-dependence.
+
+\paragraph{Extraction algorithm.}
+\begin{enumerate}
+\item Enumerate LLVM BBs and terminators; emit \texttt{CFG\_T/F/NEXT/OTHER} edges for every successor, including \texttt{invoke} exceptional edges.
+\item For each verified LLVM instruction dependence $u\to v$, map $b(u)\to b(v)$ as \texttt{DDG\_SSA} or \texttt{DDG\_MEM}; preserve IR instruction evidence. Separate \emph{may} and \emph{must} memory dependencies. Do not infer memory dependence from mere source proximity.
+\item Compute CDG from CFG post-dominance using a tested standard control-dependence algorithm; record branch predicate and successor evidence. Validate loops, multiple returns and exceptional exits.
+\item Connect direct/resolved indirect callsites with \texttt{CALL} and \texttt{RETURN}. For calls inside a BB, split at callsites if needed to obtain an unambiguous continuation; otherwise explicitly mark the approximate continuation and exclude such edges from strict evaluations.
+\item Aggregate instruction evidence with the same $(src,dst,relation,callsite)$ into one canonical BB edge and \texttt{evidence\_count}; keep different relations and callsites separate. Preserve same-BB instruction evidence but skip self message edges in the baseline.
+\end{enumerate}
+
+\paragraph{Required edge representation.}
+For the first R-GCN, use \emph{categorical integer relation IDs only}:
+\[
+ \texttt{edge\_index}\in\mathbb N^{2\times M},\qquad
+ \texttt{edge\_type}\in\{0,\ldots,R-1\}^{M}.
+\]
+\textbf{Do not use an \texttt{nn.Embedding} edge layer for R-GCN.} Its \texttt{RGCNConv} directly selects a trainable $W_r$ for each relation ID. Keep a frozen, versioned \texttt{relation\_to\_id.json}. Optionally add \texttt{REV\_<relation>} only to the \emph{model message-passing graph}; never interpret reversed edges as program semantics.
+
+Save optional numeric/evidence attributes separately, with missing-value masks. \emph{Only in an edge-aware GAT ablation}, form
+\[
+ e_{ij}=[\operatorname{Emb}(r_{ij})\Vert q_{ij}\Vert m_{ij}],
+\]
+where the embedding is a \emph{new trainable GNN layer}, not Qwen's token embedding, and $q_{ij}$ contains observed attributes rather than invented confidence scores.
+
+\paragraph{Artifacts and graph checks.}
+\begin{lstlisting}
+nodes.parquet: build_id, bb_id, function_id, source_spans,
+  instruction_ids, mapping_status, is_entry, is_exit
+edges.parquet: src_bb, dst_bb, relation_id, callsite_id,
+  evidence_count, analysis_status, evidence_ref
+edge_evidence.parquet: evidence_ref, src_inst, dst_inst,
+  analysis_tool, dependence_kind, source_location
+functions.parquet: function_id, entry_bb, exit_bbs,
+  callsites, source_hash
+graph_metadata.json: schema_version, build_id, ir_hash,
+  llvm_version, svf_version, coverage, unresolved_calls
+relation_to_id.json
+\end{lstlisting}
+Tests: no dangling endpoints, deterministic IDs, exact CFG successors, known def-use fixtures, CDG fixtures, call/return matching, multi-relational edges and uncertainty propagation. Fail closed if a required relation cannot be extracted.
+
+\section{PoC-derived target labels}
+The supervision graph is \emph{not} the input program graph. For each verified vulnerable execution with target $t$, let $E_t$ be deduplicated executed BBs from the ordered PoC trace; let $S_t$ be a conservative static \emph{backward data/control slice} rooted at the verified sanitizer fault operand/site, including cross-function evidence where available:
+\[
+ P_t=E_t\cap S_t,\qquad U_t=S_t\setminus E_t,\qquad C_t=E_t\setminus S_t.
+\]
+$P_t$ is \textbf{weak positive}; $U_t$ and $C_t$ are \textbf{unknown by default}. Only derive $N_t\subseteq C_t$ after an independent, documented non-dependence check within a stated analysis scope; when such negatives are unavailable, do not fabricate them (use positive-unlabeled methods or postpone ranking training). A true dynamic backward slice $D_t$ may supply stronger positives $D_t\cap S_t$. Record evidence quality, not an invented continuous confidence probability.
+
+\begin{lstlisting}
+labels.parquet: case_id, build_id, target_bb, candidate_bb,
+  label {positive,negative,unknown}, evidence_kind,
+  slice_version, trace_run_ids, quality_tier
+\end{lstlisting}
+Sanitizer stack traces identify anchors, not complete data/control paths; the crash site may differ from the original corruption site. Exclude unresolved fault-to-BB mappings and the target itself from ranking pairs. Compare the patched execution separately, but \emph{do not} label vulnerable-minus-patched trace differences as necessarily causal. \textbf{At inference, do not feed PoC trace, sanitizer report, labels, or synthetic candidate-to-target edges into the GNN.}
+
+\paragraph{Required five-case label-yield audit (before ranking-loss selection).}
+Start with five independently reproducible \emph{distinct-project} C/C++ cases, selected by the implementation agent: prioritize AFLGo/DGF-compatible targets, then Magma/OSS-Fuzz reproducer cases. Each must pin source/harness revisions, pass Docker sanitizer verification, and map fault PC $\rightarrow$ BB $\rightarrow$ source; document project/build/PoC exclusions. Five cases validate engineering only; \emph{do not} split five cases into claims of train/validation/test generalization. Expand a separate cross-project corpus for model-effect evaluation. For each case report $|V|,|E_t|,|S_t|,|P_t|,|U_t|,|C_t|,|N_t|$, verified-negative yield, fault mapping, runtime and build yield. Independently qualify negatives where possible using sound, bounded evidence, e.g. an explicit non-dependence proof under a documented closed-world analysis scope. No missing DDG/CDG edge, unseen PoC path or static-analysis failure may be called proof of non-dependence. Candidate hard negatives may match function and execution distance \emph{only after} independent qualification. If $|N_t|=0$, mark the target \texttt{no\_verified\_negatives} and skip pairwise ranking for it. Evaluate PU/positive-only objectives only as separately specified research alternatives with explicit assumptions and controls; do not silently treat unknowns as negatives.
+
+\paragraph{Target task semantics and alignment.}
+The primary learned score is \emph{trigger-condition relevance}, not a learned shortest-execution-path probability: $s_\theta(i\mid t)$ ranks BBs with evidence of data/control dependence on a specific sanitizer-observed fault/trigger. Let the separate execution-reachability signal guide movement toward $t$; a BB can be on a feasible path yet have no fault-operand dependence. Record \texttt{fault\_bb}, \texttt{fault\_operand}, \texttt{patch\_bbs}, \texttt{benchmark\_targets}, mapping provenance and ambiguity independently. Sanitizer report location may be a detection site rather than the original corruption site; require a bug-specific oracle when available. For an AFLGo benchmark target specified at a different line/site, implement explicit source/IR matching and preserve mismatches as \texttt{unmapped}; never assume patch location equals sanitizer fault. A PoC labels one observed successful execution, not all valid trigger paths.
+
+\section{Frozen Qwen2.5-Coder-7B BB embeddings}
+\paragraph{Exact model input.}
+Use pinned \texttt{Qwen/Qwen2.5-Coder-7B} \textbf{Base}, not Instruct. Input \emph{one original C/C++ function source string} (signature, body, formatting), from the exact analyzed source revision. \textbf{No prompt, chat template, isolated BB, CVE text, PoC, labels or patch description.} Preserve source bytes/hash; compiler macros may create IR-only instructions and must be marked as unmapped. Use \texttt{AutoTokenizer(..., use\_fast=True)}, \texttt{AutoModelForCausalLM}, BF16 if supported, \texttt{eval()}, frozen parameters, \texttt{torch.inference\_mode()} and \texttt{output\_hidden\_states=True}; never generate text in extraction.
+
+\paragraph{Offsets and pooling.}
+Request tokenizer character offsets $O_k=[a_k,b_k)$, align them to LLVM BB source spans using file/line/column and inline provenance. Do not assume BBs correspond to contiguous lines; if a token overlaps multiple BBs, flag ambiguity and exclude it from the strict baseline. For BB $b$, let $T_b$ be its unambiguously assigned source-token indices. For function token count $T$ and selected layer $\ell$:
+\[
+ H_f^{(\ell)}\in\mathbb R^{T\times3584},\qquad
+ x_b^{(\ell)}=\frac1{|T_b|}\sum_{k\in T_b}H_{f,k}^{(\ell)}.
+\]
+Verify actual model config at runtime; hidden-state tuple index $0$ is token embeddings, indices $1$--$28$ correspond to transformer outputs. Compare \(\ell\in\{7,14,21,28\}\), one layer per baseline run. Cache \emph{unprojected} $x_b^{(\ell)}$, masks and source offsets, not trainable GNN features. For $T_b=\varnothing$, use a missing-feature mask and a separately trained missing-node feature or zero+mask ablation; never silently fabricate token features.
+
+\paragraph{Optional multi-layer features and causal-context ablation.}
+The GNN trains $W_p:3584\to256$ for one selected layer. Optional fusion uses four layers:
+\[
+ x_b=\operatorname{LayerNorm}\big(W_p[x_b^{(7)}\Vert x_b^{(14)}\Vert x_b^{(21)}\Vert x_b^{(28)}]+c_p\big).
+\]
+Because Qwen is causal, early source-token states cannot see later statements. Optionally append a \emph{fixed} BB-specific query \emph{after} the full function and take $x_{b,query}^{(\ell)}=H_{last}^{(\ell)}$; benchmark the added cost and prompt sensitivity. This is \emph{not} the mandatory baseline.
+
+Start with maximum 8192 tokens; long functions must be explicitly excluded from strict experiments or split into source/BB-aligned overlapping chunks with tracked incomplete context. Never silently truncate. Cache key includes source hash, backbone/tokenizer revision, layers, extraction method, chunk and alignment policies. Verify pooling arithmetic and source-offset matches on hand-labeled C fixtures.
+
+\section{Models, readouts and objectives}
+\paragraph{Baseline 1: flat BB R-GCN (mandatory).}
+After trainable $3584\to256$ feature projection, run 2--3 relational layers with residual connections/dropout:
+\[
+ h_i^{(k+1)}=\sigma\!\left(W_0^{(k)}h_i^{(k)}+
+ \sum_{r\in\mathcal R_{msg}}\sum_{j\in\mathcal N_r(i)}
+ \frac{W_r^{(k)}h_j^{(k)}}{c_{i,r}}\right).
+\]
+Implement with PyG \texttt{RGCNConv(x,edge\_index,edge\_type)} and an explicit, stable relation count. The graph is target-independent so its features can support both ranking and detection. Compare graph-only and Qwen-only baselines.
+
+\paragraph{Execution-distance feature (separate from graph message passing).}
+Build an \emph{interprocedural execution graph} $G_{exec}$ using forward CFG edges plus callsite-qualified CALL and RETURN transitions (no DDG/CDG, no synthetic GNN reverse edges). Define
+\[
+ d_{exec}(i,t)=\operatorname{ShortestPath}_{G_{exec}}(i,t),\quad
+ \phi(i,t)=\operatorname{Embed}(\operatorname{Bucket}(d_{exec}(i,t),\mathrm{status})).
+\]
+Where possible, use a context-sensitive path search that matches CALL/RETURN by \texttt{callsite\_id}. If only context-insensitive shortest paths are practical, label the distance as an \emph{approximation} and test against small interprocedural fixtures; such distances can admit infeasible return paths. Distinguish \texttt{unreachable\_proven}, \texttt{analysis\_unknown}, and \texttt{finite}. DDG/CDG distances may be added only as separately named ablations. Keep original AFLGo $D_{AFLGo}$ unchanged as baseline; initially evaluate GNN guidance as a separately logged, bounded modification $D'=D_{AFLGo}\,g_\eta(s_\theta)$ with $g_\eta$ bounded and positive, rather than replacing $D_{AFLGo}$. Calibrate $g_\eta$ on development cases, never on held-out test TTE.
+
+\paragraph{Target-conditioned BB ranker.}
+For target BB $t$ and candidate BB $i$, use:
+\[
+ s_\theta(i\mid t)=\operatorname{MLP}_r
+ ([h_i\Vert h_t\Vert h_i\odot h_t\Vert\phi(i,t)]).
+\]
+Use the defined execution-distance/status feature; no message-passing reverse edges or DDG/CDG enter its shortest path. Run ablations without distance and with distance alone. Sample $i\in P_t$, $j\in N_t$ only when the negative is independently qualified:
+\[
+ \mathcal L_{rank}=\frac1{|\mathcal T|}\sum_{t\in\mathcal T}
+ \mathbb E_{i\sim P_t,j\sim N_t}
+ \operatorname{softplus}[-(s_\theta(i\mid t)-s_\theta(j\mid t))].
+\]
+Targets lacking valid negatives must not enter this pairwise objective. Balance sampling per CVE/target, not per number of BBs in a long trace.
+
+\paragraph{Vulnerability detection (mandatory fallback).}
+Read the actual reviewed dataset schema at \path{nycu-dissertation/neuron/dataset/review/dataset.jsonl}; reported 22,251 reviewed BigVul/CVEfixes/MegaVul vulnerable/patched function pairs. Use them for \emph{function-level} labels, optional patch-contrastive learning and later repair, \textbf{not} target-path supervision. If source cannot be compiled into LLVM IR, do not fabricate a CFG/PDG; track the \emph{buildable graph subset}, and train a Qwen-only classifier on the remaining source-only subset if appropriate. For function $f$:
+\[
+ z_f=\operatorname{AttnPool}(\{h_i:i\in f\}),\quad
+ p_f=\sigma(w_d^\top z_f+b_d),
+\]
+\[
+ \mathcal L_{det}= -\frac1B\sum_{f=1}^B
+ [y_f\log p_f+(1-y_f)\log(1-p_f)].
+\]
+Patched function $\ne$ guaranteed vulnerability-free program. Never inject target flags, PoC traces or patch markers into the detection encoder. Obtain \emph{program-level} classification loss on $Y$ only if verified program-level labels exist; do not inherit function labels into $Y$.
+
+\paragraph{Baseline 2: hierarchical BB/function GNN (after baseline 1).}
+Pool per-function BB states, propagate along a callsite-aware function graph, and fuse back into BB representations:
+\[
+ z_f=\operatorname{AttnPool}(\{h_i:i\in f\}),\qquad
+ \tilde Z=\operatorname{RGCN}_{CG}(Z,G_{CG}),
+\]
+\[
+ \tilde h_i=\operatorname{MLP}_f([h_i\Vert\tilde z_{func(i)}]),
+ \qquad Y=\operatorname{Pool}_{f}(\tilde z_f).
+\]
+Use $\tilde h_i$ for ranking and $z_f$ or $\tilde z_f$ for function detection; keep the direct BB residual pathway. Function pooling does not preserve exact interprocedural data flow. The \emph{whole-program} vector $Y$ is an optional representation/readout, not the only model output.
+
+\paragraph{Training and ablation.}
+First train distinct detection-only (reviewed pairs), localization-only (where independently verified location supervision exists), and ranking-only (targets with valid positive/negative evidence) heads. Evaluate each standalone model before the optional separate-batch multitask experiment:
+\[
+ \mathcal L=\lambda_d\mathcal L_{det}+\lambda_r\mathcal L_{rank}.
+\]
+Use project/CVE/commit/near-duplicate-grouped splits \emph{across both corpora}, fixed before tuning. Do not split vulnerable/patched partners. Log independent task losses, target sample counts and task interference. Evaluate AUROC/AUPRC for detection and Recall@K/MRR for ranking; no TTE claim without a full fuzzing experiment.
+
+\section{Optional secure-repair fallback}
+First test \emph{graph-guided context retrieval}: retrieve original source spans for top-ranked BBs and valid data/control evidence, and include them in a fixed Qwen repair prompt. Compare against source-only, random-context and graph-distance-only prompts at matched token budgets. Use held-out functions with both behavioral regression tests and vulnerability oracles:
+\[
+ \operatorname{JointPass@1}=\frac1N\sum_n
+ \mathbf1[\mathrm{functional\_pass}_n\land\mathrm{security\_pass}_n].
+\]
+Do not claim that passing tests formally guarantees safety. Only if graph context improves joint success, consider a trainable graph-to-decoder cross-attention adapter. A pooled $Y$ is \emph{not} automatically a valid residual-stream steering direction.
+
+\section{Repository layout, scripts and acceptance gates}
+\begin{lstlisting}
+nycu-dissertation/target_graph/
+  configs/{projects,models,train}/
+  docker/{acquire,llvm-build,trace,analyze,train}/
+  scripts/{fetch,build,trace,graph,embed,train,evaluate}.sh
+  src/target_graph/
+    acquisition/{manifest,download,verify}.py
+    build/{adapters,bitcode}.py
+    llvm/{passes/,trace_runtime/,mapping}.py
+    analysis/{cfg,ddg,cdg,callgraph,svf,export}.py
+    tracing/{runner,sanitizer,validate}.py
+    labels/{slicing,construct,quality}.py
+    embeddings/{qwen,alignment,pooling,chunking,cache}.py
+    graphs/{schema,loader,validate,relations}.py
+    models/{rgcn,hierarchical,heads,losses}.py
+    training/{datasets,splits,trainer,metrics}.py
+    repair/{select,generate,validate}.py
+    common/{config,paths,hashing,logging}.py
+  tests/{unit,integration,fixtures}/
+  pyproject.toml  README.md
+\end{lstlisting}
+Use Python 3.11+, type hints, dataclasses/Pydantic, PyTorch/PyG, Parquet, structured logs, \texttt{pytest}, \texttt{ruff}, \texttt{mypy}; lock versions. Bash is orchestration only with \texttt{set -euo pipefail}. Each stage is resumable/idempotent and records image digest, git SHA, compiler flags, IR hash, model revision, config and seeds. Execute untrusted PoCs on disposable sandboxed runners, not the training host.
+
+\begin{lstlisting}
+./scripts/fetch.sh --manifest configs/projects/cases.yaml
+./scripts/build.sh --case CASE_ID --variant vulnerable
+./scripts/trace.sh --case CASE_ID --verify-patched
+./scripts/graph.sh --case CASE_ID
+./scripts/embed.sh --input verified_cases --model qwen
+./scripts/train.sh --config configs/train/rgcn.yaml
+./scripts/evaluate.sh --config configs/train/rgcn.yaml
+\end{lstlisting}
+\textbf{Milestones (in order):}
+\begin{enumerate}
+\item Synthetic C fixture: branch diamond, loop, pointer data flow, two callsites and reproducible sanitizer fault; assert trace $\leftrightarrow$ BB map $\leftrightarrow$ graph $\leftrightarrow$ source token offsets.
+\item Five reproducible real PoC cases from distinct projects: complete the prescribed label-yield audit, including verified-negative counts; do not invent negative labels or infer statistical generalization from five cases.
+\item Immutable graph exports: CFG and callsite unit tests, DDG/CDG fixtures, relation ID checks, no dangling edges; labeled supervision edges absent from input.
+\item Frozen Qwen cache: exact function input, layer/dimension validation, manual BB-pooling check and long-function handling.
+\item Qwen-only, graph-only, flat R-GCN; separately trained detection, optional localization, and eligible ranking heads. Skip ranking on targets without qualified negatives. Hierarchical/multitask only after independent baselines. Log known-label coverage and splits.
+\item Phase II: integrate with AFLGo and compare original vs bounded GNN guidance using repeated seeds and no known PoC as fuzzer seed; measure censored runs and TTE. In parallel, optional secure repair with joint functional/security testing.
+\end{enumerate}
+
+\section*{Primary implementation references}
+\begin{itemize}
+\item \url{https://clang.llvm.org/docs/SanitizerCoverage.html}
+\item \url{https://llvm.org/docs/DependenceGraphs/}
+\item \url{https://svf-tools.github.io/SVF/}
+\item \url{https://huggingface.co/Qwen/Qwen2.5-Coder-7B}
+\item \url{https://pytorch-geometric.readthedocs.io/en/latest/generated/torch_geometric.nn.conv.RGCNConv.html}
+\end{itemize}
+\end{document}

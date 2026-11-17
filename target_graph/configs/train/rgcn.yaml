@@ -1,0 +1,17 @@
+# Configuration for Target-Conditioned Program Graph R-GCN Ranker
+model:
+  in_dim: 3584
+  hidden_dim: 256
+  num_layers: 2
+  dropout: 0.1
+  dist_embed_dim: 32
+  mlp_hidden_dim: 128
+
+train:
+  learning_rate: 0.0001
+  weight_decay: 0.0001
+  epochs: 10
+  grad_clip: 1.0
+  pu_prior: 0.05
+  checkpoint_dir: "checkpoints/rgcn"
+

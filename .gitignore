@@ -7,7 +7,6 @@ bench/docker-compose.aflgo-linescore.yml
 *.pyc
 logs
 *.sif
-**/src
 tmp
 visualizations*
 models*
