@@ -126,9 +126,14 @@ def test_synthetic_fixture_build_and_run():
         target_bb=target_bb,
     )
 
-    assert target_bb in partition.P_t, "Target BB must be in weak positive partition P_t"
-    assert len(partition.S_t) >= 1, "Backward slice must contain at least the target BB"
-    assert len(partition.P_t) >= 1, "Weak positive set P_t must not be empty"
+    assert target_bb in partition.P_t_dep, "Target BB must be in weak positive partition P_t_dep"
+    assert partition.fault_bb_in_trace is True, "Target BB must be in execution trace"
+    assert partition.fault_bb_in_dep_slice is True, "Target BB must be in dependency slice S_dep"
+    assert len(partition.S_dep) >= 1, "Backward slice must contain at least the target BB"
+    assert len(partition.P_t_dep) >= 1, "Weak positive set P_t_dep must not be empty"
+    assert len(partition.R_exec) >= len(partition.S_dep), "Reachability should be superset of slice"
+    assert partition.analysis_incomplete is True, "Expected analysis_incomplete=True"
+    assert 0.0 < partition.retention_dep <= 1.0
 
     # 8. Test PyG Loading and Model Forward Pass
     pyg_data, bb_to_idx = load_program_graph_to_pyg(PARQUET_DIR, include_reverse_edges=False)

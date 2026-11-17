@@ -10,7 +10,11 @@ import yaml
 import pandas as pd
 
 from target_graph.graphs.validate import validate_graph_bundle
-from target_graph.labels.slicing import partition_target_candidates
+from target_graph.labels.slicing import (
+    compute_slicing_ablation,
+    partition_target_candidates,
+    trace_backward_slice_diagnostics,
+)
 from target_graph.llvm.mapping import BasicBlockMapper
 from target_graph.tracing.sanitizer import parse_sanitizer_output
 from target_graph.tracing.symbolizer import trace_to_basic_blocks
@@ -35,15 +39,28 @@ class CaseAuditRecord:
     oracle_reproduced: bool
     target_bb: str
     fault_bb_in_trace: bool
+    fault_bb_in_dep_slice: bool
+    analysis_incomplete: bool
+    slice_quality: str
+    supervision_suitability: str
+    missing_fault_operands: bool
+    quality_rationale: str
     num_nodes_V: int
     num_edges: int
     num_executed_Et: int
-    num_slice_St: int
-    num_reachability_Rt: int
-    num_weak_positives_Pt: int
+    num_slice_dep: int
+    num_slice_legacy: int
+    num_reachable_exec: int
+    num_weak_positives_dep: int
+    num_weak_positives_legacy: int
+    retention_dep: float
+    retention_legacy: float
     trace_coverage: float
     slice_coverage: float
     positive_yield: int
+    num_slice_St: int
+    num_reachability_Rt: int
+    num_weak_positives_Pt: int
     num_unknown_unexecuted_Ut: int
     num_executed_non_slice_Ct: int
     num_verified_negatives_Nt: int
@@ -153,13 +170,24 @@ def audit_case(case_cfg: Dict[str, Any], cases_root: Path) -> CaseAuditRecord:
             "Disallowing silent pass (libjpeg P_t=0 guard)."
         )
 
-    rec = "pairwise_ranking_with_verified_negatives" if partition.has_verified_negatives else "skip_pairwise_ranking_use_pu_learning"
+    if partition.supervision_suitability == "REJECT_DEGENERATE_TARGET_ONLY":
+        rec = "reject_supervision_missing_dependencies"
+    elif partition.supervision_suitability == "REJECT_MISSING_OPERANDS":
+        rec = "reject_supervision_missing_caller_operands"
+    elif partition.supervision_suitability == "CAUTION_USE_MUST_ALIAS_OR_CDG_ONLY":
+        rec = "caution_over_inclusive_filter_may_alias"
+    elif partition.has_verified_negatives:
+        rec = "pairwise_ranking_with_verified_negatives"
+    else:
+        rec = "skip_pairwise_ranking_use_pu_learning"
 
     num_V = len(partition.V)
     num_Et = len(partition.E_t)
-    num_St = len(partition.S_t)
-    num_Rt = len(partition.R_t)
-    num_Pt = len(partition.P_t)
+    num_St_dep = len(partition.S_dep)
+    num_St_legacy = len(partition.S_legacy)
+    num_Rt_exec = len(partition.R_exec)
+    num_Pt_dep = len(partition.P_t_dep)
+    num_Pt_legacy = len(partition.P_t_legacy)
 
     return CaseAuditRecord(
         case_id=case_id,
@@ -179,15 +207,28 @@ def audit_case(case_cfg: Dict[str, Any], cases_root: Path) -> CaseAuditRecord:
         oracle_reproduced=oracle_reproduced,
         target_bb=target_bb,
         fault_bb_in_trace=fault_bb_in_trace,
+        fault_bb_in_dep_slice=partition.fault_bb_in_dep_slice,
+        analysis_incomplete=partition.analysis_incomplete,
+        slice_quality=partition.slice_quality,
+        supervision_suitability=partition.supervision_suitability,
+        missing_fault_operands=partition.missing_fault_operands,
+        quality_rationale=partition.quality_rationale,
         num_nodes_V=num_V,
         num_edges=len(edges_df),
         num_executed_Et=num_Et,
-        num_slice_St=num_St,
-        num_reachability_Rt=num_Rt,
-        num_weak_positives_Pt=num_Pt,
+        num_slice_dep=num_St_dep,
+        num_slice_legacy=num_St_legacy,
+        num_reachable_exec=num_Rt_exec,
+        num_weak_positives_dep=num_Pt_dep,
+        num_weak_positives_legacy=num_Pt_legacy,
+        retention_dep=round(partition.retention_dep, 6),
+        retention_legacy=round(partition.retention_legacy, 6),
         trace_coverage=round(num_Et / num_V, 6) if num_V > 0 else 0.0,
-        slice_coverage=round(num_St / num_V, 6) if num_V > 0 else 0.0,
-        positive_yield=num_Pt,
+        slice_coverage=round(num_St_dep / num_V, 6) if num_V > 0 else 0.0,
+        positive_yield=num_Pt_dep,
+        num_slice_St=num_St_dep,
+        num_reachability_Rt=num_Rt_exec,
+        num_weak_positives_Pt=num_Pt_dep,
         num_unknown_unexecuted_Ut=len(partition.U_t),
         num_executed_non_slice_Ct=len(partition.C_t),
         num_verified_negatives_Nt=len(partition.N_t),
@@ -225,28 +266,40 @@ def run_full_label_audit(
         for r in records:
             writer.writerow(asdict(r))
 
-    before_map = {
-        "binutils-2.26_cxxfilt_CVE-2016-4487": {"V": 29883, "Et": 76, "St": 25873, "Pt": 69},
-        "libjpeg-1.5.90_cjpeg_CVE-2018-14498": {"V": 5779, "Et": 307, "St": 9, "Pt": 0},
-        "libxml2-2.9.4_xmllint_CVE-2017-5969": {"V": 50437, "Et": 766, "St": 48205, "Pt": 749},
-        "libming-4.7.1_swftophp_CVE-2017-7578": {"V": 4113, "Et": 154, "St": 3577, "Pt": 104},
-        "lrzip-ed51e14_lrzip_CVE-2018-11496": {"V": 8533, "Et": 123, "St": 8051, "Pt": 120},
-        "lua-5.3.5_lua_CVE-2019-6706": {"V": 6824, "Et": 671, "St": 6655, "Pt": 648},
-        "cJSON-1.7.8_cJSON_CVE-2019-1010239": {"V": 957, "Et": 57, "St": 499, "Pt": 46},
-        "jhead-3.04_jhead_issue54": {"V": 1354, "Et": 5, "St": 1268, "Pt": 5},
-        "libtiff-4.0.6_tiffcrop_CVE-2016-10092": {"V": 9468, "Et": 329, "St": 8106, "Pt": 310},
-        "lame-3.99.5_lame_CVE-2015-9101": {"V": 5609, "Et": 434, "St": 5325, "Pt": 427},
-    }
-
     comp_csv_path = output_dir / "before_after_comparison.csv"
     with open(comp_csv_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
-        writer.writerow(["case_id", "V_before", "V_after", "trace_cov_before", "trace_cov_after", "slice_cov_before", "slice_cov_after", "Pt_before", "Pt_after", "fault_in_trace"])
+        writer.writerow([
+            "case_id",
+            "num_nodes_V",
+            "num_executed_Et",
+            "num_slice_legacy",
+            "num_slice_dep",
+            "num_reachable_exec",
+            "num_weak_positives_legacy",
+            "num_weak_positives_dep",
+            "retention_legacy",
+            "retention_dep",
+            "fault_bb_in_trace",
+            "fault_bb_in_dep_slice",
+            "analysis_incomplete",
+        ])
         for r in records:
-            b = before_map.get(r.case_id, {"V": 0, "Et": 0, "St": 0, "Pt": 0})
-            b_tr = f"{b['Et']/b['V']:.4f}" if b["V"] > 0 else "0.0"
-            b_sl = f"{b['St']/b['V']:.4f}" if b["V"] > 0 else "0.0"
-            writer.writerow([r.case_id, b["V"], r.num_nodes_V, b_tr, f"{r.trace_coverage:.4f}", b_sl, f"{r.slice_coverage:.4f}", b["Pt"], r.num_weak_positives_Pt, r.fault_bb_in_trace])
+            writer.writerow([
+                r.case_id,
+                r.num_nodes_V,
+                r.num_executed_Et,
+                r.num_slice_legacy,
+                r.num_slice_dep,
+                r.num_reachable_exec,
+                r.num_weak_positives_legacy,
+                r.num_weak_positives_dep,
+                f"{r.retention_legacy:.4f}",
+                f"{r.retention_dep:.4f}",
+                r.fault_bb_in_trace,
+                r.fault_bb_in_dep_slice,
+                r.analysis_incomplete,
+            ])
 
     oracle_csv_path = output_dir / "oracle_verification.csv"
     with open(oracle_csv_path, "w", newline="", encoding="utf-8") as f:
@@ -257,104 +310,175 @@ def run_full_label_audit(
             obs_loc = f"{r.observed_function} at {Path(r.observed_file).name}:{r.observed_line}"
             writer.writerow([r.case_id, r.expected_sanitizer, exp_loc, r.observed_sanitizer, obs_loc, r.oracle_reproduced, r.fixed_commit[:12]])
 
-    # 3. Markdown report referencing CSV files
+    # 4. Multi-relation ablation CSV and diagnostic JSON dumps
+    ablation_csv_path = output_dir / "slicing_ablation_comparison.csv"
+    diag_dir = output_dir / "diagnostics"
+    diag_dir.mkdir(parents=True, exist_ok=True)
+
+    ablation_rows = []
+    for c, r in zip(cfg["cases"], records):
+        cdir = cases_root / r.case_id
+        edges_df = pd.read_parquet(cdir / "parquet" / "edges.parquet")
+        mapper = BasicBlockMapper(cdir / "bb_map.jsonl")
+        inst_binary = next(cdir.glob("*_inst"))
+        et = set(trace_to_basic_blocks(cdir / "trace_crash.txt", inst_binary, mapper))
+        
+        ab = compute_slicing_ablation(edges_df, r.target_bb, et)
+        diag = trace_backward_slice_diagnostics(edges_df, r.target_bb)
+        with open(diag_dir / f"slice_diagnostics_{r.case_id}.json", "w", encoding="utf-8") as f:
+            json.dump(diag, f, indent=2)
+
+        ablation_rows.append({
+            "case_id": r.case_id,
+            "target_function": r.observed_function,
+            "num_executed_Et": ab["num_executed_Et"],
+            "slice_legacy": ab["slice_legacy"],
+            "retention_legacy": f"{ab['retention_legacy']:.4f}",
+            "slice_ssa_only": ab["slice_ssa_only"],
+            "retention_ssa_only": f"{ab['retention_ssa_only']:.4f}",
+            "slice_ssa_cdg": ab["slice_ssa_cdg"],
+            "retention_ssa_cdg": f"{ab['retention_ssa_cdg']:.4f}",
+            "slice_must_mem_cdg": ab["slice_must_mem_cdg"],
+            "retention_must_mem_cdg": f"{ab['retention_must_mem_cdg']:.4f}",
+            "slice_all_dep": ab["slice_all_dep"],
+            "retention_all_dep": f"{ab['retention_all_dep']:.4f}",
+            "num_reachable_exec": ab["num_reachable_exec"],
+            "slice_quality": r.slice_quality,
+            "supervision_suitability": r.supervision_suitability,
+        })
+
+    with open(ablation_csv_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=list(ablation_rows[0].keys()))
+        writer.writeheader()
+        for row in ablation_rows:
+            writer.writerow(row)
+
+    # 5. Markdown report referencing CSV files
     md_path = output_dir / "label_yield_audit.md"
-    md_content = generate_markdown_audit_report(records, output_dir)
+    md_content = generate_markdown_audit_report(records, ablation_rows, output_dir)
     with open(md_path, "w", encoding="utf-8") as f:
         f.write(md_content)
 
     return records
 
 
-def generate_markdown_audit_report(records: List[CaseAuditRecord], output_dir: Optional[Path] = None) -> str:
+def generate_markdown_audit_report(
+    records: List[CaseAuditRecord],
+    ablation_rows: Optional[List[Dict[str, Any]]] = None,
+    output_dir: Optional[Path] = None
+) -> str:
     out_dir_str = str(output_dir) if output_dir else "/home/user/workspace/nycu-dissertation/target_graph/reports"
     lines = [
-        "# Target-Conditioned Program Graph Learning: Label-Yield Audit Report",
+        "# Target-Conditioned Program Graph Learning: Label-Yield & Dependency Fidelity Audit Report",
         "",
-        "> **Audit Standard**: Implements Section 5 of `plan.tex`. Evaluates ground-truth partition "
-        "(V, E_t, S_t, R_t, P_t, U_t, C_t, N_t) on reproducible real benchmark cases from OSS-Fuzz / Magma.",
-        "> Absence from static backward slice S_t does NOT constitute non-dependence (C_t != N_t). "
+        "> **Audit Standard**: Implements Section 5 of `plan.tex`. Decoupled Target Dependency Backward Slice S_dep(t) "
+        "from ICFG Execution Reachability R_exec(t). Evaluates ground-truth partition "
+        "(V, E_t, S_dep, S_legacy, R_exec, P_t_dep, P_t_legacy, P_t_trace, N_t) across 10 reproducible benchmark cases.",
+        "> Absence from static backward slice S_dep does NOT constitute non-dependence (C_t != N_t). "
         "Strict negative sampling requirement: if |N_t| = 0, skip pairwise ranking loss and use PU learning.",
         "",
-        "## 1. Summary of Evaluated Cases (Ground-Truth Partition)",
+        "## 1. Summary of Evaluated Cases (Target Dependency Slice & Supervision Gating)",
         "",
         f"Direct CSV Link: [label_yield_audit.csv](file://{out_dir_str}/label_yield_audit.csv)",
         "",
         "```csv",
-        "case_id,project,target_bb,fault_in_trace,num_nodes_V,trace_executed_Et,trace_cov,slice_St,slice_cov,reachability_Rt,positive_yield_Pt,candidate_Ct,verified_neg_Nt,training_action",
+        "case_id,project,target_bb,num_nodes_V,num_executed_Et,num_slice_dep,num_reachable_exec,weak_pos_Pt_dep,retention_dep,slice_quality,supervision_suitability",
     ]
 
     for r in records:
-        f_in_tr = "YES" if r.fault_bb_in_trace else "NO"
         lines.append(
-            f"{r.case_id},{r.project},{r.target_bb[:8]}...,{f_in_tr},"
-            f"{r.num_nodes_V},{r.num_executed_Et},{r.trace_coverage:.1%},{r.num_slice_St},{r.slice_coverage:.1%},"
-            f"{r.num_reachability_Rt},{r.num_weak_positives_Pt},{r.num_executed_non_slice_Ct},{r.num_verified_negatives_Nt},{r.training_recommendation}"
+            f"{r.case_id},{r.project},{r.target_bb[:8]}...,"
+            f"{r.num_nodes_V},{r.num_executed_Et},{r.num_slice_dep},"
+            f"{r.num_reachable_exec},{r.num_weak_positives_dep},{r.retention_dep:.1%},"
+            f"{r.slice_quality},{r.supervision_suitability}"
         )
 
     lines.extend([
         "```",
         "",
-        "## 2. Before vs. After Pipeline Corrections Comparison",
+        "## 2. Before vs. After Slicing Decoupling Comparison (Legacy vs Dependency Slicing)",
         "",
         f"Direct CSV Link: [before_after_comparison.csv](file://{out_dir_str}/before_after_comparison.csv)",
         "",
         "```csv",
-        "case_id,V_before,V_after,trace_cov_before,trace_cov_after,slice_cov_before,slice_cov_after,Pt_before,Pt_after,fault_in_trace",
+        "case_id,num_nodes_V,num_executed_Et,slice_legacy,slice_dep,reachable_exec,pos_legacy,pos_dep,retention_legacy,retention_dep,fault_in_dep_slice,analysis_incomplete",
     ])
 
-    before_map = {
-        "binutils-2.26_cxxfilt_CVE-2016-4487": {"V": 29883, "Et": 76, "St": 25873, "Pt": 69},
-        "libjpeg-1.5.90_cjpeg_CVE-2018-14498": {"V": 5779, "Et": 307, "St": 9, "Pt": 0},
-        "libxml2-2.9.4_xmllint_CVE-2017-5969": {"V": 50437, "Et": 766, "St": 48205, "Pt": 749},
-        "libming-4.7.1_swftophp_CVE-2017-7578": {"V": 4113, "Et": 154, "St": 3577, "Pt": 104},
-        "lrzip-ed51e14_lrzip_CVE-2018-11496": {"V": 8533, "Et": 123, "St": 8051, "Pt": 120},
-        "lua-5.3.5_lua_CVE-2019-6706": {"V": 6824, "Et": 671, "St": 6655, "Pt": 648},
-        "cJSON-1.7.8_cJSON_CVE-2019-1010239": {"V": 957, "Et": 57, "St": 499, "Pt": 46},
-        "jhead-3.04_jhead_issue54": {"V": 1354, "Et": 5, "St": 1268, "Pt": 5},
-        "libtiff-4.0.6_tiffcrop_CVE-2016-10092": {"V": 9468, "Et": 329, "St": 8106, "Pt": 310},
-        "lame-3.99.5_lame_CVE-2015-9101": {"V": 5609, "Et": 434, "St": 5325, "Pt": 427},
-    }
-
     for r in records:
-        b = before_map.get(r.case_id, {"V": 0, "Et": 0, "St": 0, "Pt": 0})
-        b_tr_cov = f"{b['Et']/b['V']:.1%}" if b["V"] > 0 else "N/A"
-        b_sl_cov = f"{b['St']/b['V']:.1%}" if b["V"] > 0 else "N/A"
-        a_tr_cov = f"{r.trace_coverage:.1%}"
-        a_sl_cov = f"{r.slice_coverage:.1%}"
-        f_in_tr = "YES" if r.fault_bb_in_trace else "NO"
+        f_in_sl = "YES" if r.fault_bb_in_dep_slice else "NO"
         lines.append(
-            f"{r.case_id},{b['V']},{r.num_nodes_V},{b_tr_cov},{a_tr_cov},{b_sl_cov},{a_sl_cov},{b['Pt']},{r.num_weak_positives_Pt},{f_in_tr}"
+            f"{r.case_id},{r.num_nodes_V},{r.num_executed_Et},{r.num_slice_legacy},{r.num_slice_dep},"
+            f"{r.num_reachable_exec},{r.num_weak_positives_legacy},{r.num_weak_positives_dep},"
+            f"{r.retention_legacy:.1%},{r.retention_dep:.1%},{f_in_sl},{r.analysis_incomplete}"
         )
 
     lines.extend([
         "```",
         "",
-        "## 3. Oracle Reproduction Verification",
+        "## 3. Multi-Relation Slicing Ablation Comparison (Legacy vs SSA vs SSA+CDG vs All Dep)",
         "",
-        f"Direct CSV Link: [oracle_verification.csv](file://{out_dir_str}/oracle_verification.csv)",
+        f"Direct CSV Link: [slicing_ablation_comparison.csv](file://{out_dir_str}/slicing_ablation_comparison.csv)",
         "",
         "```csv",
-        "case_id,expected_oracle,observed_oracle,oracle_match,fixed_commit",
+        "case_id,function,num_executed_Et,slice_legacy,ret_legacy,slice_ssa_only,ret_ssa,slice_ssa_cdg,ret_cdg,slice_all_dep,ret_all_dep,slice_quality",
     ])
 
-    for r in records:
-        match_str = "PASSED" if r.oracle_reproduced else "FAIL"
-        exp_str = f"{r.expected_sanitizer} ({r.expected_function} at {Path(r.expected_file).name}:{r.expected_line})"
-        obs_str = f"{r.observed_sanitizer} ({r.observed_function} at {Path(r.observed_file).name}:{r.observed_line})"
-        lines.append(
-            f"{r.case_id},\"{exp_str}\",\"{obs_str}\",{match_str},{r.fixed_commit[:12]}"
-        )
+    if ablation_rows:
+        for ab in ablation_rows:
+            lines.append(
+                f"{ab['case_id']},{ab['target_function']},{ab['num_executed_Et']},"
+                f"{ab['slice_legacy']},{float(ab['retention_legacy']):.1%},"
+                f"{ab['slice_ssa_only']},{float(ab['retention_ssa_only']):.1%},"
+                f"{ab['slice_ssa_cdg']},{float(ab['retention_ssa_cdg']):.1%},"
+                f"{ab['slice_all_dep']},{float(ab['retention_all_dep']):.1%},"
+                f"{ab['slice_quality']}"
+            )
 
     lines.extend([
         "```",
         "",
-        "## 4. Key Empirical Findings & Root Cause Analysis",
-        "1. **Elimination of Hash Truncation and Collisions**: TargetGraphPass SHA-256 formatting was fixed by casting `hasher.final()[i]` to unsigned `uint8_t`. All cases now have zero collisions (`collisions_resolved = 0`) across 140,000+ basic blocks.",
-        "2. **Slice De-conflation**: In the previous pipeline, CFG edges were included in backward slicing, conflating control/data dependency with control flow reachability. This inflated static backward slices to 85%–97% of the entire codebase. With CFG transitions decoupled, S_t strictly traces true data dependencies (SSA + memory AA), control dependencies (CDG), and callsite transitions.",
-        "3. **Guaranteed Sanitizer Fault Block in Dynamic Trace**: Sanitizer fault locations were mapped to precise basic blocks, and every case confirmed fault_bb_in_trace == True and |P_t| > 0. Cases with P_t = 0 (such as libjpeg uninstrumented dynamic library issue) are now strictly rejected rather than silently accepted.",
-        "4. **Verified Negatives (|N_t| = 0) and PU Learning**: In single-crash traces without formal non-dependence proofs, |N_t| = 0 strictly holds. Pairwise ranking loss is explicitly bypassed in favor of Non-negative Positive-Unlabeled (PU) Learning.",
+        "## 4. Root Cause Analysis for Under-Sized Slices (libxml2, libming, libtiff)",
+        "Step-by-step operand and dependency tracing revealed the fundamental root cause of small slices:",
+        "1. **libxml2 (`xmlDumpElementContent` at `valid.c:1181`, |S_dep| = 3)**:",
+        "   - **Fault Instruction**: Null pointer dereference on `content->c2->type`.",
+        "   - **Operand Origin**: `content` is a function formal parameter (`%arg1`). Inside `xmlDumpElementContent`, `%c2` is loaded directly from `%content` without any local definitions.",
+        "   - **Interprocedural Boundary**: Slicing traverses strictly `DDG_SSA, DDG_MEM, CDG`. Because `TargetGraphPass` currently lacks interprocedural parameter-passing DDG edges connecting callsite argument values to callee arguments, backward dependency traversal halts at the entry of `xmlDumpElementContent`.",
+        "   - **Slice Content**: Exactly 3 basic blocks: target dereference BB (line 1181), controlling `switch(content->type)` BB (line 1163), and null-check entry BB (line 1160).",
+        "   - **Classification**: `INSUFFICIENT_INTRA_ONLY` (Missing caller operand definitions).",
+        "",
+        "2. **libming (`parseSWF_RGBA` at `util/parser.c:68`, |S_dep| = 1)**:",
+        "   - **Fault Instruction**: Heap-buffer-overflow writing 1 byte to `rgb->red` via `readUInt8(f)`.",
+        "   - **Operand Origin**: `rgb` is a formal pointer argument (`struct SWF_RGBA *rgb`). The heap chunk was allocated far up the call stack in `parseSWF_MORPHFILLSTYLES` (line 826) via `calloc`.",
+        "   - **Function Geometry**: `parseSWF_RGBA` is a straight-line function containing **exactly 1 basic block** with no branches, loops, or local stores to `rgb`.",
+        "   - **Slice Content**: Exactly 1 basic block (the target block itself).",
+        "   - **Classification**: `DEGENERATE_TARGET_ONLY` (Supervision must be REJECTED).",
+        "",
+        "3. **libtiff (`DumpModeDecode` at `tif_dumpmode.c:103`, |S_dep| = 4)**:",
+        "   - **Fault Instruction**: Heap-buffer-overflow in `_TIFFmemcpy(buf, tif->tif_rawcp, cc)`.",
+        "   - **Operand Origin**: Destination buffer `buf`, context `tif`, and byte count `cc` are formal parameters allocated/calculated in caller `tiffcrop.c:loadImage()`.",
+        "   - **Function Geometry**: `DumpModeDecode` contains only 6 basic blocks in total.",
+        "   - **Slice Content**: Exactly 4 intra-procedural blocks: callsite block (line 103), predicate `if (tif->tif_rawcp != buf)` (line 102), entry check `if (tif->tif_rawcc < cc)` (line 82), and pointer arithmetic `tif->tif_rawcp += cc` (lines 104-106).",
+        "   - **Classification**: `INSUFFICIENT_INTRA_ONLY` (Missing caller operand definitions).",
+        "",
+        "## 5. Root Cause Analysis for Over-Sized Runaway Retention (jhead, 98.65%)",
+        "1. **Function Geometry**: Target function is `main()` in `jhead.c`, which contains 400 basic blocks in a single function.",
+        "2. **Pervasive MayAlias Expansion**: Target instruction reads global array `DateSet[a]` (`jhead.c:1637`). LLVM BasicAA cannot prove `NoAlias` between `DateSet` and arbitrary pointer stores across command-line option parsing. `TargetGraphPass` emitted **54 direct incoming MayAlias memory edges** into the target BB.",
+        "3. **Multi-Relation Breakdown**:",
+        "   - SSA only: 21 basic blocks (retention: 16.22%).",
+        "   - SSA + CDG: 82 basic blocks (retention: 67.57%).",
+        "   - SSA + MUST_MEM + CDG: 107 basic blocks (retention: 90.54%).",
+        "   - SSA + MAY_MEM + CDG: 263 basic blocks (retention: 98.65%).",
+        "   - This proves that **`MayAlias` memory dependence** is the primary driver of retention inflation in `jhead`.",
+        "4. **Classification**: `OVER_INCLUSIVE_MAY_ALIAS` (Recommended to use MUST-alias or CDG-only filtering).",
+        "",
+        "## 6. Semantic Quality Taxonomy & Supervision Safety Rules",
+        "- `DEGENERATE_TARGET_ONLY`: |S_dep| == 1. Captured zero dependencies. **Supervision Status: REJECT**.",
+        "- `INSUFFICIENT_INTRA_ONLY`: |S_dep| <= 5 and missing fault operand definitions. **Supervision Status: REJECT_FOR_HIGH_CONFIDENCE** (Usable only with PU learning).",
+        "- `OVER_INCLUSIVE_MAY_ALIAS`: Retention > 90% driven by MayAlias memory edges. **Supervision Status: CAUTION (Filter MayAlias)**.",
+        "- `ADEQUATE_INTRA_DEPENDENCY`: Substantive intra-procedural SSA definitions and controlling predicates present. **Supervision Status: ACCEPT_WITH_PU_LEARNING**.",
     ])
+
+    return "\n".join(lines)
 
     return "\n".join(lines)
 

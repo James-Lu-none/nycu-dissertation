@@ -18,27 +18,46 @@ def test_five_case_label_yield_audit(tmp_path):
     for r in records:
         assert r.oracle_reproduced is True, f"Case {r.case_id} failed oracle reproduction"
         assert r.fault_bb_in_trace is True, f"Case {r.case_id} fault BB not in trace"
+        assert r.fault_bb_in_dep_slice is True, f"Case {r.case_id} fault BB not in dep slice"
         assert r.num_nodes_V > 500, f"Case {r.case_id} has insufficient nodes: {r.num_nodes_V}"
         assert r.num_edges > 1000, f"Case {r.case_id} has insufficient edges: {r.num_edges}"
         assert r.num_executed_Et > 0, f"Case {r.case_id} has empty trace"
-        assert r.num_slice_St > 0, f"Case {r.case_id} has empty backward slice"
-        assert r.num_reachability_Rt > 0, f"Case {r.case_id} has empty reachability"
-        assert r.positive_yield > 0, f"Case {r.case_id} has empty positive yield"
+        assert r.num_slice_dep > 0, f"Case {r.case_id} has empty backward slice"
+        assert r.num_slice_legacy > 0, f"Case {r.case_id} has empty legacy backward slice"
+        assert r.num_reachable_exec > 0, f"Case {r.case_id} has empty reachability"
+        assert r.num_weak_positives_dep > 0, f"Case {r.case_id} has empty positive yield"
+        assert r.num_weak_positives_legacy > 0, f"Case {r.case_id} has empty legacy positive yield"
         assert 0.0 < r.trace_coverage <= 1.0
         assert 0.0 < r.slice_coverage <= 1.0
+        assert 0.0 < r.retention_dep <= 1.0
+        assert 0.0 < r.retention_legacy <= 1.0
+        assert r.analysis_incomplete is True, f"Case {r.case_id} expected analysis_incomplete=True"
         assert r.num_verified_negatives_Nt == 0, f"Case {r.case_id} should have 0 verified negatives"
         assert r.has_verified_negatives is False
-        assert r.training_recommendation == "skip_pairwise_ranking_use_pu_learning"
+        assert r.training_recommendation in {
+            "skip_pairwise_ranking_use_pu_learning",
+            "reject_supervision_missing_dependencies",
+            "reject_supervision_missing_caller_operands",
+            "caution_over_inclusive_filter_may_alias",
+        }
+        assert r.slice_quality in {
+            "ADEQUATE_INTRA_DEPENDENCY",
+            "DEGENERATE_TARGET_ONLY",
+            "INSUFFICIENT_INTRA_ONLY",
+            "OVER_INCLUSIVE_MAY_ALIAS",
+        }
         assert r.target_bb != ""
 
     # Check generated files
     json_file = output_dir / "label_yield_audit.json"
     csv_file = output_dir / "label_yield_audit.csv"
     md_file = output_dir / "label_yield_audit.md"
+    ablation_file = output_dir / "slicing_ablation_comparison.csv"
 
     assert json_file.exists() and json_file.stat().st_size > 0
     assert csv_file.exists() and csv_file.stat().st_size > 0
     assert md_file.exists() and md_file.stat().st_size > 0
+    assert ablation_file.exists() and ablation_file.stat().st_size > 0
 
     with open(json_file) as f:
         data = json.load(f)
