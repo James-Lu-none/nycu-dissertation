@@ -366,12 +366,9 @@ public:
                                          << "\",\"relation_id\":9,\"callsite_id\":\"" << callsiteId
                                          << "\",\"evidence_count\":1,\"analysis_status\":\"verified\"}\n";
 
-                                // Callsite summary edge (relation_id 11): actual-in -> actual-out at callsite
-                                if (!CB->getType()->isVoidTy()) {
-                                    edgesOut << "{\"src_bb\":\"" << argDefBBId << "\",\"dst_bb\":\"" << srcId
-                                             << "\",\"relation_id\":11,\"callsite_id\":\"" << callsiteId
-                                             << "\",\"evidence_count\":1,\"analysis_status\":\"verified\"}\n";
-                                }
+                                // No unconditional CALLSITE_SUMMARY: a return value must not
+                                // be assumed to depend on every actual argument. Such edges
+                                // require instruction-level input/output dependence evidence.
                             }
 
                             // SDG PARAM_OUT edges (relation_id 10):
