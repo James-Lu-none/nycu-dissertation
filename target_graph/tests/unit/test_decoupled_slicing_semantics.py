@@ -195,7 +195,7 @@ def test_slice_diagnostics_paths_and_reasons(synthetic_semantic_program):
     assert diag["bb_target"]["reason"] == "TARGET_SITE"
     assert diag["bb_target"]["distance"] == 0
 
-    assert diag["bb_def"]["reason"] == "DIRECT_OPERAND_DEF"
+    assert diag["bb_def"]["reason"] == "DIRECT_BB_SSA_EDGE"
     assert diag["bb_def"]["distance"] == 1
     assert diag["bb_def"]["path"] == ["bb_target", "bb_def"]
     assert "DDG_SSA" in diag["bb_def"]["path_relations"][0]
