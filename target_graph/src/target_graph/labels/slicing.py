@@ -184,7 +184,7 @@ def compute_interprocedural_backward_slice(
     relation_filter: Optional[Set[int]] = None,
     max_depth: Optional[int] = None,
 ) -> Set[str]:
-    """Compute interprocedural backward slice S_interproc(t).
+    """Compute exploratory interprocedural *candidate* backward reachability.
     
     Traverses intra-procedural dependencies (DDG_SSA, DDG_MEM, CDG)
     plus SDG interprocedural parameter and summary edges:
@@ -193,6 +193,9 @@ def compute_interprocedural_backward_slice(
     - CALLSITE_SUMMARY (relation_id 11): Actual-in -> actual-out at callsite
     
     Strictly excludes unconstrained ICFG CFG edges and general CALL/RETURN edges.
+    IMPORTANT: PARAM_IN/OUT are currently BB-level candidates, not verified
+    formal/actual operand-level edges or context-sensitive SDG summaries.
+    Do NOT use this result as validated supervision.
     """
     if relation_filter is None:
         relation_filter = {
@@ -403,11 +406,11 @@ def trace_backward_slice_diagnostics(
             edge_data = g.get_edge_data(target_bb, bb)
             rels = edge_data.get("relations", [])
             if "DDG_SSA" in rels:
-                reason = "DIRECT_OPERAND_DEF"
+                reason = "DIRECT_BB_SSA_EDGE"
             elif "CDG" in rels:
                 reason = "DIRECT_CDG_PREDICATE"
             elif "DDG_MEM" in rels:
-                reason = "DIRECT_MEM_ALIAS"
+                reason = "DIRECT_MEM_ALIAS_CANDIDATE"
             else:
                 reason = f"DIRECT_{rels[0]}"
         else:
