@@ -20,6 +20,8 @@
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/MemoryLocation.h"
+#include "llvm/Analysis/CFG.h"
+#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/SHA256.h"
@@ -136,6 +138,8 @@ public:
             if (F.isDeclaration()) continue;
             std::string funcName = F.getName().str();
             PostDominatorTree &PDT = FAM.getResult<PostDominatorTreeAnalysis>(F);
+            DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(F);
+            LoopInfo &LI = FAM.getResult<LoopAnalysis>(F);
             AAResults &AA = FAM.getResult<AAManager>(F);
 
             // Collect memory writes and reads per block for intra-procedural DDG_MEM
@@ -150,8 +154,8 @@ public:
                 for (Instruction &I : BB) {
                     if (auto *SI = dyn_cast<StoreInst>(&I)) {
                         accesses.push_back({SI, MemoryLocation::get(SI), true});
-                    } else if (auto *LI = dyn_cast<LoadInst>(&I)) {
-                        accesses.push_back({LI, MemoryLocation::get(LI), false});
+                    } else if (auto *LIInst = dyn_cast<LoadInst>(&I)) {
+                        accesses.push_back({LIInst, MemoryLocation::get(LIInst), false});
                     }
                 }
                 if (!accesses.empty()) {
@@ -160,6 +164,8 @@ public:
             }
 
             // Extract intra-procedural memory dependencies (DDG_MEM - Relation ID 5)
+            // Enforces CFG reachability: store in srcBB can only dependently reach load in dstBB
+            // if a feasible execution path exists from srcBB to dstBB (accounting for loops).
             for (auto &srcPair : bbMemAccesses) {
                 const BasicBlock *srcBB = srcPair.first;
                 std::string srcId = bbToId[srcBB];
@@ -167,8 +173,13 @@ public:
                 for (auto &dstPair : bbMemAccesses) {
                     const BasicBlock *dstBB = dstPair.first;
                     if (srcBB == dstBB) continue;
-                    std::string dstId = bbToId[dstBB];
 
+                    // Feasible path check: eliminate impossible flows (e.g. store executing after load in acyclic code)
+                    if (!isPotentiallyReachable(srcBB, dstBB, nullptr, &DT, &LI)) {
+                        continue;
+                    }
+
+                    std::string dstId = bbToId[dstBB];
                     size_t mustCount = 0;
                     size_t mayCount = 0;
 
@@ -326,15 +337,62 @@ public:
                         if (callee && !callee->isDeclaration() && funcEntryBB.count(callee->getName().str())) {
                             const BasicBlock *entry = funcEntryBB[callee->getName().str()];
                             
+                            // ICFG CALL edge (relation_id 7)
                             edgesOut << "{\"src_bb\":\"" << srcId << "\",\"dst_bb\":\"" << bbToId[entry]
                                      << "\",\"relation_id\":7,\"callsite_id\":\"" << callsiteId
                                      << "\",\"evidence_count\":1,\"analysis_status\":\"verified\"}\n";
 
+                            // ICFG RETURN edge (relation_id 8)
                             for (BasicBlock &calleeBB : *callee) {
                                 if (isa<ReturnInst>(calleeBB.getTerminator()) && bbToId.count(&calleeBB)) {
                                     edgesOut << "{\"src_bb\":\"" << bbToId[&calleeBB] << "\",\"dst_bb\":\"" << srcId
                                              << "\",\"relation_id\":8,\"callsite_id\":\"" << callsiteId
                                              << "\",\"evidence_count\":1,\"analysis_status\":\"verified\"}\n";
+                                }
+                            }
+
+                            // SDG PARAM_IN edges (relation_id 9):
+                            // Caller actual argument -> Callee formal parameter entry block
+                            for (unsigned argIdx = 0; argIdx < CB->arg_size(); ++argIdx) {
+                                Value *argVal = CB->getArgOperand(argIdx);
+                                std::string argDefBBId = srcId;
+                                if (auto *argInst = dyn_cast<Instruction>(argVal)) {
+                                    BasicBlock *argDefBB = argInst->getParent();
+                                    if (argDefBB && bbToId.count(argDefBB)) {
+                                        argDefBBId = bbToId[argDefBB];
+                                    }
+                                }
+                                edgesOut << "{\"src_bb\":\"" << argDefBBId << "\",\"dst_bb\":\"" << bbToId[entry]
+                                         << "\",\"relation_id\":9,\"callsite_id\":\"" << callsiteId
+                                         << "\",\"evidence_count\":1,\"analysis_status\":\"verified\"}\n";
+
+                                // Callsite summary edge (relation_id 11): actual-in -> actual-out at callsite
+                                if (!CB->getType()->isVoidTy()) {
+                                    edgesOut << "{\"src_bb\":\"" << argDefBBId << "\",\"dst_bb\":\"" << srcId
+                                             << "\",\"relation_id\":11,\"callsite_id\":\"" << callsiteId
+                                             << "\",\"evidence_count\":1,\"analysis_status\":\"verified\"}\n";
+                                }
+                            }
+
+                            // SDG PARAM_OUT edges (relation_id 10):
+                            // Callee formal return -> Caller receiving callsite and use blocks
+                            if (!CB->getType()->isVoidTy()) {
+                                for (BasicBlock &calleeBB : *callee) {
+                                    if (isa<ReturnInst>(calleeBB.getTerminator()) && bbToId.count(&calleeBB)) {
+                                        edgesOut << "{\"src_bb\":\"" << bbToId[&calleeBB] << "\",\"dst_bb\":\"" << srcId
+                                                 << "\",\"relation_id\":10,\"callsite_id\":\"" << callsiteId
+                                                 << "\",\"evidence_count\":1,\"analysis_status\":\"verified\"}\n";
+                                        for (User *U : CB->users()) {
+                                            if (Instruction *UI = dyn_cast<Instruction>(U)) {
+                                                BasicBlock *useBB = UI->getParent();
+                                                if (useBB && useBB != &BB && bbToId.count(useBB)) {
+                                                    edgesOut << "{\"src_bb\":\"" << bbToId[&calleeBB] << "\",\"dst_bb\":\"" << bbToId[useBB]
+                                                             << "\",\"relation_id\":10,\"callsite_id\":\"" << callsiteId
+                                                             << "\",\"evidence_count\":1,\"analysis_status\":\"verified\"}\n";
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         } else if (CB->isIndirectCall() || !callee) {
@@ -346,11 +404,22 @@ public:
                                     edgesOut << "{\"src_bb\":\"" << srcId << "\",\"dst_bb\":\"" << bbToId[pair.second]
                                              << "\",\"relation_id\":7,\"callsite_id\":\"" << callsiteId
                                              << "\",\"evidence_count\":1,\"analysis_status\":\"may\"}\n";
+
+                                    // May-target PARAM_IN
+                                    edgesOut << "{\"src_bb\":\"" << srcId << "\",\"dst_bb\":\"" << bbToId[pair.second]
+                                             << "\",\"relation_id\":9,\"callsite_id\":\"" << callsiteId
+                                             << "\",\"evidence_count\":1,\"analysis_status\":\"may\"}\n";
+
                                     for (BasicBlock &candBB : *candF) {
                                         if (isa<ReturnInst>(candBB.getTerminator()) && bbToId.count(&candBB)) {
                                             edgesOut << "{\"src_bb\":\"" << bbToId[&candBB] << "\",\"dst_bb\":\"" << srcId
                                                      << "\",\"relation_id\":8,\"callsite_id\":\"" << callsiteId
                                                      << "\",\"evidence_count\":1,\"analysis_status\":\"may\"}\n";
+                                            if (!CB->getType()->isVoidTy()) {
+                                                edgesOut << "{\"src_bb\":\"" << bbToId[&candBB] << "\",\"dst_bb\":\"" << srcId
+                                                         << "\",\"relation_id\":10,\"callsite_id\":\"" << callsiteId
+                                                         << "\",\"evidence_count\":1,\"analysis_status\":\"may\"}\n";
+                                            }
                                         }
                                     }
                                 }

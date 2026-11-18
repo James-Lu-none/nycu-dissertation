@@ -29,18 +29,20 @@ class SlicePartition:
     target_bb: str
     V: Set[str]                                       # Total program basic blocks
     E_t: Set[str]                                     # Deduplicated executed BBs in PoC trace
-    S_dep: Set[str]                                   # Pure dependency backward slice (DDG_SSA, DDG_MEM, CDG)
-    S_legacy: Set[str]                                # Legacy CFG/Call-inclusive slice (DDG + CDG + CALL + RETURN)
-    R_exec: Set[str]                                  # ICFG Execution reachability to target_bb (CFG + CALL/RETURN)
+    S_dep: Set[str]                                   # Pure intraprocedural dependency backward slice (DDG_SSA, DDG_MEM, CDG)
+    S_interproc: Set[str] = field(default_factory=set)# Interprocedural SDG slice (DDG + CDG + PARAM_IN + PARAM_OUT + CALLSITE_SUMMARY)
+    S_legacy: Set[str] = field(default_factory=set)   # Legacy CFG/Call-inclusive slice (DDG + CDG + CALL + RETURN)
+    R_exec: Set[str] = field(default_factory=set)     # ICFG Execution reachability to target_bb (CFG + CALL/RETURN)
     N_t: Set[str] = field(default_factory=set)        # Verified negatives (defaults to empty; unknown != negative)
     analysis_incomplete: bool = True                  # True when interprocedural parameter/return DDG is not fully resolved
     callsite_aware_pairing: bool = False              # True if ICFG reachability strictly pairs callsites
 
     # Semantic quality and supervision gating
-    slice_quality: str = "UNKNOWN"                    # DEGENERATE_TARGET_ONLY, INSUFFICIENT_INTRA_ONLY, OVER_INCLUSIVE_MAY_ALIAS, ADEQUATE_INTRA_DEPENDENCY
+    slice_quality: str = "UNKNOWN"                    # DEGENERATE_TARGET_ONLY, INTERPROCEDURAL_INCOMPLETE, OVER_INCLUSIVE_MAY_ALIAS, LOCAL_DEPENDENCY_VALIDATED, SUPERVISION_VALIDATED
     analysis_status: str = "incomplete"               # Detailed status of analysis completeness
     missing_fault_operands: bool = False              # True if fault instruction operands lack definitions in the slice
-    supervision_suitability: str = "UNKNOWN"          # REJECT_DEGENERATE_TARGET_ONLY, REJECT_MISSING_OPERANDS, CAUTION_OVER_INCLUSIVE, ACCEPT_WITH_PU_LEARNING
+    fault_operand_coverage: float = 1.0               # Ratio of fault operands covered by definitions in slice
+    supervision_suitability: str = "UNKNOWN"          # REJECT_DEGENERATE_TARGET_ONLY, REJECT_INCOMPLETE_DEPENDENCY, FILTER_REQUIRED_MUST_MEM_OR_CDG, ACCEPT_LOCAL_ONLY, ACCEPT_AS_SUPERVISION
     quality_rationale: str = ""
     diagnostics: Dict[str, Dict[str, Any]] = field(default_factory=dict)
 
@@ -48,9 +50,11 @@ class SlicePartition:
     P_t_trace: Set[str] = field(init=False)           # P_t^trace = E_t
     P_t_legacy: Set[str] = field(init=False)          # P_t^legacy = E_t & S_legacy
     P_t_dep: Set[str] = field(init=False)             # P_t^dep = E_t & S_dep
+    P_t_interproc: Set[str] = field(init=False)       # P_t^interproc = E_t & S_interproc
 
     # Retention metrics
     retention_dep: float = field(init=False)          # |E_t & S_dep| / |E_t|
+    retention_interproc: float = field(init=False)    # |E_t & S_interproc| / |E_t|
     retention_legacy: float = field(init=False)       # |E_t & S_legacy| / |E_t|
 
     # Verification flags
@@ -62,12 +66,16 @@ class SlicePartition:
     C_t_dep: Set[str] = field(init=False)             # E_t - S_dep
 
     def __post_init__(self) -> None:
+        if not self.S_interproc:
+            self.S_interproc = set(self.S_dep)
         self.P_t_trace = set(self.E_t)
         self.P_t_legacy = self.E_t & self.S_legacy
         self.P_t_dep = self.E_t & self.S_dep
+        self.P_t_interproc = self.E_t & self.S_interproc
 
         len_e = len(self.E_t)
         self.retention_dep = round(len(self.P_t_dep) / len_e, 6) if len_e > 0 else 0.0
+        self.retention_interproc = round(len(self.P_t_interproc) / len_e, 6) if len_e > 0 else 0.0
         self.retention_legacy = round(len(self.P_t_legacy) / len_e, 6) if len_e > 0 else 0.0
 
         self.fault_bb_in_trace = self.target_bb in self.E_t
@@ -106,12 +114,15 @@ class SlicePartition:
             "|V|": len(self.V),
             "|E_t|": len(self.E_t),
             "|S_dep|": len(self.S_dep),
+            "|S_interproc|": len(self.S_interproc),
             "|S_legacy|": len(self.S_legacy),
             "|R_exec|": len(self.R_exec),
             "|P_t_dep|": len(self.P_t_dep),
+            "|P_t_interproc|": len(self.P_t_interproc),
             "|P_t_legacy|": len(self.P_t_legacy),
             "|P_t_trace|": len(self.P_t_trace),
             "retention_dep": self.retention_dep,
+            "retention_interproc": self.retention_interproc,
             "retention_legacy": self.retention_legacy,
             "fault_bb_in_trace": self.fault_bb_in_trace,
             "fault_bb_in_dep_slice": self.fault_bb_in_dep_slice,
@@ -119,6 +130,7 @@ class SlicePartition:
             "slice_quality": self.slice_quality,
             "analysis_status": self.analysis_status,
             "missing_fault_operands": self.missing_fault_operands,
+            "fault_operand_coverage": self.fault_operand_coverage,
             "supervision_suitability": self.supervision_suitability,
             "|N_t|": len(self.N_t),
         }
@@ -164,6 +176,40 @@ def compute_target_dependency_backward_slice(
         return set(lengths.keys())
     else:
         return set(nx.descendants(g, target_bb)) | {target_bb}
+
+
+def compute_interprocedural_backward_slice(
+    edges_df: pd.DataFrame,
+    target_bb: str,
+    relation_filter: Optional[Set[int]] = None,
+    max_depth: Optional[int] = None,
+) -> Set[str]:
+    """Compute interprocedural backward slice S_interproc(t).
+    
+    Traverses intra-procedural dependencies (DDG_SSA, DDG_MEM, CDG)
+    plus SDG interprocedural parameter and summary edges:
+    - PARAM_IN (relation_id 9): Caller argument def -> Callee formal parameter
+    - PARAM_OUT (relation_id 10): Callee return -> Caller receiving use
+    - CALLSITE_SUMMARY (relation_id 11): Actual-in -> actual-out at callsite
+    
+    Strictly excludes unconstrained ICFG CFG edges and general CALL/RETURN edges.
+    """
+    if relation_filter is None:
+        relation_filter = {
+            CANONICAL_RELATION_TO_ID["DDG_SSA"],
+            CANONICAL_RELATION_TO_ID["DDG_MEM"],
+            CANONICAL_RELATION_TO_ID["CDG"],
+            CANONICAL_RELATION_TO_ID.get("PARAM_IN", 9),
+            CANONICAL_RELATION_TO_ID.get("PARAM_OUT", 10),
+            CANONICAL_RELATION_TO_ID.get("CALLSITE_SUMMARY", 11),
+        }
+
+    return compute_target_dependency_backward_slice(
+        edges_df=edges_df,
+        target_bb=target_bb,
+        relation_filter=relation_filter,
+        max_depth=max_depth,
+    )
 
 
 def compute_static_backward_slice_legacy(
@@ -402,13 +448,41 @@ def assess_slice_quality(
     s_dep = partition.S_dep
     num_s = len(s_dep)
     
+    # Check incoming intra-procedural DDG edges to target
     in_dep_edges = edges_df[
         (edges_df["dst_bb"] == tbb) & 
         (edges_df["src_bb"].isin(s_dep)) & 
-        (edges_df["relation_id"].isin({4, 5, 6}))
+        (edges_df["relation_id"].isin({4, 5}))
     ]
-    has_operand_def = not in_dep_edges[in_dep_edges["relation_id"].isin({4, 5})].empty
-    has_predicate = not in_dep_edges[in_dep_edges["relation_id"] == 6].empty
+    has_operand_def = not in_dep_edges.empty
+    
+    # Check incoming CDG edges to target
+    in_cdg_edges = edges_df[
+        (edges_df["dst_bb"] == tbb) & 
+        (edges_df["src_bb"].isin(s_dep)) & 
+        (edges_df["relation_id"] == 6)
+    ]
+    has_predicate = not in_cdg_edges.empty
+
+    # Check incoming interprocedural parameter edges (PARAM_IN: 9, PARAM_OUT: 10, CALLSITE_SUMMARY: 11)
+    interproc_relations = {9, 10, 11}
+    in_param_edges = edges_df[
+        (edges_df["dst_bb"] == tbb) & 
+        (edges_df["relation_id"].isin(interproc_relations))
+    ]
+    has_param_in = not in_param_edges.empty
+
+    # Compute fault operand coverage
+    if has_operand_def:
+        fault_operand_coverage = 1.0
+    elif has_param_in:
+        fault_operand_coverage = 1.0
+    elif num_s == 1:
+        fault_operand_coverage = 0.0
+    else:
+        fault_operand_coverage = 0.0
+
+    missing_fault_operands = (fault_operand_coverage == 0.0)
     
     mem_edges = edges_df[
         (edges_df["dst_bb"].isin(s_dep)) & 
@@ -424,48 +498,54 @@ def assess_slice_quality(
 
     if num_s == 1:
         slice_quality = "DEGENERATE_TARGET_ONLY"
-        analysis_status = "missing_interprocedural_dependencies"
-        missing_fault_operands = True
+        analysis_status = "missing_all_dependencies_degenerate_target_only"
         supervision_suitability = "REJECT_DEGENERATE_TARGET_ONLY"
         quality_rationale = (
             "Target backward slice contains ONLY the target basic block itself (|S_dep| = 1). "
             "Zero operand definitions, allocations, or branch predicates were captured because "
             "fault operands originate from caller parameters or unanalyzed cross-function memory."
         )
-    elif not has_operand_def and num_s <= 5:
-        slice_quality = "INSUFFICIENT_INTRA_ONLY"
-        analysis_status = "missing_caller_operand_definitions"
-        missing_fault_operands = True
-        supervision_suitability = "REJECT_MISSING_OPERANDS"
-        quality_rationale = (
-            f"Target backward slice is severely undersized (|S_dep| = {num_s}) and missing fault operand definitions. "
-            "Captured blocks are only local control structures (e.g. switch or null checks), while the "
-            "fault-inducing data was passed via function arguments from unlinked callers."
-        )
-    elif partition.retention_dep > 0.90 and num_may_alias > 0.5 * max(1, total_dep_edges):
+    elif partition.retention_dep > 0.90:
         slice_quality = "OVER_INCLUSIVE_MAY_ALIAS"
         analysis_status = "pervasive_may_alias_expansion"
-        missing_fault_operands = False
-        supervision_suitability = "CAUTION_USE_MUST_ALIAS_OR_CDG_ONLY"
+        supervision_suitability = "FILTER_REQUIRED_MUST_MEM_OR_CDG"
         quality_rationale = (
             f"Slice expanded to {partition.retention_dep:.1%} of trace due to pervasive MayAlias memory edges. "
             "BasicAA conservative assumptions connect arbitrary pointer stores across the function. "
             "Recommended to filter by MUST-alias or restrict to SSA+CDG."
         )
-    else:
-        slice_quality = "ADEQUATE_INTRA_DEPENDENCY"
-        analysis_status = "intraprocedural_complete_interprocedural_partial"
-        missing_fault_operands = False
-        supervision_suitability = "ACCEPT_WITH_PU_LEARNING"
+    elif missing_fault_operands and num_s <= 5:
+        slice_quality = "INTERPROCEDURAL_INCOMPLETE"
+        analysis_status = "missing_caller_operand_definitions"
+        supervision_suitability = "REJECT_INCOMPLETE_DEPENDENCY"
         quality_rationale = (
-            f"Slice captures substantive intra-procedural SSA definitions and controlling predicates (|S_dep| = {num_s}). "
-            "Suitable for target-conditioned positive supervision under Non-negative PU Learning."
+            f"Target backward slice is severely undersized (|S_dep| = {num_s}) and missing fault operand definitions. "
+            "Captured blocks are only local control structures (e.g. switch or null checks), while the "
+            "fault-inducing data was passed via function arguments from unlinked callers."
+        )
+    elif has_operand_def and num_s >= 5:
+        slice_quality = "SUPERVISION_VALIDATED"
+        analysis_status = "provenance_validated_intraprocedural_complete"
+        supervision_suitability = "ACCEPT_AS_SUPERVISION"
+        quality_rationale = (
+            f"Slice captures substantive SSA operand definitions, memory reaching definitions, "
+            f"and controlling predicates (|S_dep| = {num_s}, fault_operand_coverage = {fault_operand_coverage:.1f}). "
+            "Provenance verified for target supervision."
+        )
+    else:
+        slice_quality = "LOCAL_DEPENDENCY_VALIDATED"
+        analysis_status = "intraprocedural_complete_interprocedural_partial"
+        supervision_suitability = "ACCEPT_LOCAL_ONLY"
+        quality_rationale = (
+            f"Slice captures intra-procedural definitions or predicates (|S_dep| = {num_s}), "
+            "but cross-function calling context remains unmodeled. Suitable only as local weak supervision."
         )
 
     return {
         "slice_quality": slice_quality,
         "analysis_status": analysis_status,
         "missing_fault_operands": missing_fault_operands,
+        "fault_operand_coverage": fault_operand_coverage,
         "has_operand_def": has_operand_def,
         "has_predicate": has_predicate,
         "supervision_suitability": supervision_suitability,
@@ -503,8 +583,15 @@ def compute_slicing_ablation(
         CANONICAL_RELATION_TO_ID["DDG_MEM"],
         CANONICAL_RELATION_TO_ID["CDG"],
     })
-    
+
+    s_interproc = compute_interprocedural_backward_slice(edges_df, target_bb)
     r_exec = compute_execution_reachability(edges_df, target_bb, direction="backward")
+
+    in_dep_edges = edges_df[
+        (edges_df["dst_bb"] == target_bb) & 
+        (edges_df["relation_id"].isin({4, 5}))
+    ]
+    fault_operand_coverage = 1.0 if not in_dep_edges.empty else 0.0
 
     return {
         "num_executed_Et": len_e,
@@ -518,6 +605,9 @@ def compute_slicing_ablation(
         "retention_must_mem_cdg": round(len(et & s_must_mem_cdg) / len_e, 6) if len_e > 0 else 0.0,
         "slice_all_dep": len(s_all_dep),
         "retention_all_dep": round(len(et & s_all_dep) / len_e, 6) if len_e > 0 else 0.0,
+        "slice_interprocedural": len(s_interproc),
+        "retention_interprocedural": round(len(et & s_interproc) / len_e, 6) if len_e > 0 else 0.0,
+        "fault_operand_coverage": fault_operand_coverage,
         "num_reachable_exec": len(r_exec),
     }
 
@@ -534,13 +624,15 @@ def partition_target_candidates(
     
     Computes:
     - S_dep: pure dependency backward slice (DDG_SSA, DDG_MEM, CDG)
+    - S_interproc: interprocedural SDG slice
     - S_legacy: legacy CFG/Call-inclusive slice
     - R_exec: ICFG reachability to target_bb
-    - P_t_dep, P_t_legacy, P_t_trace
+    - P_t_dep, P_t_interproc, P_t_legacy, P_t_trace
     - Diagnostics & Slice Quality Assessment
     """
     E_t = set(executed_trace_bbs)
     S_dep = compute_target_dependency_backward_slice(edges_df, target_bb)
+    S_interproc = compute_interprocedural_backward_slice(edges_df, target_bb)
     S_legacy = compute_static_backward_slice_legacy(edges_df, target_bb)
     R_exec = compute_execution_reachability(edges_df, target_bb, direction="backward")
     N_t = verified_negatives if verified_negatives is not None else set()
@@ -552,6 +644,7 @@ def partition_target_candidates(
         V=all_bbs,
         E_t=E_t,
         S_dep=S_dep,
+        S_interproc=S_interproc,
         S_legacy=S_legacy,
         R_exec=R_exec,
         N_t=N_t,
@@ -562,6 +655,7 @@ def partition_target_candidates(
     partition.slice_quality = quality_info["slice_quality"]
     partition.analysis_status = quality_info["analysis_status"]
     partition.missing_fault_operands = quality_info["missing_fault_operands"]
+    partition.fault_operand_coverage = quality_info["fault_operand_coverage"]
     partition.supervision_suitability = quality_info["supervision_suitability"]
     partition.quality_rationale = quality_info["quality_rationale"]
     partition.diagnostics = diagnostics

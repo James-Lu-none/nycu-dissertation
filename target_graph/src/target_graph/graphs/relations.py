@@ -17,9 +17,12 @@ class ProgramRelation(str, Enum):
     CDG = "CDG"
     CALL = "CALL"
     RETURN = "RETURN"
+    PARAM_IN = "PARAM_IN"
+    PARAM_OUT = "PARAM_OUT"
+    CALLSITE_SUMMARY = "CALLSITE_SUMMARY"
 
 
-# Core canonical program relations (0 through 8)
+# Core canonical program relations (0 through 11)
 CANONICAL_RELATION_TO_ID: Dict[str, int] = {
     ProgramRelation.CFG_T.value: 0,
     ProgramRelation.CFG_F.value: 1,
@@ -30,6 +33,9 @@ CANONICAL_RELATION_TO_ID: Dict[str, int] = {
     ProgramRelation.CDG.value: 6,
     ProgramRelation.CALL.value: 7,
     ProgramRelation.RETURN.value: 8,
+    ProgramRelation.PARAM_IN.value: 9,
+    ProgramRelation.PARAM_OUT.value: 10,
+    ProgramRelation.CALLSITE_SUMMARY.value: 11,
 }
 
 ID_TO_CANONICAL_RELATION: Dict[int, str] = {v: k for k, v in CANONICAL_RELATION_TO_ID.items()}

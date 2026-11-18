@@ -36,14 +36,17 @@ def test_five_case_label_yield_audit(tmp_path):
         assert r.has_verified_negatives is False
         assert r.training_recommendation in {
             "skip_pairwise_ranking_use_pu_learning",
-            "reject_supervision_missing_dependencies",
+            "reject_supervision_degenerate_target_only",
             "reject_supervision_missing_caller_operands",
             "caution_over_inclusive_filter_may_alias",
+            "accept_local_supervision_with_pu_learning",
+            "accept_target_supervision_with_pu_learning",
         }
         assert r.slice_quality in {
-            "ADEQUATE_INTRA_DEPENDENCY",
+            "SUPERVISION_VALIDATED",
+            "LOCAL_DEPENDENCY_VALIDATED",
+            "INTERPROCEDURAL_INCOMPLETE",
             "DEGENERATE_TARGET_ONLY",
-            "INSUFFICIENT_INTRA_ONLY",
             "OVER_INCLUSIVE_MAY_ALIAS",
         }
         assert r.target_bb != ""
@@ -53,11 +56,15 @@ def test_five_case_label_yield_audit(tmp_path):
     csv_file = output_dir / "label_yield_audit.csv"
     md_file = output_dir / "label_yield_audit.md"
     ablation_file = output_dir / "slicing_ablation_comparison.csv"
+    provenance_file = output_dir / "provenance_audit.json"
+    toolchain_file = output_dir / "toolchain_comparison.csv"
 
     assert json_file.exists() and json_file.stat().st_size > 0
     assert csv_file.exists() and csv_file.stat().st_size > 0
     assert md_file.exists() and md_file.stat().st_size > 0
     assert ablation_file.exists() and ablation_file.stat().st_size > 0
+    assert provenance_file.exists() and provenance_file.stat().st_size > 0
+    assert toolchain_file.exists() and toolchain_file.stat().st_size > 0
 
     with open(json_file) as f:
         data = json.load(f)

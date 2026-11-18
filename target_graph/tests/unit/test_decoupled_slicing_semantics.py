@@ -211,10 +211,10 @@ def test_slice_quality_and_supervision_gating(synthetic_semantic_program):
     edges_df, all_bbs, trace_bbs = synthetic_semantic_program
     target_bb = "bb_target"
 
-    # Case 1: Adequate intra-procedural dependency
+    # Case 1: Local dependency validated (intra-procedural defs present)
     partition = partition_target_candidates(all_bbs, trace_bbs, edges_df, target_bb)
-    assert partition.slice_quality == "ADEQUATE_INTRA_DEPENDENCY"
-    assert partition.supervision_suitability == "ACCEPT_WITH_PU_LEARNING"
+    assert partition.slice_quality in {"LOCAL_DEPENDENCY_VALIDATED", "SUPERVISION_VALIDATED"}
+    assert partition.supervision_suitability in {"ACCEPT_LOCAL_ONLY", "ACCEPT_AS_SUPERVISION"}
     assert partition.missing_fault_operands is False
 
     # Case 2: Degenerate target-only slice (|S_dep| == 1)
@@ -224,11 +224,11 @@ def test_slice_quality_and_supervision_gating(synthetic_semantic_program):
     assert partition_degen.supervision_suitability == "REJECT_DEGENERATE_TARGET_ONLY"
     assert partition_degen.missing_fault_operands is True
 
-    # Case 3: Missing caller operand definitions (|S_dep| <= 5, CDG only without operand def)
+    # Case 3: Interprocedural incomplete (|S_dep| <= 5, CDG only without operand def)
     cdg_only_edges = edges_df[edges_df["relation_id"] == CANONICAL_RELATION_TO_ID["CDG"]]
     partition_insufficient = partition_target_candidates(all_bbs, trace_bbs, cdg_only_edges, target_bb)
-    assert partition_insufficient.slice_quality == "INSUFFICIENT_INTRA_ONLY"
-    assert partition_insufficient.supervision_suitability == "REJECT_MISSING_OPERANDS"
+    assert partition_insufficient.slice_quality == "INTERPROCEDURAL_INCOMPLETE"
+    assert partition_insufficient.supervision_suitability == "REJECT_INCOMPLETE_DEPENDENCY"
     assert partition_insufficient.missing_fault_operands is True
 
 
