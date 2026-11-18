@@ -66,10 +66,11 @@ rm -f \"\${CASE_DIR}/raw_nodes.jsonl\" \"\${CASE_DIR}/raw_edges.jsonl\" \"\${CAS
 
 export TARGET_GRAPH_BUILD_ID=\"${CASE_ID}\"
 export TARGET_GRAPH_OUT_DIR=\"\${CASE_DIR}\"
-PASS_PLUGIN=\"/workspace/build/passes/libTargetGraphPass.so\"
-if [[ ! -f \"\${PASS_PLUGIN}\" ]]; then
-    PASS_PLUGIN=\"/usr/local/lib/TargetGraphPass.so\"
-fi
+# Always use the plugin baked into the pinned Docker image. A workspace
+# build/passes/*.so may be stale and silently shadow newly compiled code.
+PASS_PLUGIN=\"/usr/local/lib/TargetGraphPass.so\"
+test -f \"\${PASS_PLUGIN}\"
+echo \"[GRAPH] Plugin SHA256: \$(sha256sum \"\${PASS_PLUGIN}\" | awk '{print \$1}')\"
 opt -load-pass-plugin=\"\${PASS_PLUGIN}\" -passes=\"target-graph\" -disable-output \"\${BC_PATH}\"
 
 chmod -R a+rw \"\${CASE_DIR}\"
