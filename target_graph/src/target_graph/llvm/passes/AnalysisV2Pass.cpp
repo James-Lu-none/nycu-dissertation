@@ -10,6 +10,8 @@
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/IR/Argument.h"
 #include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
@@ -232,7 +234,7 @@ public:
           if (!Callee || Callee->isDeclaration()) {
             ++UnknownCalls;
             json::Object Unresolved;
-            Unresolved["id"] = Callsite;
+            Unresolved["id"] = Callsite + ":unresolved";
             Unresolved["kind"] = "unresolved_call";
             Unresolved["function"] = F.getName().str();
             Unresolved["bb_id"] = BBIds.at(&BB);
@@ -241,6 +243,9 @@ public:
             // This is metadata, not an inferred call-target edge.
             emitJSON(Nodes, std::move(Unresolved));
             ++NodeCount;
+            Edge(Callsite + ":unresolved",
+                 CB->getType()->isVoidTy() ? Callsite : Callsite + ":result",
+                 "CALL_UNKNOWN", "unknown", Callsite);
             continue;
           }
           ++DirectCalls;
