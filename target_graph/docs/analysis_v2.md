@@ -83,6 +83,36 @@ PYTHONPATH=src python -m target_graph.analysis_v2.cli \
 slice JSON containing representative paths, edge witness, unknown boundaries
 and `validated_for_supervision: false`.
 
+## Source-level inlining and fault-target ambiguity
+
+**libming (observed 2026-11-20):** the LLVM14 module contains no explicit
+direct call to the out-of-line `parseSWF_RGBA`, but `parser.c:68` `store`
+appears **17 times across 12 owning IR functions**. At `-O1` the source
+function is inlined into several callers. The previous source-location
+mapping selected the uncalled out-of-line BB, so its 15-node slice is not
+yet evidence for the particular PoC crash instruction.
+
+List **all** line-68 stores instead of selecting the out-of-line BB:
+
+```bash
+PYTHONPATH=src python -m target_graph.analysis_v2.cli \
+  --case-dir cases/libming-4.7.1_swftophp_CVE-2017-7578 \
+  --source-file parser.c --line 68 --opcode store --list-targets
+```
+
+A list of candidates is NOT evidence that any particular instruction executed.
+You need the instrumented binary's PoC execution trace, source debug inline
+stack, and build provenance to identify which owning function(s) actually
+executed. Sanitizer source-file/function matching is not equivalent to
+exact IR instruction identity. If several instructions in one owner have the
+same source location, the result must remain ambiguous until stronger
+instrumentation or disassembly evidence is supplied.
+
+The slicer now labels a formal without incoming `PARAM_IN` as
+`UNBOUND_FORMAL`, instead of silently treating it as a complete source.
+This can mean inlining, an indirect caller, an entrypoint or incomplete
+bitcode; it is NOT proof that the function is unreachable.
+
 ## Phase 2 acceptance criteria
 
 1. `libming`: identify the fault **store pointer**, resolve its formal
