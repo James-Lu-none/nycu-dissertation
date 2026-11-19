@@ -16,6 +16,7 @@ class DependencyNode:
     bb_id: str
     text: str
     line: int = 0
+    source_file: str = ""
 
 
 @dataclass(frozen=True)
@@ -78,6 +79,7 @@ class DependencyGraph:
                 bb_id=str(row["bb_id"]),
                 text=str(row.get("text", "")),
                 line=int(row.get("line", 0)),
+                source_file=str(row.get("source_file", "")),
             )
             for row in cls._load_lines(nodes_file)
         ]
