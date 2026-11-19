@@ -33,6 +33,7 @@ class SliceResult:
     states_visited: int = 0
     # A single representative proof path per node, not an exhaustive proof.
     paths: Dict[str, List[str]] = field(default_factory=dict)
+    path_evidence: Dict[str, List[Dict[str, str]]] = field(default_factory=dict)
 
     @property
     def validated_for_supervision(self) -> bool:
@@ -54,6 +55,7 @@ class SliceResult:
             "states_visited": self.states_visited,
             "validated_for_supervision": False,
             "representative_paths": dict(list(sorted(self.paths.items()))[:max_paths]),
+            "representative_edge_evidence": dict(list(sorted(self.path_evidence.items()))[:max_paths]),
         }
 
 
@@ -73,6 +75,7 @@ def backward_slice(
     root: State = (target_instruction, ())
     queue = deque([root])
     parents: Dict[State, State | None] = {root: None}
+    witness_edges: Dict[State, DependencyEdge] = {}
     first_seen_node: Dict[str, State] = {target_instruction: root}
     boundary_keys: Set[Tuple[str, str, str, str]] = set()
 
@@ -116,6 +119,7 @@ def backward_slice(
             if predecessor in parents:
                 continue
             parents[predecessor] = (node_id, stack)
+            witness_edges[predecessor] = edge
             first_seen_node.setdefault(edge.src, predecessor)
             queue.append(predecessor)
 
@@ -123,10 +127,22 @@ def backward_slice(
     # One witness per visited instruction. Retain the actual reverse edge
     # traversal from target to dependency source.
     for node, state in first_seen_node.items():
+        if node not in result.nodes:
+            continue
         path = []
+        evidence = []
         current: State | None = state
         while current is not None:
             path.append(current[0])
+            if current in witness_edges:
+                edge = witness_edges[current]
+                evidence.append({
+                    "src": edge.src, "dst": edge.dst,
+                    "kind": edge.kind, "status": edge.status,
+                    "callsite_id": edge.callsite_id,
+                    "arg_index": str(edge.arg_index),
+                })
             current = parents[current]
         result.paths[node] = list(reversed(path))
+        result.path_evidence[node] = list(reversed(evidence))
     return result
