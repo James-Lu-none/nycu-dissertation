@@ -4,12 +4,16 @@ on:
   pull_request:
     paths:
       - "target_graph/src/target_graph/analysis_v2/**"
+      - "target_graph/src/target_graph/llvm/passes/**"
       - "target_graph/tests/unit/test_analysis_v2_slicing.py"
+      - "target_graph/tests/fixtures/analysis_v2/**"
       - ".github/workflows/analysis-v2.yml"
   push:
     paths:
       - "target_graph/src/target_graph/analysis_v2/**"
+      - "target_graph/src/target_graph/llvm/passes/**"
       - "target_graph/tests/unit/test_analysis_v2_slicing.py"
+      - "target_graph/tests/fixtures/analysis_v2/**"
 
 jobs:
   python-semantic-tests:
@@ -21,3 +25,47 @@ jobs:
           python-version: "3.11"
       - run: python -m pip install pytest
       - run: PYTHONPATH=target_graph/src python -m pytest target_graph/tests/unit/test_analysis_v2_slicing.py -q
+
+  llvm14-compile-and-fixture:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y llvm-14-dev llvm-14-tools clang-14 cmake ninja-build
+      - name: Build v2 LLVM14 pass
+        run: |
+          cmake -S target_graph/src/target_graph/llvm/passes \
+                -B /tmp/v2-passes -G Ninja \
+                -DLLVM_DIR=/usr/lib/llvm-14/lib/cmake/llvm
+          cmake --build /tmp/v2-passes --target AnalysisV2Pass -j 2
+      - name: Extract fixture graph
+        run: |
+          mkdir -p /tmp/v2-fixture
+          clang-14 -g -O1 -fno-inline -emit-llvm -c \
+            target_graph/tests/fixtures/analysis_v2/no_false_dep.c \
+            -o /tmp/v2-fixture/fixture.bc
+          TARGET_GRAPH_BUILD_ID=v2_fixture \
+          TARGET_GRAPH_OUT_DIR=/tmp/v2-fixture \
+          opt-14 -load-pass-plugin=/tmp/v2-passes/libAnalysisV2Pass.so \
+            -passes=analysis-v2 -disable-output /tmp/v2-fixture/fixture.bc
+      - name: Verify exact return-value dependency
+        run: |
+          PYTHONPATH=target_graph/src python - <<'PY'
+          from target_graph.analysis_v2.graph import DependencyGraph
+          from target_graph.analysis_v2.slicing import backward_slice
+          graph = DependencyGraph.from_directory("/tmp/v2-fixture")
+          caller_calls = [
+              n for n in graph.nodes.values()
+              if n.function == "caller" and n.kind == "instruction" and n.text == "call"
+          ]
+          assert len(caller_calls) == 1, caller_calls
+          result_id = caller_calls[0].id + ":result"
+          result = backward_slice(graph, result_id)
+          formals = {
+              n.text: n.id for n in graph.nodes.values()
+              if n.function == "only_first" and n.kind == "formal"
+          }
+          assert formals["arg#0"] in result.nodes
+          assert formals["arg#1"] not in result.nodes
+          assert not result.validated_for_supervision
+          print("LLVM14 fixture passed:", len(graph.nodes), "nodes,", graph.edge_count, "edges")
+          PY
