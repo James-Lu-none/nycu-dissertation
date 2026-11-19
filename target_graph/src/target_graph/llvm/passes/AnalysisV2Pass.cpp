@@ -14,6 +14,7 @@
 #include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Passes/PassBuilder.h"
@@ -109,7 +110,8 @@ public:
     auto Node = [&](const std::string &Id, const std::string &Kind,
                     const std::string &Func, const std::string &BB,
                     const std::string &Text, unsigned Line = 0,
-                    const std::string &File = "") {
+                    const std::string &File = "",
+                    const std::string &CalleeName = "") {
       json::Object O;
       O["id"] = Id;
       O["kind"] = Kind;
@@ -118,6 +120,7 @@ public:
       O["text"] = Text;
       O["line"] = static_cast<int64_t>(Line);
       O["source_file"] = File;
+      O["called_function"] = CalleeName;
       emitJSON(Nodes, std::move(O));
       ++NodeCount;
     };
@@ -172,8 +175,12 @@ public:
             const std::string Name = Loc->getFilename().str();
             File = Dir.empty() ? Name : Dir + "/" + Name;
           }
+          std::string CalleeName;
+          if (auto *CB = dyn_cast<CallBase>(&Inst))
+            if (Function *Target = CB->getCalledFunction())
+              CalleeName = Target->getName().str();
           Node(InstIds.at(&Inst), "instruction", F.getName().str(), BBId,
-               Inst.getOpcodeName(), Line, File);
+               Inst.getOpcodeName(), Line, File, CalleeName);
           if (auto *CB = dyn_cast<CallBase>(&Inst))
             if (!CB->getType()->isVoidTy())
               Node(InstIds.at(&Inst) + ":result", "call_result",
@@ -214,6 +221,9 @@ public:
       for (BasicBlock &BB : F) {
         for (Instruction &Inst : BB) {
           const std::string &UseId = InstIds.at(&Inst);
+          // Compiler debug metadata is not runtime program dependence.
+          if (isa<DbgInfoIntrinsic>(&Inst))
+            continue;
           Edge(GateIds.at(&BB), UseId, "GUARD");
           unsigned OpIndex = 0;
           for (Use &Operand : Inst.operands()) {
@@ -249,6 +259,7 @@ public:
             Unresolved["text"] = Callee ? "external declaration" : "indirect call";
             Unresolved["line"] = static_cast<int64_t>(0);
             Unresolved["source_file"] = "";
+            Unresolved["called_function"] = Callee ? Callee->getName().str() : "";
             // This is metadata, not an inferred call-target edge.
             emitJSON(Nodes, std::move(Unresolved));
             ++NodeCount;
