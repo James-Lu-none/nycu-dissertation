@@ -124,6 +124,35 @@ class DependencyGraph:
                 )
         return graph
 
+    def candidate_fault_instructions_by_source(
+        self,
+        source_file: str,
+        line: int,
+        opcode: Optional[str] = None,
+    ) -> List[DependencyNode]:
+        """Show ALL LLVM owners for a source location, including inlined copies.
+
+        The `function` field denotes the owning LLVM IR function. A source
+        location may occur in many different owners after optimization.
+        Selecting the first match would silently misattribute a PoC fault.
+        """
+        if not source_file or line <= 0:
+            raise ValueError("A source filename and positive source line are required")
+        by_basename = Path(source_file).name == source_file
+        return sorted(
+            [
+                node for node in self.nodes.values()
+                if node.kind == "instruction"
+                and node.line == line
+                and (
+                    Path(node.source_file).name == source_file
+                    if by_basename else node.source_file == source_file
+                )
+                and (opcode is None or node.text == opcode)
+            ],
+            key=lambda node: (node.function, node.bb_id, node.id),
+        )
+
     def candidate_fault_instructions(
         self,
         bb_id: str,
