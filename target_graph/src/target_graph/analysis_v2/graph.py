@@ -17,6 +17,7 @@ class DependencyNode:
     text: str
     line: int = 0
     source_file: str = ""
+    called_function: str = ""
 
 
 @dataclass(frozen=True)
@@ -80,6 +81,7 @@ class DependencyGraph:
                 text=str(row.get("text", "")),
                 line=int(row.get("line", 0)),
                 source_file=str(row.get("source_file", "")),
+                called_function=str(row.get("called_function", "")),
             )
             for row in cls._load_lines(nodes_file)
         ]
