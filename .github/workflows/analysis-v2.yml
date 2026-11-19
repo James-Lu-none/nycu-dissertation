@@ -55,7 +55,7 @@ jobs:
           graph = DependencyGraph.from_directory("/tmp/v2-fixture")
           caller_calls = [
               n for n in graph.nodes.values()
-              if n.function == "caller" and n.kind == "instruction" and n.text == "call"
+              if n.function == "caller" and n.kind == "instruction" and n.text == "call" and n.called_function == "only_first"
           ]
           assert len(caller_calls) == 1, caller_calls
           result_id = caller_calls[0].id + ":result"
