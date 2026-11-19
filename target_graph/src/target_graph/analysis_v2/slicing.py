@@ -27,6 +27,7 @@ class SliceResult:
     nodes: Set[str] = field(default_factory=set)
     basic_blocks: Set[str] = field(default_factory=set)
     unknown_boundaries: List[Dict[str, str]] = field(default_factory=list)
+    unbound_formals: List[str] = field(default_factory=list)
     context_rejections: int = 0
     truncated: bool = False
     truncation_reasons: List[str] = field(default_factory=list)
@@ -49,6 +50,7 @@ class SliceResult:
             "basic_block_count": len(self.basic_blocks),
             "basic_blocks": sorted(self.basic_blocks),
             "unknown_boundaries": self.unknown_boundaries,
+            "unbound_formals": self.unbound_formals,
             "context_rejections": self.context_rejections,
             "truncated": self.truncated,
             "truncation_reasons": self.truncation_reasons,
@@ -89,6 +91,22 @@ def backward_slice(
         bb_id = graph.nodes[node_id].bb_id
         if bb_id:
             result.basic_blocks.add(bb_id)
+
+        # An LLVM formal value is not a proof of its caller-supplied source.
+        # This may mean inlining, indirect/external callers, or a root entry
+        # point. Make this missing binding explicit rather than silently
+        # terminating a seemingly complete fault-operand chain.
+        if graph.nodes[node_id].kind == "formal" and not any(
+            edge.kind == "PARAM_IN" for edge in graph.incoming.get(node_id, ())
+        ) and node_id not in result.unbound_formals:
+            result.unbound_formals.append(node_id)
+            key = ("UNBOUND_FORMAL", node_id, node_id, "unknown")
+            if key not in boundary_keys:
+                boundary_keys.add(key)
+                result.unknown_boundaries.append({
+                    "kind": "UNBOUND_FORMAL", "src": node_id,
+                    "dst": node_id, "status": "unknown",
+                })
 
         for edge in graph.incoming.get(node_id, ()):
             if edge.status != "verified" or edge.kind not in TRAVERSABLE_RELATIONS:
