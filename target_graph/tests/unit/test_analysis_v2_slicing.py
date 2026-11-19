@@ -158,3 +158,51 @@ def test_call_depth_limit_is_explicitly_reported():
     result = backward_slice(graph, "target", max_call_depth=1)
     assert "actual" in result.nodes
     assert not result.truncated
+
+
+def test_inlined_source_location_search_returns_all_llvm_owners():
+    """The out-of-line callee cannot be selected just by file:line."""
+    graph = DependencyGraph(
+        [
+            Node("out:0", "instruction", "parseSWF_RGBA", "bb_out",
+                 "store", 68, "/build/util/parser.c"),
+            Node("inl1:7", "instruction", "parseSWF_MORPHGRADIENTRECORD",
+                 "bb_inl1", "store", 68, "/build/util/parser.c"),
+            Node("inl2:2", "instruction", "parseSWF_MORPHFILLSTYLE",
+                 "bb_inl2", "store", 68, "/build/util/parser.c"),
+            Node("other:0", "instruction", "unrelated", "bb_other",
+                 "store", 68, "/build/util/other.c"),
+        ],
+        [],
+    )
+    matches = graph.candidate_fault_instructions_by_source(
+        "parser.c", 68, "store"
+    )
+    assert len(matches) == 3
+    assert {n.function for n in matches} == {
+        "parseSWF_RGBA", "parseSWF_MORPHGRADIENTRECORD",
+        "parseSWF_MORPHFILLSTYLE",
+    }
+    assert len(graph.candidate_fault_instructions_by_source(
+        "/build/util/parser.c", 68, "store"
+    )) == 3
+
+
+def test_formal_without_actual_binding_is_explicit_unknown_boundary():
+    """A source-level inlined function may retain an uncalled definition."""
+    formal = "build:parseSWF_RGBA:formal:1"
+    graph = DependencyGraph(
+        [
+            node("fault", bb="fault_bb", function="parseSWF_RGBA"),
+            node(formal, "formal", "entry_bb", "parseSWF_RGBA"),
+        ],
+        [Edge(formal, "fault", "SSA", "verified", arg_index=1)],
+    )
+    result = backward_slice(graph, "fault")
+    assert formal in result.unbound_formals
+    assert any(
+        boundary["kind"] == "UNBOUND_FORMAL"
+        and boundary["src"] == formal
+        for boundary in result.unknown_boundaries
+    )
+    assert result.validated_for_supervision is False
