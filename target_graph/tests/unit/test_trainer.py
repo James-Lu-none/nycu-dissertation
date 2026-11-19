@@ -198,6 +198,7 @@ def test_cache_missing_strict_failure(tmp_path: Path):
         target_bb=valid_target_bb,
         cache_dir=empty_cache,
         allow_mock=True,
+        allow_unverified_labels=True,  # Smoke test only; not validated supervision.
     )
     assert sample.x is not None
 
