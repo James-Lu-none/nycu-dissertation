@@ -15,3 +15,7 @@ add_definitions(${LLVM_DEFINITIONS_LIST})
 
 add_library(TargetGraphPass MODULE TargetGraphPass.cpp)
 target_compile_definitions(TargetGraphPass PRIVATE ${LLVM_DEFINITIONS})
+
+# Independent instruction-level analysis; legacy pass remains unchanged.
+add_library(AnalysisV2Pass MODULE AnalysisV2Pass.cpp)
+target_compile_definitions(AnalysisV2Pass PRIVATE ${LLVM_DEFINITIONS})
