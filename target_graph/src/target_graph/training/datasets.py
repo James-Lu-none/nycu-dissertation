@@ -74,6 +74,7 @@ class TargetGraphDataset(Dataset):
         layer_idx: int = 14,
         feature_dim: int = 3584,
         allow_mock: bool = False,
+        allow_unverified_labels: bool = False,
     ) -> TargetGraphSample:
         case_dir = Path(case_dir)
         parquet_dir = case_dir / "parquet"
@@ -150,6 +151,24 @@ class TargetGraphDataset(Dataset):
             edges_df=edges_df,
             target_bb=target_bb,
         )
+
+        # Fail closed: a candidate BB-level slice is NOT validated supervision.
+        # Explicit override is only for exploratory experiments and debugging;
+        # it does not establish operand provenance or nnPU assumptions.
+        if not allow_unverified_labels and (
+            partition.analysis_incomplete
+            or partition.supervision_suitability != "ACCEPT_AS_SUPERVISION"
+            or partition.fault_operand_coverage is None
+        ):
+            raise RuntimeError(
+                f"Unverified target labels for {case_id}: "
+                f"quality={partition.slice_quality}, "
+                f"suitability={partition.supervision_suitability}, "
+                f"analysis_incomplete={partition.analysis_incomplete}, "
+                f"operand_coverage={partition.fault_operand_coverage}. "
+                "Formal training is blocked. Use allow_unverified_labels=True "
+                "only for exploratory runs with explicit experimental labeling."
+            )
 
         # Masks for P_t, U_t, N_t
         pos_mask = torch.zeros(num_nodes, dtype=torch.bool)
