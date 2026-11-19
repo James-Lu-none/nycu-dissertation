@@ -364,14 +364,11 @@ public:
                                 }
                                 edgesOut << "{\"src_bb\":\"" << argDefBBId << "\",\"dst_bb\":\"" << bbToId[entry]
                                          << "\",\"relation_id\":9,\"callsite_id\":\"" << callsiteId
-                                         << "\",\"evidence_count\":1,\"analysis_status\":\"verified\"}\n";
+                                         << "\",\"evidence_count\":1,\"analysis_status\":\"candidate\"}\n";
 
-                                // Callsite summary edge (relation_id 11): actual-in -> actual-out at callsite
-                                if (!CB->getType()->isVoidTy()) {
-                                    edgesOut << "{\"src_bb\":\"" << argDefBBId << "\",\"dst_bb\":\"" << srcId
-                                             << "\",\"relation_id\":11,\"callsite_id\":\"" << callsiteId
-                                             << "\",\"evidence_count\":1,\"analysis_status\":\"verified\"}\n";
-                                }
+                                // No unconditional CALLSITE_SUMMARY: a return value must not
+                                // be assumed to depend on every actual argument. Such edges
+                                // require instruction-level input/output dependence evidence.
                             }
 
                             // SDG PARAM_OUT edges (relation_id 10):
@@ -381,14 +378,14 @@ public:
                                     if (isa<ReturnInst>(calleeBB.getTerminator()) && bbToId.count(&calleeBB)) {
                                         edgesOut << "{\"src_bb\":\"" << bbToId[&calleeBB] << "\",\"dst_bb\":\"" << srcId
                                                  << "\",\"relation_id\":10,\"callsite_id\":\"" << callsiteId
-                                                 << "\",\"evidence_count\":1,\"analysis_status\":\"verified\"}\n";
+                                                 << "\",\"evidence_count\":1,\"analysis_status\":\"candidate\"}\n";
                                         for (User *U : CB->users()) {
                                             if (Instruction *UI = dyn_cast<Instruction>(U)) {
                                                 BasicBlock *useBB = UI->getParent();
                                                 if (useBB && useBB != &BB && bbToId.count(useBB)) {
                                                     edgesOut << "{\"src_bb\":\"" << bbToId[&calleeBB] << "\",\"dst_bb\":\"" << bbToId[useBB]
                                                              << "\",\"relation_id\":10,\"callsite_id\":\"" << callsiteId
-                                                             << "\",\"evidence_count\":1,\"analysis_status\":\"verified\"}\n";
+                                                             << "\",\"evidence_count\":1,\"analysis_status\":\"candidate\"}\n";
                                                 }
                                             }
                                         }

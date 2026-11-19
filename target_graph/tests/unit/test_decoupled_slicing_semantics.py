@@ -195,7 +195,7 @@ def test_slice_diagnostics_paths_and_reasons(synthetic_semantic_program):
     assert diag["bb_target"]["reason"] == "TARGET_SITE"
     assert diag["bb_target"]["distance"] == 0
 
-    assert diag["bb_def"]["reason"] == "DIRECT_OPERAND_DEF"
+    assert diag["bb_def"]["reason"] == "DIRECT_BB_SSA_EDGE"
     assert diag["bb_def"]["distance"] == 1
     assert diag["bb_def"]["path"] == ["bb_target", "bb_def"]
     assert "DDG_SSA" in diag["bb_def"]["path_relations"][0]
@@ -213,9 +213,10 @@ def test_slice_quality_and_supervision_gating(synthetic_semantic_program):
 
     # Case 1: Local dependency validated (intra-procedural defs present)
     partition = partition_target_candidates(all_bbs, trace_bbs, edges_df, target_bb)
-    assert partition.slice_quality in {"LOCAL_DEPENDENCY_VALIDATED", "SUPERVISION_VALIDATED"}
-    assert partition.supervision_suitability in {"ACCEPT_LOCAL_ONLY", "ACCEPT_AS_SUPERVISION"}
-    assert partition.missing_fault_operands is False
+    assert partition.slice_quality == "PROVENANCE_UNVERIFIED"
+    assert partition.supervision_suitability == "REJECT_UNVERIFIED_PROVENANCE"
+    assert partition.fault_operand_coverage is None
+    assert partition.missing_fault_operands is True
 
     # Case 2: Degenerate target-only slice (|S_dep| == 1)
     empty_edges = pd.DataFrame(columns=["src_bb", "dst_bb", "relation_id"])
@@ -227,8 +228,8 @@ def test_slice_quality_and_supervision_gating(synthetic_semantic_program):
     # Case 3: Interprocedural incomplete (|S_dep| <= 5, CDG only without operand def)
     cdg_only_edges = edges_df[edges_df["relation_id"] == CANONICAL_RELATION_TO_ID["CDG"]]
     partition_insufficient = partition_target_candidates(all_bbs, trace_bbs, cdg_only_edges, target_bb)
-    assert partition_insufficient.slice_quality == "INTERPROCEDURAL_INCOMPLETE"
-    assert partition_insufficient.supervision_suitability == "REJECT_INCOMPLETE_DEPENDENCY"
+    assert partition_insufficient.slice_quality == "PROVENANCE_UNVERIFIED"
+    assert partition_insufficient.supervision_suitability == "REJECT_UNVERIFIED_PROVENANCE"
     assert partition_insufficient.missing_fault_operands is True
 
 

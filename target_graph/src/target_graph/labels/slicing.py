@@ -17,7 +17,7 @@ Implements two decoupled analysis pipelines:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set
 import networkx as nx
 import pandas as pd
 
@@ -41,7 +41,7 @@ class SlicePartition:
     slice_quality: str = "UNKNOWN"                    # DEGENERATE_TARGET_ONLY, INTERPROCEDURAL_INCOMPLETE, OVER_INCLUSIVE_MAY_ALIAS, LOCAL_DEPENDENCY_VALIDATED, SUPERVISION_VALIDATED
     analysis_status: str = "incomplete"               # Detailed status of analysis completeness
     missing_fault_operands: bool = False              # True if fault instruction operands lack definitions in the slice
-    fault_operand_coverage: float = 1.0               # Ratio of fault operands covered by definitions in slice
+    fault_operand_coverage: Optional[float] = None               # Ratio of fault operands covered by definitions in slice
     supervision_suitability: str = "UNKNOWN"          # REJECT_DEGENERATE_TARGET_ONLY, REJECT_INCOMPLETE_DEPENDENCY, FILTER_REQUIRED_MUST_MEM_OR_CDG, ACCEPT_LOCAL_ONLY, ACCEPT_AS_SUPERVISION
     quality_rationale: str = ""
     diagnostics: Dict[str, Dict[str, Any]] = field(default_factory=dict)
@@ -184,7 +184,7 @@ def compute_interprocedural_backward_slice(
     relation_filter: Optional[Set[int]] = None,
     max_depth: Optional[int] = None,
 ) -> Set[str]:
-    """Compute interprocedural backward slice S_interproc(t).
+    """Compute exploratory interprocedural *candidate* backward reachability.
     
     Traverses intra-procedural dependencies (DDG_SSA, DDG_MEM, CDG)
     plus SDG interprocedural parameter and summary edges:
@@ -193,6 +193,9 @@ def compute_interprocedural_backward_slice(
     - CALLSITE_SUMMARY (relation_id 11): Actual-in -> actual-out at callsite
     
     Strictly excludes unconstrained ICFG CFG edges and general CALL/RETURN edges.
+    IMPORTANT: PARAM_IN/OUT are currently BB-level candidates, not verified
+    formal/actual operand-level edges or context-sensitive SDG summaries.
+    Do NOT use this result as validated supervision.
     """
     if relation_filter is None:
         relation_filter = {
@@ -403,11 +406,11 @@ def trace_backward_slice_diagnostics(
             edge_data = g.get_edge_data(target_bb, bb)
             rels = edge_data.get("relations", [])
             if "DDG_SSA" in rels:
-                reason = "DIRECT_OPERAND_DEF"
+                reason = "DIRECT_BB_SSA_EDGE"
             elif "CDG" in rels:
                 reason = "DIRECT_CDG_PREDICATE"
             elif "DDG_MEM" in rels:
-                reason = "DIRECT_MEM_ALIAS"
+                reason = "DIRECT_MEM_ALIAS_CANDIDATE"
             else:
                 reason = f"DIRECT_{rels[0]}"
         else:
@@ -436,120 +439,50 @@ def assess_slice_quality(
     edges_df: pd.DataFrame,
     nodes_df: Optional[pd.DataFrame] = None,
 ) -> Dict[str, Any]:
-    """Assess semantic quality of target backward slice and determine supervision suitability.
-    
-    Evaluates:
-    1. Degenerate target-only slice (|S_dep| == 1).
-    2. Missing fault operands: target BB has no incoming DDG_SSA/DDG_MEM inside slice.
-    3. Runaway expansion: MayAlias dominates the slice (e.g. jhead).
-    4. Interprocedural status.
+    """Conservative quality gate, *not* a fault-operand provenance validator.
+
+    Basic-block incoming DDG edges do not identify individual fault operands,
+    memory reaching definitions or callsite-sensitive value flow. In the
+    absence of instruction-level provenance evidence, coverage is UNKNOWN
+    (None), never inferred as 100% from a single incoming edge.
     """
-    tbb = partition.target_bb
     s_dep = partition.S_dep
-    num_s = len(s_dep)
-    
-    # Check incoming intra-procedural DDG edges to target
-    in_dep_edges = edges_df[
-        (edges_df["dst_bb"] == tbb) & 
-        (edges_df["src_bb"].isin(s_dep)) & 
-        (edges_df["relation_id"].isin({4, 5}))
-    ]
-    has_operand_def = not in_dep_edges.empty
-    
-    # Check incoming CDG edges to target
-    in_cdg_edges = edges_df[
-        (edges_df["dst_bb"] == tbb) & 
-        (edges_df["src_bb"].isin(s_dep)) & 
-        (edges_df["relation_id"] == 6)
-    ]
-    has_predicate = not in_cdg_edges.empty
-
-    # Check incoming interprocedural parameter edges (PARAM_IN: 9, PARAM_OUT: 10, CALLSITE_SUMMARY: 11)
-    interproc_relations = {9, 10, 11}
-    in_param_edges = edges_df[
-        (edges_df["dst_bb"] == tbb) & 
-        (edges_df["relation_id"].isin(interproc_relations))
-    ]
-    has_param_in = not in_param_edges.empty
-
-    # Compute fault operand coverage
-    if has_operand_def:
-        fault_operand_coverage = 1.0
-    elif has_param_in:
-        fault_operand_coverage = 1.0
-    elif num_s == 1:
-        fault_operand_coverage = 0.0
-    else:
-        fault_operand_coverage = 0.0
-
-    missing_fault_operands = (fault_operand_coverage == 0.0)
-    
     mem_edges = edges_df[
-        (edges_df["dst_bb"].isin(s_dep)) & 
-        (edges_df["src_bb"].isin(s_dep)) & 
-        (edges_df["relation_id"] == 5)
+        (edges_df["src_bb"].isin(s_dep))
+        & (edges_df["dst_bb"].isin(s_dep))
+        & (edges_df["relation_id"] == CANONICAL_RELATION_TO_ID["DDG_MEM"])
     ]
-    num_may_alias = len(mem_edges[mem_edges.get("analysis_status", "") == "may"]) if not mem_edges.empty else 0
-    total_dep_edges = len(edges_df[
-        (edges_df["dst_bb"].isin(s_dep)) & 
-        (edges_df["src_bb"].isin(s_dep)) & 
-        (edges_df["relation_id"].isin({4, 5, 6}))
-    ])
-
-    if num_s == 1:
-        slice_quality = "DEGENERATE_TARGET_ONLY"
-        analysis_status = "missing_all_dependencies_degenerate_target_only"
-        supervision_suitability = "REJECT_DEGENERATE_TARGET_ONLY"
-        quality_rationale = (
-            "Target backward slice contains ONLY the target basic block itself (|S_dep| = 1). "
-            "Zero operand definitions, allocations, or branch predicates were captured because "
-            "fault operands originate from caller parameters or unanalyzed cross-function memory."
-        )
-    elif partition.retention_dep > 0.90:
-        slice_quality = "OVER_INCLUSIVE_MAY_ALIAS"
-        analysis_status = "pervasive_may_alias_expansion"
-        supervision_suitability = "FILTER_REQUIRED_MUST_MEM_OR_CDG"
-        quality_rationale = (
-            f"Slice expanded to {partition.retention_dep:.1%} of trace due to pervasive MayAlias memory edges. "
-            "BasicAA conservative assumptions connect arbitrary pointer stores across the function. "
-            "Recommended to filter by MUST-alias or restrict to SSA+CDG."
-        )
-    elif missing_fault_operands and num_s <= 5:
-        slice_quality = "INTERPROCEDURAL_INCOMPLETE"
-        analysis_status = "missing_caller_operand_definitions"
-        supervision_suitability = "REJECT_INCOMPLETE_DEPENDENCY"
-        quality_rationale = (
-            f"Target backward slice is severely undersized (|S_dep| = {num_s}) and missing fault operand definitions. "
-            "Captured blocks are only local control structures (e.g. switch or null checks), while the "
-            "fault-inducing data was passed via function arguments from unlinked callers."
-        )
-    elif has_operand_def and num_s >= 5:
-        slice_quality = "SUPERVISION_VALIDATED"
-        analysis_status = "provenance_validated_intraprocedural_complete"
-        supervision_suitability = "ACCEPT_AS_SUPERVISION"
-        quality_rationale = (
-            f"Slice captures substantive SSA operand definitions, memory reaching definitions, "
-            f"and controlling predicates (|S_dep| = {num_s}, fault_operand_coverage = {fault_operand_coverage:.1f}). "
-            "Provenance verified for target supervision."
-        )
+    has_may_alias = (
+        "analysis_status" in mem_edges.columns
+        and mem_edges["analysis_status"].eq("may").any()
+    )
+    if len(s_dep) <= 1:
+        quality = "DEGENERATE_TARGET_ONLY"
+        status = "target_only_no_provenance"
+        suitability = "REJECT_DEGENERATE_TARGET_ONLY"
+        rationale = "Only the target basic block is available; no operand provenance established."
+    elif partition.retention_dep > 0.90 and has_may_alias:
+        quality = "OVER_INCLUSIVE_MAY_ALIAS"
+        status = "may_alias_candidate_expansion"
+        suitability = "FILTER_REQUIRED_MUST_MEM_OR_CDG"
+        rationale = "High retention with MayAlias candidates; dependency precision unverified."
     else:
-        slice_quality = "LOCAL_DEPENDENCY_VALIDATED"
-        analysis_status = "intraprocedural_complete_interprocedural_partial"
-        supervision_suitability = "ACCEPT_LOCAL_ONLY"
-        quality_rationale = (
-            f"Slice captures intra-procedural definitions or predicates (|S_dep| = {num_s}), "
-            "but cross-function calling context remains unmodeled. Suitable only as local weak supervision."
+        quality = "PROVENANCE_UNVERIFIED"
+        status = "instruction_level_fault_operand_evidence_missing"
+        suitability = "REJECT_UNVERIFIED_PROVENANCE"
+        rationale = (
+            "BB-level DDG/CDG/candidate PARAM edges cannot establish instruction-level "
+            "fault operand coverage. No verified operand provenance supplied."
         )
-
     return {
-        "slice_quality": slice_quality,
-        "analysis_status": analysis_status,
-        "missing_fault_operands": missing_fault_operands,
-        "fault_operand_coverage": fault_operand_coverage,
-        "has_operand_def": has_operand_def,
-        "has_predicate": has_predicate,
-        "supervision_suitability": supervision_suitability,
-        "quality_rationale": quality_rationale,
+        "slice_quality": quality,
+        "analysis_status": status,
+        "missing_fault_operands": True,  # missing verification evidence; not a proof of missing dataflow
+        "fault_operand_coverage": None,
+        "has_operand_def": False,        # unknown at operand granularity
+        "has_predicate": False,          # unknown at instruction granularity
+        "supervision_suitability": suitability,
+        "quality_rationale": rationale,
     }
 
 
@@ -591,7 +524,7 @@ def compute_slicing_ablation(
         (edges_df["dst_bb"] == target_bb) & 
         (edges_df["relation_id"].isin({4, 5}))
     ]
-    fault_operand_coverage = 1.0 if not in_dep_edges.empty else 0.0
+    fault_operand_coverage = None  # Not computable from BB-level incoming edges
 
     return {
         "num_executed_Et": len_e,

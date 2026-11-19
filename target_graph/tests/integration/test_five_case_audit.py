@@ -35,6 +35,7 @@ def test_five_case_label_yield_audit(tmp_path):
         assert r.num_verified_negatives_Nt == 0, f"Case {r.case_id} should have 0 verified negatives"
         assert r.has_verified_negatives is False
         assert r.training_recommendation in {
+            "reject_unverified_provenance",
             "skip_pairwise_ranking_use_pu_learning",
             "reject_supervision_degenerate_target_only",
             "reject_supervision_missing_caller_operands",
@@ -43,6 +44,7 @@ def test_five_case_label_yield_audit(tmp_path):
             "accept_target_supervision_with_pu_learning",
         }
         assert r.slice_quality in {
+            "PROVENANCE_UNVERIFIED",
             "SUPERVISION_VALIDATED",
             "LOCAL_DEPENDENCY_VALIDATED",
             "INTERPROCEDURAL_INCOMPLETE",

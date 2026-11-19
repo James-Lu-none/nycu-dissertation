@@ -19,6 +19,7 @@ def main() -> None:
     parser.add_argument("--cases", nargs="*", default=None, help="Optional case IDs to train on")
     parser.add_argument("--checkpoint-dir", default=None, help="Directory to save model checkpoints")
     parser.add_argument("--allow-mock", action="store_true", help="Allow mock pseudo-embeddings if cache is missing (tests only)")
+    parser.add_argument("--allow-unverified-labels", action="store_true", help="DANGEROUS exploratory override: permit unverified BB-level weak positives (never for reported experiments)")
     args = parser.parse_args()
 
     root = Path(__file__).resolve().parents[3]
@@ -76,6 +77,7 @@ def main() -> None:
             target_bb=target_bb,
             cache_dir=root / "cache" / "embeddings",
             allow_mock=args.allow_mock,
+            allow_unverified_labels=args.allow_unverified_labels,
         )
         samples.append(sample)
         print(f"  Nodes: {sample.num_nodes}, Positives (P_t): {sample.num_positives}, Unlabeled: {sample.num_unlabeled}, Negatives: {sample.num_negatives}")
