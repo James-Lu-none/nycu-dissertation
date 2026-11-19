@@ -108,7 +108,8 @@ public:
 
     auto Node = [&](const std::string &Id, const std::string &Kind,
                     const std::string &Func, const std::string &BB,
-                    const std::string &Text, unsigned Line = 0) {
+                    const std::string &Text, unsigned Line = 0,
+                    const std::string &File = "") {
       json::Object O;
       O["id"] = Id;
       O["kind"] = Kind;
@@ -116,6 +117,7 @@ public:
       O["bb_id"] = BB;
       O["text"] = Text;
       O["line"] = static_cast<int64_t>(Line);
+      O["source_file"] = File;
       emitJSON(Nodes, std::move(O));
       ++NodeCount;
     };
@@ -164,8 +166,14 @@ public:
         Node(GateIds.at(&BB), "control_gate", F.getName().str(), BBId, "");
         for (Instruction &Inst : BB) {
           unsigned Line = Inst.getDebugLoc() ? Inst.getDebugLoc().getLine() : 0;
+          std::string File;
+          if (DILocation *Loc = Inst.getDebugLoc()) {
+            const std::string Dir = Loc->getDirectory().str();
+            const std::string Name = Loc->getFilename().str();
+            File = Dir.empty() ? Name : Dir + "/" + Name;
+          }
           Node(InstIds.at(&Inst), "instruction", F.getName().str(), BBId,
-               Inst.getOpcodeName(), Line);
+               Inst.getOpcodeName(), Line, File);
           if (auto *CB = dyn_cast<CallBase>(&Inst))
             if (!CB->getType()->isVoidTy())
               Node(InstIds.at(&Inst) + ":result", "call_result",
@@ -240,6 +248,7 @@ public:
             Unresolved["bb_id"] = BBIds.at(&BB);
             Unresolved["text"] = Callee ? "external declaration" : "indirect call";
             Unresolved["line"] = static_cast<int64_t>(0);
+            Unresolved["source_file"] = "";
             // This is metadata, not an inferred call-target edge.
             emitJSON(Nodes, std::move(Unresolved));
             ++NodeCount;
