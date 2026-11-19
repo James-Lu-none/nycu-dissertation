@@ -206,3 +206,38 @@ def test_formal_without_actual_binding_is_explicit_unknown_boundary():
         for boundary in result.unknown_boundaries
     )
     assert result.validated_for_supervision is False
+
+
+def test_trace_inline_owner_does_not_confuse_out_of_line_definition():
+    from target_graph.analysis_v2.trace_context import (
+        identify_candidate_owners, build_trace_context
+    )
+    source = "/build/util/parser.c"
+    graph = DependencyGraph(
+        [
+            Node("out", "instruction", "parseSWF_RGBA", "bb_out",
+                 "store", 68, source),
+            Node("inline", "instruction", "parseSWF_MORPHGRADIENTRECORD",
+                 "bb_inline", "store", 68, source),
+        ],
+        [],
+    )
+    frames = [
+        ("parseSWF_RGBA", source, 68),
+        ("parseSWF_MORPHGRADIENTRECORD", source, 771),
+    ]
+    matches = identify_candidate_owners(graph, frames, "parser.c", 68, "store")
+    assert [match.id for match in matches] == ["inline"]
+    report = build_trace_context(
+        graph, [0x1234], {0x1234: frames}, "parser.c", 68, "store"
+    )
+    assert len(report["all_source_candidates"]) == 2
+    assert report["trace_frame_candidate_ids"] == ["inline"]
+    assert report["fault_instruction_confirmed"] is False
+
+    # If the fault source location isn't actually in the inline stack,
+    # even a matching outer owner is insufficient to select a criterion.
+    assert identify_candidate_owners(
+        graph, [("parseSWF_MORPHGRADIENTRECORD", source, 771)],
+        "parser.c", 68, "store",
+    ) == []
