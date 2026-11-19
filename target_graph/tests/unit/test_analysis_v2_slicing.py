@@ -129,3 +129,32 @@ def test_loader_preserves_identity_and_detects_mixed_artifacts(tmp_path):
     }))
     with pytest.raises(ValueError, match="mismatch"):
         DependencyGraph.from_directory(tmp_path)
+
+
+def test_mismatched_legacy_bb_map_is_rejected(tmp_path):
+    n = node("only_instruction", bb="v2_bb")
+    (tmp_path / "analysis_v2_nodes.jsonl").write_text(
+        json.dumps(vars(n)) + "\n"
+    )
+    (tmp_path / "analysis_v2_edges.jsonl").write_text("")
+    (tmp_path / "bb_map.jsonl").write_text(
+        json.dumps({"bb_id": "unrelated_legacy_build"}) + "\n"
+    )
+    with pytest.raises(ValueError, match="ID mismatch"):
+        DependencyGraph.from_directory(tmp_path)
+
+
+def test_call_depth_limit_is_explicitly_reported():
+    graph = DependencyGraph(
+        [node("target"), node("ret"), node("formal", kind="formal"),
+         node("actual")],
+        [
+            Edge("ret", "target", "RET_BIND", "verified", "call-1"),
+            Edge("formal", "ret", "SSA", "verified"),
+            Edge("actual", "formal", "PARAM_IN", "verified", "call-1", 0),
+        ],
+    )
+    # A depth of one still supports a single balanced interprocedural call.
+    result = backward_slice(graph, "target", max_call_depth=1)
+    assert "actual" in result.nodes
+    assert not result.truncated
