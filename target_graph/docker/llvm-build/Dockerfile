@@ -72,3 +72,6 @@ RUN mkdir -p /opt/target_graph/build/passes && \
 
 WORKDIR /workspace
 CMD ["/bin/bash"]
+
+# New analysis core is isolated from the legacy TargetGraphPass pipeline.
+RUN cp /opt/target_graph/build/passes/libAnalysisV2Pass.so /usr/local/lib/AnalysisV2Pass.so
