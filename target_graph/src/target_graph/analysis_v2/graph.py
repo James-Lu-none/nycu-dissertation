@@ -102,6 +102,22 @@ class DependencyGraph:
                 raise ValueError("Node count mismatch; mixed/stale analysis artifacts")
             if summary.get("edge_count") != graph.edge_count:
                 raise ValueError("Edge count mismatch; mixed/stale analysis artifacts")
+        # Refuse to silently align a v2 graph with a legacy graph from
+        # another bitcode build. Matching BB IDs are essential for traces.
+        bb_map = directory / "bb_map.jsonl"
+        if bb_map.exists():
+            legacy_ids = {
+                str(item["bb_id"]) for item in cls._load_lines(bb_map)
+            }
+            v2_ids = {
+                node.bb_id for node in graph.nodes.values()
+                if node.kind == "instruction"
+            }
+            if v2_ids != legacy_ids:
+                raise ValueError(
+                    "V2/legacy basic-block ID mismatch: regenerate both "
+                    "graphs from the same bitcode and build_id"
+                )
         return graph
 
     def candidate_fault_instructions(
