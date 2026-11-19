@@ -220,9 +220,9 @@ public:
               // A global's memory content is NOT proven by this leaf.
               Edge(DefId, UseId, "VALUE_REFERENCE",
                    isa<GlobalValue>(V) || isa<ConstantExpr>(V)
-                     ? "unknown" : "verified");
+                     ? "unknown" : "verified", "", Index);
             } else {
-              Edge(DefId, UseId, "SSA", "verified");
+              Edge(DefId, UseId, "SSA", "verified", "", Index);
             }
           }
 
