@@ -40,7 +40,7 @@ def test_llvm_pass_does_not_infer_unused_argument_return_dependence(tmp_path):
     call_sites = [
         node for node in graph.nodes.values()
         if node.kind == "instruction" and node.function == "caller"
-        and node.text == "call"
+        and node.text == "call" and node.called_function == "only_first"
     ]
     assert len(call_sites) == 1
     call_result = call_sites[0].id + ":result"
