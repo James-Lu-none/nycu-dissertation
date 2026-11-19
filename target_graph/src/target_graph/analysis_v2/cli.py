@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 from .graph import DependencyGraph
@@ -20,6 +21,7 @@ def main() -> None:
     parser.add_argument("--case-dir", required=True, type=Path)
     parser.add_argument("--target-inst")
     parser.add_argument("--target-bb")
+    parser.add_argument("--source-file", help="Source basename or exact debug path; list all inlined LLVM owners")
     parser.add_argument("--line", type=int)
     parser.add_argument("--opcode")
     parser.add_argument("--list-targets", action="store_true")
@@ -29,28 +31,45 @@ def main() -> None:
     args = parser.parse_args()
 
     graph = DependencyGraph.from_directory(args.case_dir)
+
+    def find_candidates():
+        if args.source_file:
+            if args.line is None:
+                parser.error("--source-file requires --line")
+            matches = graph.candidate_fault_instructions_by_source(
+                args.source_file, args.line, args.opcode
+            )
+            if args.target_bb:
+                matches = [n for n in matches if n.bb_id == args.target_bb]
+            return matches
+        if args.target_bb:
+            return graph.candidate_fault_instructions(
+                args.target_bb, args.line, args.opcode
+            )
+        parser.error("Specify --target-inst, --target-bb or --source-file with --line")
+
     if args.list_targets:
-        if not args.target_bb:
-            parser.error("--list-targets requires --target-bb")
-        candidates = graph.candidate_fault_instructions(
-            args.target_bb, args.line, args.opcode
-        )
+        candidates = find_candidates()
         print(json.dumps(
             [vars(candidate) for candidate in candidates], indent=2
         ))
+        if args.source_file and len(candidates) > 1:
+            print(
+                f"[analysis-v2] {len(candidates)} IR instructions share the source "
+                "criterion. These may be inlined copies. Source location alone "
+                "does NOT prove the PoC executed any particular candidate.",
+                file=sys.stderr,
+            )
         return
 
     target = args.target_inst
     if not target:
-        if not args.target_bb:
-            parser.error("Specify --target-inst or --target-bb with optional --line/--opcode")
-        candidates = graph.candidate_fault_instructions(
-            args.target_bb, args.line, args.opcode
-        )
+        candidates = find_candidates()
         if len(candidates) != 1:
             parser.error(
                 f"Ambiguous target criterion ({len(candidates)} matching instructions). "
-                "Use --list-targets and then --target-inst; no first-BB fallback."
+                "Use --list-targets and verify the actual executed instruction "
+                "against the PoC trace before passing --target-inst."
             )
         target = candidates[0].id
     node = graph.nodes.get(target)
