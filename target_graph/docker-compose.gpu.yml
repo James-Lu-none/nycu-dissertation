@@ -1,0 +1,35 @@
+services:
+  target-graph-gpu:
+    build:
+      context: .
+      dockerfile: docker/gpu/Dockerfile
+
+    container_name: target-graph-gpu
+    working_dir: /workspace/nycu-dissertation/target_graph
+
+    volumes:
+      # Mount target_graph repo
+      - .:/workspace/nycu-dissertation/target_graph
+      # Mount bench project sources (for C/C++ source lookup)
+      - ../bench:/workspace/nycu-dissertation/bench:ro
+      # Persistent HuggingFace model cache (preserves Qwen2.5-Coder-7B ~15GB across runs)
+      - ./hf-cache:/root/.cache/huggingface
+      # Embedding output cache
+      - ./cache:/workspace/nycu-dissertation/target_graph/cache
+
+    environment:
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+      HF_HOME: /root/.cache/huggingface
+      PYTHONUNBUFFERED: "1"
+      PYTHONPATH: "/workspace/nycu-dissertation/target_graph/src"
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+    command: sleep infinity

@@ -11,7 +11,7 @@
 #include <stdlib.h>
 #include <signal.h>
 
-#define TRACE_CAPACITY (1024 * 1024) // 1M entries
+#define TRACE_CAPACITY (16 * 1024 * 1024) // 1M entries
 
 static uintptr_t trace_buffer[TRACE_CAPACITY];
 static size_t trace_count = 0;

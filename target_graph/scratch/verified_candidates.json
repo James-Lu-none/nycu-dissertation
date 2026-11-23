@@ -1,0 +1,3282 @@
+[
+  {
+    "target_key": "libtiff-4.0.6_tiffcrop",
+    "template": "libtiff-4.0.6_tiffcrop_CVE-2016-10272",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00057-libtiff-memalloc-TIFFReadRawData",
+    "sanitizer": "out-of-memory",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "3f65cee8ed128ab7"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffcrop",
+    "template": "libtiff-4.0.6_tiffcrop_CVE-2016-10272",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00111-libtiff-invalidread-t2p_writeproc",
+    "sanitizer": "88",
+    "function": "_TIFFrealloc",
+    "file": "tif_unix.c",
+    "line": 328,
+    "target_bbs": [
+      "22bc34be23bda20b"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffcrop",
+    "template": "libtiff-4.0.6_tiffcrop_CVE-2016-10272",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00114-libtiff-outside-float-tif_dirread",
+    "sanitizer": "8",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "3f65cee8ed128ab7"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffcrop",
+    "template": "libtiff-4.0.6_tiffcrop_CVE-2016-10272",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00102-libtiff-heapoverflow-_TIFFmemcpy",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "_TIFFmemcpy",
+    "file": "tif_unix.c",
+    "line": 340,
+    "target_bbs": [
+      "328c3c8fb3cfedc1"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffcrop",
+    "template": "libtiff-4.0.6_tiffcrop_CVE-2016-10272",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00073-libtiff-fpe-writeBufferToSeparateTiles",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "combineSeparateSamplesBytes",
+    "file": "tiffcrop.c",
+    "line": 3682,
+    "target_bbs": [
+      "b4f6deab872bd446"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffcrop",
+    "template": "libtiff-4.0.6_tiffcrop_CVE-2016-10272",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00100-libtiff-heapoverflow-_TIFFFax3fillruns",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "_TIFFFax3fillruns",
+    "file": "tif_fax3.c",
+    "line": 413,
+    "target_bbs": [
+      "e99d647a68b6e830"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffcrop",
+    "template": "libtiff-4.0.6_tiffcrop_CVE-2016-10272",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-7597/00114-libtiff-outside-float-tif_dirread",
+    "sanitizer": "8",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "3f65cee8ed128ab7"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffcp",
+    "template": "libtiff-4.0.6_tiffcp_CVE-2016-10269",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00069-libtiff-memalloc-_TIFFmalloc",
+    "sanitizer": "out-of-memory",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "6a84dca84827a54a"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffcp",
+    "template": "libtiff-4.0.6_tiffcp_CVE-2016-10269",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00114-libtiff-outside-float-tif_dirread",
+    "sanitizer": "8",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "6a84dca84827a54a"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffcrop",
+    "template": "libtiff-4.0.6_tiffcrop_CVE-2016-10272",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2016-10092/00102-libtiff-heapoverflow-_TIFFmemcpy",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "_TIFFmemcpy",
+    "file": "tif_unix.c",
+    "line": 340,
+    "target_bbs": [
+      "328c3c8fb3cfedc1"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffcp",
+    "template": "libtiff-4.0.6_tiffcp_CVE-2016-10269",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00111-libtiff-invalidread-t2p_writeproc",
+    "sanitizer": "88",
+    "function": "_TIFFrealloc",
+    "file": "tif_unix.c",
+    "line": 328,
+    "target_bbs": [
+      "0d2558ca72666192"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00064-libtiff-fpe-TIFFReadEncodedStrip",
+    "sanitizer": "2538",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00070-libtiff-heapoverflow-horizontalDifference8",
+    "sanitizer": "105325",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffcp",
+    "template": "libtiff-4.0.6_tiffcp_CVE-2016-10269",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-7597/00114-libtiff-outside-float-tif_dirread",
+    "sanitizer": "8",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "6a84dca84827a54a"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00123-libtiff-fpe-JPEGSetupEncode",
+    "sanitizer": "2720",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00057-libtiff-memalloc-TIFFReadRawData",
+    "sanitizer": "2923",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00072-libtiff-assert-readSeparateTilesIntoBuffer",
+    "sanitizer": "2749",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00114-libtiff-outside-float-tif_dirread",
+    "sanitizer": "2702",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffcp",
+    "template": "libtiff-4.0.6_tiffcp_CVE-2016-10269",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00067-libtiff-heapoverflow-tiffcp",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "tiffcp",
+    "file": "tiffcp.c",
+    "line": 784,
+    "target_bbs": [
+      "8bfc7fdc0b39fb83"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00074-libtiff-heapoverflow-TIFFFillStrip",
+    "sanitizer": "2709",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00120-libtiff-signintoverflow-tif_jpeg",
+    "sanitizer": "2522",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00099-libtiff-fpe-readSeparateStripsIntoBuffer",
+    "sanitizer": "2931",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00068-libtiff-heapoverflow-_tiffWriteProc",
+    "sanitizer": "2622",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00069-libtiff-memalloc-_TIFFmalloc",
+    "sanitizer": "2735",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00071-libtiff-heapoverflow-_TIFFmemcpy",
+    "sanitizer": "105550",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00119-libtiff-shift-long-tif_jpeg",
+    "sanitizer": "2596",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00117-libtiff-outside-short-tif_dirwrite",
+    "sanitizer": "2549",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00122-libtiff-nullptr-tif_unix",
+    "sanitizer": "2923",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/000103-libtiff-heapoverflow-writeCroppedImage",
+    "sanitizer": "2778",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00083-libtiff-fpe-OJPEGDecodeRaw",
+    "sanitizer": "2557",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00115-libtiff-fpe-tif_dirread",
+    "sanitizer": "2468",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00032-libtiff-memalloc-_TIFFCheckRealloc",
+    "sanitizer": "2654",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00102-libtiff-heapoverflow-_TIFFmemcpy",
+    "sanitizer": "2600",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00068-libtiff-invalidwrite-cpStripToTile",
+    "sanitizer": "32216605",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00065-libtiff-fpe-readSeparateTilesIntoBuffer",
+    "sanitizer": "2659",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00121-libtiff-signintoverflow-tif_read",
+    "sanitizer": "2709",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00107-libtiff-heapoverflow-PSDataColorContig",
+    "sanitizer": "2498",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00112-libtiff-heapoverflow-_TIFFmemcpy",
+    "sanitizer": "2727",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00118-libtiff-outside-unsigned-char-tif_dirwrite",
+    "sanitizer": "2637",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00066-libtiff-heapoverflow-TIFFReverseBits",
+    "sanitizer": "2719",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00100-libtiff-heapoverflow-_TIFFFax3fillruns",
+    "sanitizer": "13490",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00073-libtiff-fpe-writeBufferToSeparateTiles",
+    "sanitizer": "3253",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00116-libtiff-outside-unsigned-int-tif_dirwrite",
+    "sanitizer": "173468",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00111-libtiff-invalidread-t2p_writeproc",
+    "sanitizer": "2833",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00109-libtiff-heapoverflow-putcontig8bitYCbCr44tile",
+    "sanitizer": "4680",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00104-libtiff-stackoverflow-_TIFFVGetField",
+    "sanitizer": "2615",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00113-libtiff-outside-float",
+    "sanitizer": "2784",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00108-libtiff-heapoverflow-PSDataBW",
+    "sanitizer": "2890",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00103-libtiff-heapoverflow-NeXTDecode",
+    "sanitizer": "3088",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00056-libtiff-nullptr-TIFFReadRawData",
+    "sanitizer": "2688",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00101-libtiff-heapoverflow-combineSeparateSamples16bits",
+    "sanitizer": "2780",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00082-libtiff-heap-overflow-cpStripToTile",
+    "sanitizer": "181555",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00067-libtiff-heapoverflow-tiffcp",
+    "sanitizer": "3004",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00110-libtiff-memcpy-param-overlap-_TIFFmemcpy",
+    "sanitizer": "2827",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-7602/00121-libtiff-signintoverflow-tif_read",
+    "sanitizer": "2724",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2016-10271/00100-libtiff-heapoverflow-_TIFFFax3fillruns",
+    "sanitizer": "13506",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2016-10269/00071-libtiff-heapoverflow-_TIFFmemcpy",
+    "sanitizer": "105566",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2016-10270/00074-libtiff-heapoverflow-TIFFFillStrip",
+    "sanitizer": "2725",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2016-10094/00112-libtiff-heapoverflow-_TIFFmemcpy",
+    "sanitizer": "2743",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2016-10092/00102-libtiff-heapoverflow-_TIFFmemcpy",
+    "sanitizer": "2616",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-7596/00113-libtiff-outside-float",
+    "sanitizer": "2799",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2016-10095/00104-libtiff-stackoverflow-_TIFFVGetField",
+    "sanitizer": "2631",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-7599/00117-libtiff-outside-short-tif_dirwrite",
+    "sanitizer": "2564",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2016-10268/00068-libtiff-heapoverflow-_tiffWriteProc",
+    "sanitizer": "2638",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2016-10272/00103-libtiff-heapoverflow-NeXTDecode",
+    "sanitizer": "3104",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-7598/00115-libtiff-fpe-tif_dirread",
+    "sanitizer": "2483",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-7600/00118-libtiff-outside-unsigned-char-tif_dirwrite",
+    "sanitizer": "2652",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-7601/00119-libtiff-shift-long-tif_jpeg",
+    "sanitizer": "2611",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2009-2285/libtiff_crash/original.tif",
+    "sanitizer": "3958",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffsplit",
+    "template": "libtiff-4.0.6_tiffsplit_CVE-2016-10095",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2009-2285/libtiff_crash/wololo.tif",
+    "sanitizer": "3956",
+    "function": "_TIFFmalloc",
+    "file": "tif_unix.c",
+    "line": 316,
+    "target_bbs": [
+      "43598071e386a4fd"
+    ]
+  },
+  {
+    "target_key": "bento4-1.5.0_mp42aac",
+    "template": "bento4-1.5.0_mp42aac_CVE-2017-14638",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00360-bento4-globaloverflow-AP4_MemoryByteStream_WritePartial",
+    "sanitizer": "allocation-size-too-big",
+    "function": "AP4_HdlrAtom::AP4_HdlrAtom(unsigned",
+    "file": "Ap4HdlrAtom.cpp",
+    "line": 85,
+    "target_bbs": [
+      "c65ee82a469e1c8f"
+    ]
+  },
+  {
+    "target_key": "bento4-1.5.0_mp42aac",
+    "template": "bento4-1.5.0_mp42aac_CVE-2017-14638",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00339-bento4-NULLptr-AP4_StdcFileByteStream_ReadPartial",
+    "sanitizer": "allocation-size-too-big",
+    "function": "AP4_HdlrAtom::AP4_HdlrAtom(unsigned",
+    "file": "Ap4HdlrAtom.cpp",
+    "line": 85,
+    "target_bbs": [
+      "c65ee82a469e1c8f"
+    ]
+  },
+  {
+    "target_key": "bento4-1.5.0_mp42aac",
+    "template": "bento4-1.5.0_mp42aac_CVE-2017-14638",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00361-bento4-NULLptr-AP4_Mpeg2TsAudioSampleStream_WriteSample",
+    "sanitizer": "346",
+    "function": "AP4_DescriptorFactory::CreateDescriptorFromStream(AP4_ByteStream&,",
+    "file": "Ap4DescriptorFactory.cpp",
+    "line": 84,
+    "target_bbs": [
+      "75025a6fdcdf23f0",
+      "a3aaad3ec3b3cd3b",
+      "bc04c4cad2c67a2f"
+    ]
+  },
+  {
+    "target_key": "bento4-1.5.0_mp42aac",
+    "template": "bento4-1.5.0_mp42aac_CVE-2017-14638",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00340-bento4-heapoverflow-AP4_HdlrAtom_AP4_HdlrAtom",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "AP4_StdcFileByteStream::ReadPartial(void*,",
+    "file": "Ap4StdCFileByteStream.cpp",
+    "line": 237,
+    "target_bbs": [
+      "4939640f09c377f9"
+    ]
+  },
+  {
+    "target_key": "bento4-1.5.0_mp42aac",
+    "template": "bento4-1.5.0_mp42aac_CVE-2017-14638",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-14642/00339-bento4-NULLptr-AP4_StdcFileByteStream_ReadPartial",
+    "sanitizer": "allocation-size-too-big",
+    "function": "AP4_HdlrAtom::AP4_HdlrAtom(unsigned",
+    "file": "Ap4HdlrAtom.cpp",
+    "line": 85,
+    "target_bbs": [
+      "c65ee82a469e1c8f"
+    ]
+  },
+  {
+    "target_key": "bento4-1.5.0_mp42aac",
+    "template": "bento4-1.5.0_mp42aac_CVE-2017-14638",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00337-bento4-NULLptr-AP4_AtomSampleTable_GetSample",
+    "sanitizer": "SEGV",
+    "function": "AP4_AtomSampleTable::GetSample(unsigned",
+    "file": "Ap4AtomSampleTable.cpp",
+    "line": 143,
+    "target_bbs": [
+      "c21daeac9f5627c6"
+    ]
+  },
+  {
+    "target_key": "bento4-1.5.0_mp42aac",
+    "template": "bento4-1.5.0_mp42aac_CVE-2017-14638",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-14638/00336-bento4-NULLptr-AP4_Atom_SetType",
+    "sanitizer": "SEGV",
+    "function": "AP4_Atom::SetType(unsigned",
+    "file": "Ap4Atom.h",
+    "line": 247,
+    "target_bbs": [
+      "adf9e93c37cf009b",
+      "d85471861b44e015",
+      "2da319e779aed63f",
+      "6a1a7b70433e689e",
+      "c3fe4c0dc17366f3",
+      "ad32d3d64e4306e1",
+      "e95ef20e8c694fd4",
+      "116256eb46e50dbf",
+      "554b503da2bda410",
+      "483e495c55e35b43"
+    ]
+  },
+  {
+    "target_key": "bento4-1.5.0_mp42aac",
+    "template": "bento4-1.5.0_mp42aac_CVE-2017-14638",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-14640/00337-bento4-NULLptr-AP4_AtomSampleTable_GetSample",
+    "sanitizer": "SEGV",
+    "function": "AP4_AtomSampleTable::GetSample(unsigned",
+    "file": "Ap4AtomSampleTable.cpp",
+    "line": 143,
+    "target_bbs": [
+      "c21daeac9f5627c6"
+    ]
+  },
+  {
+    "target_key": "bento4-1.5.0_mp42aac",
+    "template": "bento4-1.5.0_mp42aac_CVE-2017-14638",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-14646/00342-bento4-heapoverflow-AP4_DataBuffer_SetData",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "AP4_DataBuffer::SetData(unsigned",
+    "file": "Ap4DataBuffer.cpp",
+    "line": 175,
+    "target_bbs": [
+      "b4f751a85c2e7a7c"
+    ]
+  },
+  {
+    "target_key": "zziplib-0.13.62_unzzipcat-mem",
+    "template": "zziplib-0.13.62_unzzipcat-mem_CVE-2017-5974",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00151-zziplib-heapoverflow-__zzip_get64",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "zzip_mem_entry_new",
+    "file": "memdisk.c",
+    "line": 182,
+    "target_bbs": [
+      "508944ca05a2a7c8",
+      "b73c25405b6c9171",
+      "51bde551a54edd80",
+      "64eb460fb315218a",
+      "565094d423ef8dea",
+      "2c38cd33787bf5e0",
+      "9652be955530fe1d",
+      "3a28eee8d8259416",
+      "21adb568b15a92e8",
+      "670905e2204a72ea",
+      "c2ddda647f84d1c5",
+      "24cea90b6caaf9f0",
+      "e5964bac424fc24a",
+      "1f2c9f5f2e3a5c87",
+      "d28cf27fd10fdb11"
+    ]
+  },
+  {
+    "target_key": "zziplib-0.13.62_unzzipcat-mem",
+    "template": "zziplib-0.13.62_unzzipcat-mem_CVE-2017-5974",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00232-lrzip-heapoverflow-read_1g",
+    "sanitizer": "24",
+    "function": "zzip_mem_disk_new",
+    "file": "memdisk.c",
+    "line": 77,
+    "target_bbs": [
+      "5914e588fe013209"
+    ]
+  },
+  {
+    "target_key": "zziplib-0.13.62_unzzipcat-mem",
+    "template": "zziplib-0.13.62_unzzipcat-mem_CVE-2017-5974",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00160-zziplib-misalignedadd-memdisk_c",
+    "sanitizer": "88",
+    "function": "zzip_mem_disk_new",
+    "file": "memdisk.c",
+    "line": 77,
+    "target_bbs": [
+      "5914e588fe013209"
+    ]
+  },
+  {
+    "target_key": "zziplib-0.13.62_unzzipcat-mem",
+    "template": "zziplib-0.13.62_unzzipcat-mem_CVE-2017-5974",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00156-zziplib-oobread-zzip_mem_entry_new",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "zzip_mem_entry_new",
+    "file": "memdisk.c",
+    "line": 202,
+    "target_bbs": [
+      "65672e6054a47c1d"
+    ]
+  },
+  {
+    "target_key": "zziplib-0.13.62_unzzipcat-mem",
+    "template": "zziplib-0.13.62_unzzipcat-mem_CVE-2017-5974",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00231-lrzip-nullptr-join_pthread",
+    "sanitizer": "24",
+    "function": "zzip_mem_disk_new",
+    "file": "memdisk.c",
+    "line": 77,
+    "target_bbs": [
+      "5914e588fe013209"
+    ]
+  },
+  {
+    "target_key": "zziplib-0.13.62_unzzipcat-mem",
+    "template": "zziplib-0.13.62_unzzipcat-mem_CVE-2017-5974",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00230-lrzip-invalidread-lzo1x_decompress",
+    "sanitizer": "24",
+    "function": "zzip_mem_disk_new",
+    "file": "memdisk.c",
+    "line": 77,
+    "target_bbs": [
+      "5914e588fe013209"
+    ]
+  },
+  {
+    "target_key": "zziplib-0.13.62_unzzipcat-mem",
+    "template": "zziplib-0.13.62_unzzipcat-mem_CVE-2017-5974",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00330-libzip-memallocfailure-_zip_cdir_grow",
+    "sanitizer": "24",
+    "function": "zzip_mem_disk_new",
+    "file": "memdisk.c",
+    "line": 77,
+    "target_bbs": [
+      "5914e588fe013209"
+    ]
+  },
+  {
+    "target_key": "zziplib-0.13.62_unzzipcat-mem",
+    "template": "zziplib-0.13.62_unzzipcat-mem_CVE-2017-5974",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00150-zziplib-heapoverflow-__zzip_get32",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "__zzip_get32",
+    "file": "fetch.c",
+    "line": 32,
+    "target_bbs": [
+      "9f7b52f7338656c6",
+      "b1842c69f4383cf3",
+      "ae50fcc405d9afcc",
+      "843e9b4b65ca4699",
+      "ceafb8cb60bd0221",
+      "38cc1043e3fb94eb",
+      "f4b41a43897e938c",
+      "b48f0ddb9afb971a"
+    ]
+  },
+  {
+    "target_key": "zziplib-0.13.62_unzzipcat-mem",
+    "template": "zziplib-0.13.62_unzzipcat-mem_CVE-2017-5974",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00158-zziplib-nullptr-main",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "zzip_disk_findfirst",
+    "file": "mmapped.c",
+    "line": 410,
+    "target_bbs": [
+      "d89d3b04d608ce61",
+      "3b58b55ceef45187",
+      "d1838bad0576fa8f",
+      "5036e420f3998eee",
+      "2cd957125ac098b2",
+      "4688e87ebc685534",
+      "d5b5d468602d9052",
+      "1ec82a1f73bd8388",
+      "62b19db8e1c1134b"
+    ]
+  },
+  {
+    "target_key": "zziplib-0.13.62_unzzipcat-mem",
+    "template": "zziplib-0.13.62_unzzipcat-mem_CVE-2017-5974",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00154-zziplib-nullptr-zzip_mem_entry_new",
+    "sanitizer": "SEGV",
+    "function": "zzip_mem_entry_new",
+    "file": "memdisk.c",
+    "line": 182,
+    "target_bbs": [
+      "508944ca05a2a7c8",
+      "b73c25405b6c9171",
+      "51bde551a54edd80",
+      "64eb460fb315218a",
+      "565094d423ef8dea",
+      "2c38cd33787bf5e0",
+      "9652be955530fe1d",
+      "3a28eee8d8259416",
+      "21adb568b15a92e8",
+      "670905e2204a72ea",
+      "c2ddda647f84d1c5",
+      "24cea90b6caaf9f0",
+      "e5964bac424fc24a",
+      "1f2c9f5f2e3a5c87",
+      "d28cf27fd10fdb11"
+    ]
+  },
+  {
+    "target_key": "zziplib-0.13.62_unzzipcat-mem",
+    "template": "zziplib-0.13.62_unzzipcat-mem_CVE-2017-5974",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00277-rzip-heap-overflow-read_buf.rz",
+    "sanitizer": "24",
+    "function": "zzip_mem_disk_new",
+    "file": "memdisk.c",
+    "line": 77,
+    "target_bbs": [
+      "5914e588fe013209"
+    ]
+  },
+  {
+    "target_key": "zziplib-0.13.62_unzzipcat-mem",
+    "template": "zziplib-0.13.62_unzzipcat-mem_CVE-2017-5974",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00153-zziplib-invalidread-zzip_mem_entry_extra_block",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "zzip_mem_entry_extra_block",
+    "file": "memdisk.c",
+    "line": 248,
+    "target_bbs": [
+      "022b46279a904f5c",
+      "c0b0c9d1f54ffc81",
+      "342bf488e033e6e6",
+      "0aa10149a07428b7",
+      "6e958b6681d412a1",
+      "cc1741a1494a1eae",
+      "685f697f2c85555d",
+      "9bf31b91a9b0d6cb",
+      "f9e0db475636c699"
+    ]
+  },
+  {
+    "target_key": "zziplib-0.13.62_unzzipcat-mem",
+    "template": "zziplib-0.13.62_unzzipcat-mem_CVE-2017-5974",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2004-1278/74.abc.zip",
+    "sanitizer": "88",
+    "function": "zzip_mem_disk_new",
+    "file": "memdisk.c",
+    "line": 77,
+    "target_bbs": [
+      "5914e588fe013209"
+    ]
+  },
+  {
+    "target_key": "zziplib-0.13.62_unzzipcat-mem",
+    "template": "zziplib-0.13.62_unzzipcat-mem_CVE-2017-5974",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2005-4667/unzip-expl.c",
+    "sanitizer": "24",
+    "function": "zzip_mem_disk_new",
+    "file": "memdisk.c",
+    "line": 77,
+    "target_bbs": [
+      "5914e588fe013209"
+    ]
+  },
+  {
+    "target_key": "zziplib-0.13.62_unzzipcat-mem",
+    "template": "zziplib-0.13.62_unzzipcat-mem_CVE-2017-5974",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-5978/00156-zziplib-oobread-zzip_mem_entry_new",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "zzip_mem_entry_new",
+    "file": "memdisk.c",
+    "line": 202,
+    "target_bbs": [
+      "65672e6054a47c1d"
+    ]
+  },
+  {
+    "target_key": "zziplib-0.13.62_unzzipcat-mem",
+    "template": "zziplib-0.13.62_unzzipcat-mem_CVE-2017-5974",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2007-6731/xmpbof.zip",
+    "sanitizer": "247",
+    "function": "zzip_mem_disk_new",
+    "file": "memdisk.c",
+    "line": 77,
+    "target_bbs": [
+      "5914e588fe013209"
+    ]
+  },
+  {
+    "target_key": "zziplib-0.13.62_unzzipcat-mem",
+    "template": "zziplib-0.13.62_unzzipcat-mem_CVE-2017-5974",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-5974/00150-zziplib-heapoverflow-__zzip_get32",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "__zzip_get32",
+    "file": "fetch.c",
+    "line": 32,
+    "target_bbs": [
+      "9f7b52f7338656c6",
+      "b1842c69f4383cf3",
+      "ae50fcc405d9afcc",
+      "843e9b4b65ca4699",
+      "ceafb8cb60bd0221",
+      "38cc1043e3fb94eb",
+      "f4b41a43897e938c",
+      "b48f0ddb9afb971a"
+    ]
+  },
+  {
+    "target_key": "zziplib-0.13.62_unzzipcat-mem",
+    "template": "zziplib-0.13.62_unzzipcat-mem_CVE-2017-5974",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-5976/00152-zziplib-heapoverflow-zzip_mem_entry_extra_block",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "zzip_mem_entry_extra_block",
+    "file": "memdisk.c",
+    "line": 248,
+    "target_bbs": [
+      "022b46279a904f5c",
+      "c0b0c9d1f54ffc81",
+      "342bf488e033e6e6",
+      "0aa10149a07428b7",
+      "6e958b6681d412a1",
+      "cc1741a1494a1eae",
+      "685f697f2c85555d",
+      "9bf31b91a9b0d6cb",
+      "f9e0db475636c699"
+    ]
+  },
+  {
+    "target_key": "zziplib-0.13.62_unzzipcat-mem",
+    "template": "zziplib-0.13.62_unzzipcat-mem_CVE-2017-5974",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2007-6454/peercasthof.zip",
+    "sanitizer": "214",
+    "function": "zzip_mem_disk_new",
+    "file": "memdisk.c",
+    "line": 77,
+    "target_bbs": [
+      "5914e588fe013209"
+    ]
+  },
+  {
+    "target_key": "libming-4.7.1_swftophp",
+    "template": "libming-4.7.1_swftophp_CVE-2017-7578",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00075-libming-heapoverflow-parseSWF_DEFINEFONT",
+    "sanitizer": "198",
+    "function": "readBytes",
+    "file": "read.c",
+    "line": 227,
+    "target_bbs": [
+      "97a7143ae56f2c4c"
+    ]
+  },
+  {
+    "target_key": "libming-4.7.1_swftophp",
+    "template": "libming-4.7.1_swftophp_CVE-2017-7578",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00078-libming-nullptr-dumpBuffer",
+    "sanitizer": "5347",
+    "function": "parseSWF_FILLSTYLEARRAY",
+    "file": "parser.c",
+    "line": 619,
+    "target_bbs": [
+      "3977ec26e3702fe3"
+    ]
+  },
+  {
+    "target_key": "libming-4.7.1_swftophp",
+    "template": "libming-4.7.1_swftophp_CVE-2017-7578",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00076-libming-heapoverflow-parseSWF_RGBA",
+    "sanitizer": "100",
+    "function": "readBytes",
+    "file": "read.c",
+    "line": 227,
+    "target_bbs": [
+      "97a7143ae56f2c4c"
+    ]
+  },
+  {
+    "target_key": "libming-4.7.1_swftophp",
+    "template": "libming-4.7.1_swftophp_CVE-2017-7578",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00077-libming-heapoverflow-_iprintf",
+    "sanitizer": "307",
+    "function": "readString",
+    "file": "read.c",
+    "line": 242,
+    "target_bbs": [
+      "d17b312eb9da579b"
+    ]
+  },
+  {
+    "target_key": "libming-4.7.1_swftophp",
+    "template": "libming-4.7.1_swftophp_CVE-2017-7578",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.7/poc/2016-9829",
+    "sanitizer": "198",
+    "function": "readBytes",
+    "file": "read.c",
+    "line": 227,
+    "target_bbs": [
+      "97a7143ae56f2c4c"
+    ]
+  },
+  {
+    "target_key": "zziplib-0.13.62_unzzipcat-mem",
+    "template": "zziplib-0.13.62_unzzipcat-mem_CVE-2017-5974",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/lrzip-9de7ccb/poc/2017-8846",
+    "sanitizer": "24",
+    "function": "zzip_mem_disk_new",
+    "file": "memdisk.c",
+    "line": 77,
+    "target_bbs": [
+      "5914e588fe013209"
+    ]
+  },
+  {
+    "target_key": "libming-4.7.1_swftophp",
+    "template": "libming-4.7.1_swftophp_CVE-2017-7578",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.7/poc/2016-9827",
+    "sanitizer": "307",
+    "function": "readString",
+    "file": "read.c",
+    "line": 242,
+    "target_bbs": [
+      "d17b312eb9da579b"
+    ]
+  },
+  {
+    "target_key": "libming-4.7.1_swftophp",
+    "template": "libming-4.7.1_swftophp_CVE-2017-7578",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.7/seed/bumble-bee1.swf",
+    "sanitizer": "20323",
+    "function": "parseSWF_SHAPEWITHSTYLE",
+    "file": "parser.c",
+    "line": 881,
+    "target_bbs": [
+      "62a23ad1899e961a"
+    ]
+  },
+  {
+    "target_key": "libming-4.7.1_swftophp",
+    "template": "libming-4.7.1_swftophp_CVE-2017-7578",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.7/poc/2017-9988-github",
+    "sanitizer": "out-of-memory",
+    "function": "parseABC_NS_SET_INFO",
+    "file": "parser.c",
+    "line": 3080,
+    "target_bbs": [
+      "7c9f71d97238087e"
+    ]
+  },
+  {
+    "target_key": "libming-4.7.1_swftophp",
+    "template": "libming-4.7.1_swftophp_CVE-2017-7578",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.7/poc/2016-9831",
+    "sanitizer": "100",
+    "function": "readBytes",
+    "file": "read.c",
+    "line": 227,
+    "target_bbs": [
+      "97a7143ae56f2c4c"
+    ]
+  },
+  {
+    "target_key": "libming-4.7.1_swftophp",
+    "template": "libming-4.7.1_swftophp_CVE-2017-7578",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.7/poc/2017-9988-repro",
+    "sanitizer": "83392",
+    "function": "dcinit",
+    "file": "decompile.c",
+    "line": 84,
+    "target_bbs": [
+      "aa1a6b9fa11ec0c7"
+    ]
+  },
+  {
+    "target_key": "libming-4.7.1_swftophp",
+    "template": "libming-4.7.1_swftophp_CVE-2017-7578",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.7/poc/2017-11728",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "OpCode",
+    "file": "decompile.c",
+    "line": 868,
+    "target_bbs": [
+      "c2e43103a084affa",
+      "86c12f8857d6ac30",
+      "055bd630ba58cc7f",
+      "3e67fa3b85a423cf",
+      "388bbdd54733120d",
+      "449307c15bad1e3e",
+      "75454574fbb18f24",
+      "539ed78bdf1af898",
+      "e0ff38e6230b68d4",
+      "8f6f5a971f172ee0",
+      "736476d34433e524",
+      "de50e00193957d1b",
+      "8e2dbb7d07808a3c",
+      "d71c1240c8ba9889",
+      "3eebb93ab619f27a",
+      "31543d4874fe3633",
+      "11887ad03b802fba",
+      "7bd3a91150b01711",
+      "fe1f121f463a1e7f",
+      "147d599486e46d7c",
+      "090076302a56bc21",
+      "30164439f5c46c64",
+      "9e3912f24fb2e03a",
+      "9f5ab793f3d78ab0",
+      "955728b0a612c679",
+      "bb41febbcb2d38ff",
+      "3edd9c1bc87ab41d",
+      "1e36eb81e8057601",
+      "9b3d199178c458ac",
+      "924f6f1c81d3d41e",
+      "d2c6c9a0c83c686f",
+      "6efcd3ebc9014a5a",
+      "941f63c059df8853",
+      "85e98351e18b8a08",
+      "1c511240f2921191",
+      "d12ff2b40d9890a7",
+      "2740be125d53e563",
+      "4cc022b2058ce8b5",
+      "3da2e634c4f98da6",
+      "310bbc339242c1a3",
+      "4be740742f7e9ed8",
+      "2e456899d0efdc55",
+      "6238dd3a6f5d1c43",
+      "ae981ef3533c8a9c",
+      "a3ca0b5a5ed7e1d0",
+      "526917ffb4279c62",
+      "5c430ceab6df54db",
+      "32d06c625fdd9544",
+      "e9f2e25dbb497ca9",
+      "232c9240c553bac7",
+      "797c5ccc945213e4",
+      "0e3884ce2fc8687c",
+      "1d81680bb22b3a62",
+      "5cf0fbf4278dc6b9",
+      "15ffa21b26b1485c",
+      "44680d6df2bd408a",
+      "c376894d782f59a9",
+      "01a0b649ea095e45",
+      "1e48aa35033c5d91",
+      "7f9ae22fa8927403",
+      "b86747f04bd00da9",
+      "20cafee40351f2cd",
+      "4bb7f403d017e3e4",
+      "d9cf2fc1c1452f29",
+      "3d0a59f24a1018cf",
+      "a8264b96b3d36e0f",
+      "04768297dd40d344",
+      "0bd9227b4a9e40a3",
+      "0e2750e65b83de5b",
+      "064a3db89d1467cb",
+      "9db531c1da43455b",
+      "966fdfeef3fb78bd",
+      "9071f9300dd8e718",
+      "9a9b4982c55000b1",
+      "f4015ba07949cf4a",
+      "85e07aea5270fb16",
+      "12eb9feb4b112887",
+      "c40172f1a8dcc500",
+      "1ad941e0b76543aa",
+      "d7a41ce6853f8af4",
+      "fc42dbc342b3388f",
+      "2d9fcc5c064afc20",
+      "b15020a48861268d",
+      "dc81a5cf4be774cb",
+      "4be041e3e7df2c07",
+      "be7426a1cbdcf31a",
+      "e47f3f43d3d932f0",
+      "272a6fea1aaabe66"
+    ]
+  },
+  {
+    "target_key": "libming-4.7.1_swftophp",
+    "template": "libming-4.7.1_swftophp_CVE-2017-7578",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-7868-repro",
+    "sanitizer": "allocation-size-too-big",
+    "function": "readBytes",
+    "file": "read.c",
+    "line": 227,
+    "target_bbs": [
+      "97a7143ae56f2c4c"
+    ]
+  },
+  {
+    "target_key": "libming-4.7.1_swftophp",
+    "template": "libming-4.7.1_swftophp_CVE-2017-7578",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-20427",
+    "sanitizer": "allocation-size-too-big",
+    "function": "parseSWF_ACTIONRECORD",
+    "file": "parser.c",
+    "line": 1141,
+    "target_bbs": [
+      "3aaa010c794cb8e3"
+    ]
+  },
+  {
+    "target_key": "libming-4.7.1_swftophp",
+    "template": "libming-4.7.1_swftophp_CVE-2017-7578",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.7.1/seed/bumble-bee1.swf",
+    "sanitizer": "20323",
+    "function": "parseSWF_SHAPEWITHSTYLE",
+    "file": "parser.c",
+    "line": 881,
+    "target_bbs": [
+      "62a23ad1899e961a"
+    ]
+  },
+  {
+    "target_key": "libming-4.7.1_swftophp",
+    "template": "libming-4.7.1_swftophp_CVE-2017-7578",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2020-6628",
+    "sanitizer": "allocation-size-too-big",
+    "function": "parseSWF_ACTIONRECORD",
+    "file": "parser.c",
+    "line": 1141,
+    "target_bbs": [
+      "3aaa010c794cb8e3"
+    ]
+  },
+  {
+    "target_key": "libming-4.7.1_swftophp",
+    "template": "libming-4.7.1_swftophp_CVE-2017-7578",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/seed/bumble-bee1.swf",
+    "sanitizer": "20323",
+    "function": "parseSWF_SHAPEWITHSTYLE",
+    "file": "parser.c",
+    "line": 881,
+    "target_bbs": [
+      "62a23ad1899e961a"
+    ]
+  },
+  {
+    "target_key": "libming-4.7.1_swftophp",
+    "template": "libming-4.7.1_swftophp_CVE-2017-7578",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.7/poc/2017-11729",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "OpCode",
+    "file": "decompile.c",
+    "line": 868,
+    "target_bbs": [
+      "c2e43103a084affa",
+      "86c12f8857d6ac30",
+      "055bd630ba58cc7f",
+      "3e67fa3b85a423cf",
+      "388bbdd54733120d",
+      "449307c15bad1e3e",
+      "75454574fbb18f24",
+      "539ed78bdf1af898",
+      "e0ff38e6230b68d4",
+      "8f6f5a971f172ee0",
+      "736476d34433e524",
+      "de50e00193957d1b",
+      "8e2dbb7d07808a3c",
+      "d71c1240c8ba9889",
+      "3eebb93ab619f27a",
+      "31543d4874fe3633",
+      "11887ad03b802fba",
+      "7bd3a91150b01711",
+      "fe1f121f463a1e7f",
+      "147d599486e46d7c",
+      "090076302a56bc21",
+      "30164439f5c46c64",
+      "9e3912f24fb2e03a",
+      "9f5ab793f3d78ab0",
+      "955728b0a612c679",
+      "bb41febbcb2d38ff",
+      "3edd9c1bc87ab41d",
+      "1e36eb81e8057601",
+      "9b3d199178c458ac",
+      "924f6f1c81d3d41e",
+      "d2c6c9a0c83c686f",
+      "6efcd3ebc9014a5a",
+      "941f63c059df8853",
+      "85e98351e18b8a08",
+      "1c511240f2921191",
+      "d12ff2b40d9890a7",
+      "2740be125d53e563",
+      "4cc022b2058ce8b5",
+      "3da2e634c4f98da6",
+      "310bbc339242c1a3",
+      "4be740742f7e9ed8",
+      "2e456899d0efdc55",
+      "6238dd3a6f5d1c43",
+      "ae981ef3533c8a9c",
+      "a3ca0b5a5ed7e1d0",
+      "526917ffb4279c62",
+      "5c430ceab6df54db",
+      "32d06c625fdd9544",
+      "e9f2e25dbb497ca9",
+      "232c9240c553bac7",
+      "797c5ccc945213e4",
+      "0e3884ce2fc8687c",
+      "1d81680bb22b3a62",
+      "5cf0fbf4278dc6b9",
+      "15ffa21b26b1485c",
+      "44680d6df2bd408a",
+      "c376894d782f59a9",
+      "01a0b649ea095e45",
+      "1e48aa35033c5d91",
+      "7f9ae22fa8927403",
+      "b86747f04bd00da9",
+      "20cafee40351f2cd",
+      "4bb7f403d017e3e4",
+      "d9cf2fc1c1452f29",
+      "3d0a59f24a1018cf",
+      "a8264b96b3d36e0f",
+      "04768297dd40d344",
+      "0bd9227b4a9e40a3",
+      "0e2750e65b83de5b",
+      "064a3db89d1467cb",
+      "9db531c1da43455b",
+      "966fdfeef3fb78bd",
+      "9071f9300dd8e718",
+      "9a9b4982c55000b1",
+      "f4015ba07949cf4a",
+      "85e07aea5270fb16",
+      "12eb9feb4b112887",
+      "c40172f1a8dcc500",
+      "1ad941e0b76543aa",
+      "d7a41ce6853f8af4",
+      "fc42dbc342b3388f",
+      "2d9fcc5c064afc20",
+      "b15020a48861268d",
+      "dc81a5cf4be774cb",
+      "4be041e3e7df2c07",
+      "be7426a1cbdcf31a",
+      "e47f3f43d3d932f0",
+      "272a6fea1aaabe66"
+    ]
+  },
+  {
+    "target_key": "libming-4.7.1_swftophp",
+    "template": "libming-4.7.1_swftophp_CVE-2017-7578",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2019-12982",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "decompileAction",
+    "file": "decompile.c",
+    "line": 3120,
+    "target_bbs": [
+      "86fa9d600113434f"
+    ]
+  },
+  {
+    "target_key": "libming-4.7.1_swftophp",
+    "template": "libming-4.7.1_swftophp_CVE-2017-7578",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-11095-github",
+    "sanitizer": "heap-use-after-free",
+    "function": "OpCode",
+    "file": "decompile.c",
+    "line": 868,
+    "target_bbs": [
+      "c2e43103a084affa",
+      "86c12f8857d6ac30",
+      "055bd630ba58cc7f",
+      "3e67fa3b85a423cf",
+      "388bbdd54733120d",
+      "449307c15bad1e3e",
+      "75454574fbb18f24",
+      "539ed78bdf1af898",
+      "e0ff38e6230b68d4",
+      "8f6f5a971f172ee0",
+      "736476d34433e524",
+      "de50e00193957d1b",
+      "8e2dbb7d07808a3c",
+      "d71c1240c8ba9889",
+      "3eebb93ab619f27a",
+      "31543d4874fe3633",
+      "11887ad03b802fba",
+      "7bd3a91150b01711",
+      "fe1f121f463a1e7f",
+      "147d599486e46d7c",
+      "090076302a56bc21",
+      "30164439f5c46c64",
+      "9e3912f24fb2e03a",
+      "9f5ab793f3d78ab0",
+      "955728b0a612c679",
+      "bb41febbcb2d38ff",
+      "3edd9c1bc87ab41d",
+      "1e36eb81e8057601",
+      "9b3d199178c458ac",
+      "924f6f1c81d3d41e",
+      "d2c6c9a0c83c686f",
+      "6efcd3ebc9014a5a",
+      "941f63c059df8853",
+      "85e98351e18b8a08",
+      "1c511240f2921191",
+      "d12ff2b40d9890a7",
+      "2740be125d53e563",
+      "4cc022b2058ce8b5",
+      "3da2e634c4f98da6",
+      "310bbc339242c1a3",
+      "4be740742f7e9ed8",
+      "2e456899d0efdc55",
+      "6238dd3a6f5d1c43",
+      "ae981ef3533c8a9c",
+      "a3ca0b5a5ed7e1d0",
+      "526917ffb4279c62",
+      "5c430ceab6df54db",
+      "32d06c625fdd9544",
+      "e9f2e25dbb497ca9",
+      "232c9240c553bac7",
+      "797c5ccc945213e4",
+      "0e3884ce2fc8687c",
+      "1d81680bb22b3a62",
+      "5cf0fbf4278dc6b9",
+      "15ffa21b26b1485c",
+      "44680d6df2bd408a",
+      "c376894d782f59a9",
+      "01a0b649ea095e45",
+      "1e48aa35033c5d91",
+      "7f9ae22fa8927403",
+      "b86747f04bd00da9",
+      "20cafee40351f2cd",
+      "4bb7f403d017e3e4",
+      "d9cf2fc1c1452f29",
+      "3d0a59f24a1018cf",
+      "a8264b96b3d36e0f",
+      "04768297dd40d344",
+      "0bd9227b4a9e40a3",
+      "0e2750e65b83de5b",
+      "064a3db89d1467cb",
+      "9db531c1da43455b",
+      "966fdfeef3fb78bd",
+      "9071f9300dd8e718",
+      "9a9b4982c55000b1",
+      "f4015ba07949cf4a",
+      "85e07aea5270fb16",
+      "12eb9feb4b112887",
+      "c40172f1a8dcc500",
+      "1ad941e0b76543aa",
+      "d7a41ce6853f8af4",
+      "fc42dbc342b3388f",
+      "2d9fcc5c064afc20",
+      "b15020a48861268d",
+      "dc81a5cf4be774cb",
+      "4be041e3e7df2c07",
+      "be7426a1cbdcf31a",
+      "e47f3f43d3d932f0",
+      "272a6fea1aaabe66"
+    ]
+  },
+  {
+    "target_key": "libming-4.7.1_swftophp",
+    "template": "libming-4.7.1_swftophp_CVE-2017-7578",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-8962-a",
+    "sanitizer": "heap-use-after-free",
+    "function": "getName",
+    "file": "decompile.c",
+    "line": 398,
+    "target_bbs": [
+      "4b24acc80b5f8cdd",
+      "436c1dd20bed07d1",
+      "0ae29319266550a5"
+    ]
+  },
+  {
+    "target_key": "libming-4.8_swftophp",
+    "template": "libming-4.8_swftophp_CVE-2018-7868",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00077-libming-heapoverflow-_iprintf",
+    "sanitizer": "307",
+    "function": "readString",
+    "file": "read.c",
+    "line": 242,
+    "target_bbs": [
+      "8b4060fb0b262e5e"
+    ]
+  },
+  {
+    "target_key": "libming-4.7.1_swftophp",
+    "template": "libming-4.7.1_swftophp_CVE-2017-7578",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-11225",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "decompile_SWITCH",
+    "file": "decompile.c",
+    "line": 2015,
+    "target_bbs": [
+      "bc2af5842860b2df"
+    ]
+  },
+  {
+    "target_key": "libming-4.8_swftophp",
+    "template": "libming-4.8_swftophp_CVE-2018-7868",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00075-libming-heapoverflow-parseSWF_DEFINEFONT",
+    "sanitizer": "198",
+    "function": "readBytes",
+    "file": "read.c",
+    "line": 227,
+    "target_bbs": [
+      "e2585e612b6f7980"
+    ]
+  },
+  {
+    "target_key": "libming-4.8_swftophp",
+    "template": "libming-4.8_swftophp_CVE-2018-7868",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00078-libming-nullptr-dumpBuffer",
+    "sanitizer": "5347",
+    "function": "parseSWF_FILLSTYLEARRAY",
+    "file": "parser.c",
+    "line": 620,
+    "target_bbs": [
+      "24d1292959df1981"
+    ]
+  },
+  {
+    "target_key": "libming-4.8_swftophp",
+    "template": "libming-4.8_swftophp_CVE-2018-7868",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00076-libming-heapoverflow-parseSWF_RGBA",
+    "sanitizer": "100",
+    "function": "readBytes",
+    "file": "read.c",
+    "line": 227,
+    "target_bbs": [
+      "e2585e612b6f7980"
+    ]
+  },
+  {
+    "target_key": "libming-4.8_swftophp",
+    "template": "libming-4.8_swftophp_CVE-2018-7868",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.7/poc/2016-9829",
+    "sanitizer": "198",
+    "function": "readBytes",
+    "file": "read.c",
+    "line": 227,
+    "target_bbs": [
+      "e2585e612b6f7980"
+    ]
+  },
+  {
+    "target_key": "libming-4.7.1_swftophp",
+    "template": "libming-4.7.1_swftophp_CVE-2017-7578",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8.1/seed/bumble-bee1.swf",
+    "sanitizer": "20323",
+    "function": "parseSWF_SHAPEWITHSTYLE",
+    "file": "parser.c",
+    "line": 881,
+    "target_bbs": [
+      "62a23ad1899e961a"
+    ]
+  },
+  {
+    "target_key": "libming-4.8_swftophp",
+    "template": "libming-4.8_swftophp_CVE-2018-7868",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.7/poc/2016-9827",
+    "sanitizer": "307",
+    "function": "readString",
+    "file": "read.c",
+    "line": 242,
+    "target_bbs": [
+      "8b4060fb0b262e5e"
+    ]
+  },
+  {
+    "target_key": "libming-4.8_swftophp",
+    "template": "libming-4.8_swftophp_CVE-2018-7868",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.7/poc/2016-9831",
+    "sanitizer": "100",
+    "function": "readBytes",
+    "file": "read.c",
+    "line": 227,
+    "target_bbs": [
+      "e2585e612b6f7980"
+    ]
+  },
+  {
+    "target_key": "libming-4.8_swftophp",
+    "template": "libming-4.8_swftophp_CVE-2018-7868",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-7868-repro",
+    "sanitizer": "allocation-size-too-big",
+    "function": "readBytes",
+    "file": "read.c",
+    "line": 227,
+    "target_bbs": [
+      "e2585e612b6f7980"
+    ]
+  },
+  {
+    "target_key": "libming-4.8_swftophp",
+    "template": "libming-4.8_swftophp_CVE-2018-7868",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.7/poc/2017-9988-repro",
+    "sanitizer": "83392",
+    "function": "dcinit",
+    "file": "decompile.c",
+    "line": 84,
+    "target_bbs": [
+      "1970ede4e3405dd8"
+    ]
+  },
+  {
+    "target_key": "libming-4.8_swftophp",
+    "template": "libming-4.8_swftophp_CVE-2018-7868",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.7/poc/2017-9988-github",
+    "sanitizer": "out-of-memory",
+    "function": "parseABC_NS_SET_INFO",
+    "file": "parser.c",
+    "line": 3081,
+    "target_bbs": [
+      "58b614ea3b0076b2"
+    ]
+  },
+  {
+    "target_key": "libming-4.8_swftophp",
+    "template": "libming-4.8_swftophp_CVE-2018-7868",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-20427",
+    "sanitizer": "allocation-size-too-big",
+    "function": "parseSWF_ACTIONRECORD",
+    "file": "parser.c",
+    "line": 1142,
+    "target_bbs": [
+      "7851049a161d37f9"
+    ]
+  },
+  {
+    "target_key": "libming-4.8_swftophp",
+    "template": "libming-4.8_swftophp_CVE-2018-7868",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.7/poc/2017-11728",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "OpCode",
+    "file": "decompile.c",
+    "line": 868,
+    "target_bbs": [
+      "be96ef2e59161b03",
+      "660d0a0a1f395a81",
+      "722cae9bb12ff5ce",
+      "005aebf44a7b4409",
+      "e4a5cc0d6261299e",
+      "98d3153982708a59",
+      "757f4447530d12f1",
+      "f32ca50ced332077",
+      "a5d191a7ca1c2013",
+      "ac9377b6549e293d",
+      "ee0e05e5eddb0662",
+      "fb8d450c49b47ebc",
+      "de680ccf7dd97d14",
+      "ce6dc213960d6801",
+      "aed749245d4944ce",
+      "b7b7508a168f9dd0",
+      "16ff44378aa71080",
+      "7526d936ef0fc1e5",
+      "28f1e8d4d5427988",
+      "af9d9155e3b7c595",
+      "05f88e0adefec0f7",
+      "827bad0bb007e04a",
+      "834f09c1a795d3f1",
+      "ec7e03fd836ac12b",
+      "59d6216b33f8d48c",
+      "54ef5631d5c58e7d",
+      "9718e8483fca5b14",
+      "6cd302a83142db76",
+      "1a94b27ebc520fcc",
+      "179d702c682c1f77",
+      "2654158439ce9e19",
+      "8c0bab742f84abed",
+      "991284c2138a4c77",
+      "bf9fe42400f84ed0",
+      "4c957d932137a1da",
+      "e2a3cf3ae74b53c9",
+      "c113d93bccbc14cb",
+      "781988a79a28d718",
+      "46d3d0b830c7d7cd",
+      "8fbe65bddcf80d43",
+      "0cfc06366ee1923c",
+      "23ee77e0db0df7e3",
+      "b0daf0963807322b",
+      "ce540571fa23c739",
+      "832d4ae6de01b911",
+      "972856b3fbc3233c",
+      "95fd1d488ffc6b3c",
+      "d132db712d66d67b",
+      "8125f57b873e6ab2",
+      "54b7f3cf6075d6ef",
+      "954f7fd4428c5464",
+      "c32f065929d1659d",
+      "1747984a444b6ad9",
+      "c3f36a798268e1de",
+      "ec67fa65dc296f42",
+      "1069a884983e59d4",
+      "91c75b216c06c2a5",
+      "4d8f093adae24c24",
+      "48c0c592df276f39",
+      "78d57bfaf600502d",
+      "5ee358d7fc5f69b2",
+      "0131bee286cfa887",
+      "686d6b0b42f20035",
+      "dbe83e0ccba794bc",
+      "c985eefaa5638d07",
+      "35ee461a63e9051f",
+      "3b6e11284bfc5f23",
+      "64cd73168027f05b",
+      "5da16d72db9ac516",
+      "ca168177c4ec173b",
+      "d82f47ad17368a60",
+      "13f3070d4abbdb44",
+      "126d625b6a9b99fd",
+      "339966cbc4cedbcb",
+      "5783832858aef327",
+      "4c609c4a05c9227d",
+      "07930f74cd773ae1",
+      "d606aba2fe70c28f",
+      "d77d207b69b0799f",
+      "b1a9831a81daa200",
+      "826fe585de806ae9",
+      "10efad74e3022d30",
+      "6c93783b486533b0",
+      "515e7dc7fb48c067",
+      "99c9f42d342ee2f8",
+      "ff1301ca1fd9dc90",
+      "3caadc5f27945592",
+      "7a9c544f3a801b44"
+    ]
+  },
+  {
+    "target_key": "libming-4.8_swftophp",
+    "template": "libming-4.8_swftophp_CVE-2018-7868",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.7/poc/2017-11729",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "OpCode",
+    "file": "decompile.c",
+    "line": 868,
+    "target_bbs": [
+      "be96ef2e59161b03",
+      "660d0a0a1f395a81",
+      "722cae9bb12ff5ce",
+      "005aebf44a7b4409",
+      "e4a5cc0d6261299e",
+      "98d3153982708a59",
+      "757f4447530d12f1",
+      "f32ca50ced332077",
+      "a5d191a7ca1c2013",
+      "ac9377b6549e293d",
+      "ee0e05e5eddb0662",
+      "fb8d450c49b47ebc",
+      "de680ccf7dd97d14",
+      "ce6dc213960d6801",
+      "aed749245d4944ce",
+      "b7b7508a168f9dd0",
+      "16ff44378aa71080",
+      "7526d936ef0fc1e5",
+      "28f1e8d4d5427988",
+      "af9d9155e3b7c595",
+      "05f88e0adefec0f7",
+      "827bad0bb007e04a",
+      "834f09c1a795d3f1",
+      "ec7e03fd836ac12b",
+      "59d6216b33f8d48c",
+      "54ef5631d5c58e7d",
+      "9718e8483fca5b14",
+      "6cd302a83142db76",
+      "1a94b27ebc520fcc",
+      "179d702c682c1f77",
+      "2654158439ce9e19",
+      "8c0bab742f84abed",
+      "991284c2138a4c77",
+      "bf9fe42400f84ed0",
+      "4c957d932137a1da",
+      "e2a3cf3ae74b53c9",
+      "c113d93bccbc14cb",
+      "781988a79a28d718",
+      "46d3d0b830c7d7cd",
+      "8fbe65bddcf80d43",
+      "0cfc06366ee1923c",
+      "23ee77e0db0df7e3",
+      "b0daf0963807322b",
+      "ce540571fa23c739",
+      "832d4ae6de01b911",
+      "972856b3fbc3233c",
+      "95fd1d488ffc6b3c",
+      "d132db712d66d67b",
+      "8125f57b873e6ab2",
+      "54b7f3cf6075d6ef",
+      "954f7fd4428c5464",
+      "c32f065929d1659d",
+      "1747984a444b6ad9",
+      "c3f36a798268e1de",
+      "ec67fa65dc296f42",
+      "1069a884983e59d4",
+      "91c75b216c06c2a5",
+      "4d8f093adae24c24",
+      "48c0c592df276f39",
+      "78d57bfaf600502d",
+      "5ee358d7fc5f69b2",
+      "0131bee286cfa887",
+      "686d6b0b42f20035",
+      "dbe83e0ccba794bc",
+      "c985eefaa5638d07",
+      "35ee461a63e9051f",
+      "3b6e11284bfc5f23",
+      "64cd73168027f05b",
+      "5da16d72db9ac516",
+      "ca168177c4ec173b",
+      "d82f47ad17368a60",
+      "13f3070d4abbdb44",
+      "126d625b6a9b99fd",
+      "339966cbc4cedbcb",
+      "5783832858aef327",
+      "4c609c4a05c9227d",
+      "07930f74cd773ae1",
+      "d606aba2fe70c28f",
+      "d77d207b69b0799f",
+      "b1a9831a81daa200",
+      "826fe585de806ae9",
+      "10efad74e3022d30",
+      "6c93783b486533b0",
+      "515e7dc7fb48c067",
+      "99c9f42d342ee2f8",
+      "ff1301ca1fd9dc90",
+      "3caadc5f27945592",
+      "7a9c544f3a801b44"
+    ]
+  },
+  {
+    "target_key": "libming-4.8_swftophp",
+    "template": "libming-4.8_swftophp_CVE-2018-7868",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.7.1/seed/bumble-bee1.swf",
+    "sanitizer": "20323",
+    "function": "parseSWF_SHAPEWITHSTYLE",
+    "file": "parser.c",
+    "line": 882,
+    "target_bbs": [
+      "eededfbccbb20f62"
+    ]
+  },
+  {
+    "target_key": "libming-4.8_swftophp",
+    "template": "libming-4.8_swftophp_CVE-2018-7868",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2020-6628",
+    "sanitizer": "allocation-size-too-big",
+    "function": "parseSWF_ACTIONRECORD",
+    "file": "parser.c",
+    "line": 1142,
+    "target_bbs": [
+      "7851049a161d37f9"
+    ]
+  },
+  {
+    "target_key": "libming-4.8_swftophp",
+    "template": "libming-4.8_swftophp_CVE-2018-7868",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/seed/bumble-bee1.swf",
+    "sanitizer": "20323",
+    "function": "parseSWF_SHAPEWITHSTYLE",
+    "file": "parser.c",
+    "line": 882,
+    "target_bbs": [
+      "eededfbccbb20f62"
+    ]
+  },
+  {
+    "target_key": "libming-4.8_swftophp",
+    "template": "libming-4.8_swftophp_CVE-2018-7868",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-8962-f",
+    "sanitizer": "heap-use-after-free",
+    "function": "getString",
+    "file": "decompile.c",
+    "line": 349,
+    "target_bbs": [
+      "e6d0ec710729c4aa",
+      "d1112614d1c9b591",
+      "61aed11c3a57a729"
+    ]
+  },
+  {
+    "target_key": "libming-4.8_swftophp",
+    "template": "libming-4.8_swftophp_CVE-2018-7868",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-11226",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "decompile_SWITCH",
+    "file": "decompile.c",
+    "line": 2015,
+    "target_bbs": [
+      "7ee998265e23db2e"
+    ]
+  },
+  {
+    "target_key": "libming-4.8_swftophp",
+    "template": "libming-4.8_swftophp_CVE-2018-7868",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-8962-a",
+    "sanitizer": "heap-use-after-free",
+    "function": "getName",
+    "file": "decompile.c",
+    "line": 398,
+    "target_bbs": [
+      "0e3e7251bb2837a6",
+      "7bf732b65f10d810",
+      "9d1e8d5105a16233"
+    ]
+  },
+  {
+    "target_key": "libming-4.8_swftophp",
+    "template": "libming-4.8_swftophp_CVE-2018-7868",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-8807",
+    "sanitizer": "heap-use-after-free",
+    "function": "getString",
+    "file": "decompile.c",
+    "line": 349,
+    "target_bbs": [
+      "e6d0ec710729c4aa",
+      "d1112614d1c9b591",
+      "61aed11c3a57a729"
+    ]
+  },
+  {
+    "target_key": "libming-4.8_swftophp",
+    "template": "libming-4.8_swftophp_CVE-2018-7868",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-11095-github",
+    "sanitizer": "heap-use-after-free",
+    "function": "OpCode",
+    "file": "decompile.c",
+    "line": 868,
+    "target_bbs": [
+      "be96ef2e59161b03",
+      "660d0a0a1f395a81",
+      "722cae9bb12ff5ce",
+      "005aebf44a7b4409",
+      "e4a5cc0d6261299e",
+      "98d3153982708a59",
+      "757f4447530d12f1",
+      "f32ca50ced332077",
+      "a5d191a7ca1c2013",
+      "ac9377b6549e293d",
+      "ee0e05e5eddb0662",
+      "fb8d450c49b47ebc",
+      "de680ccf7dd97d14",
+      "ce6dc213960d6801",
+      "aed749245d4944ce",
+      "b7b7508a168f9dd0",
+      "16ff44378aa71080",
+      "7526d936ef0fc1e5",
+      "28f1e8d4d5427988",
+      "af9d9155e3b7c595",
+      "05f88e0adefec0f7",
+      "827bad0bb007e04a",
+      "834f09c1a795d3f1",
+      "ec7e03fd836ac12b",
+      "59d6216b33f8d48c",
+      "54ef5631d5c58e7d",
+      "9718e8483fca5b14",
+      "6cd302a83142db76",
+      "1a94b27ebc520fcc",
+      "179d702c682c1f77",
+      "2654158439ce9e19",
+      "8c0bab742f84abed",
+      "991284c2138a4c77",
+      "bf9fe42400f84ed0",
+      "4c957d932137a1da",
+      "e2a3cf3ae74b53c9",
+      "c113d93bccbc14cb",
+      "781988a79a28d718",
+      "46d3d0b830c7d7cd",
+      "8fbe65bddcf80d43",
+      "0cfc06366ee1923c",
+      "23ee77e0db0df7e3",
+      "b0daf0963807322b",
+      "ce540571fa23c739",
+      "832d4ae6de01b911",
+      "972856b3fbc3233c",
+      "95fd1d488ffc6b3c",
+      "d132db712d66d67b",
+      "8125f57b873e6ab2",
+      "54b7f3cf6075d6ef",
+      "954f7fd4428c5464",
+      "c32f065929d1659d",
+      "1747984a444b6ad9",
+      "c3f36a798268e1de",
+      "ec67fa65dc296f42",
+      "1069a884983e59d4",
+      "91c75b216c06c2a5",
+      "4d8f093adae24c24",
+      "48c0c592df276f39",
+      "78d57bfaf600502d",
+      "5ee358d7fc5f69b2",
+      "0131bee286cfa887",
+      "686d6b0b42f20035",
+      "dbe83e0ccba794bc",
+      "c985eefaa5638d07",
+      "35ee461a63e9051f",
+      "3b6e11284bfc5f23",
+      "64cd73168027f05b",
+      "5da16d72db9ac516",
+      "ca168177c4ec173b",
+      "d82f47ad17368a60",
+      "13f3070d4abbdb44",
+      "126d625b6a9b99fd",
+      "339966cbc4cedbcb",
+      "5783832858aef327",
+      "4c609c4a05c9227d",
+      "07930f74cd773ae1",
+      "d606aba2fe70c28f",
+      "d77d207b69b0799f",
+      "b1a9831a81daa200",
+      "826fe585de806ae9",
+      "10efad74e3022d30",
+      "6c93783b486533b0",
+      "515e7dc7fb48c067",
+      "99c9f42d342ee2f8",
+      "ff1301ca1fd9dc90",
+      "3caadc5f27945592",
+      "7a9c544f3a801b44"
+    ]
+  },
+  {
+    "target_key": "libming-4.8_swftophp",
+    "template": "libming-4.8_swftophp_CVE-2018-7868",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8.1/seed/bumble-bee1.swf",
+    "sanitizer": "20323",
+    "function": "parseSWF_SHAPEWITHSTYLE",
+    "file": "parser.c",
+    "line": 882,
+    "target_bbs": [
+      "eededfbccbb20f62"
+    ]
+  },
+  {
+    "target_key": "imageworsener-1.3.1_imagew",
+    "template": "imageworsener-1.3.1_imagew_CVE-2017-9204",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00283-imageworsener-heapoverflow-iw_get_ui16le",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "iw_get_ui16le",
+    "file": "imagew-util.c",
+    "line": 405,
+    "target_bbs": [
+      "2170fee4e5b15b7b"
+    ]
+  },
+  {
+    "target_key": "imageworsener-1.3.1_imagew",
+    "template": "imageworsener-1.3.1_imagew_CVE-2017-9204",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00281-imageworsener-invalidread-iw_get_ui16le",
+    "sanitizer": "SEGV",
+    "function": "iw_get_ui16le",
+    "file": "imagew-util.c",
+    "line": 405,
+    "target_bbs": [
+      "2170fee4e5b15b7b"
+    ]
+  },
+  {
+    "target_key": "imageworsener-1.3.1_imagew",
+    "template": "imageworsener-1.3.1_imagew_CVE-2017-9204",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00284-imageworsener-heapoverflow-iw_get_ui16be",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "iw_get_ui16be",
+    "file": "imagew-util.c",
+    "line": 422,
+    "target_bbs": [
+      "72a7e069d71abdd7"
+    ]
+  },
+  {
+    "target_key": "imageworsener-1.3.1_imagew",
+    "template": "imageworsener-1.3.1_imagew_CVE-2017-9204",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-9205/00282-imageworsener-invalidread-iw_get_ui16be",
+    "sanitizer": "SEGV",
+    "function": "iw_get_ui16be",
+    "file": "imagew-util.c",
+    "line": 422,
+    "target_bbs": [
+      "72a7e069d71abdd7"
+    ]
+  },
+  {
+    "target_key": "binutils-2.26_cxxfilt",
+    "template": "binutils-2.26_cxxfilt_CVE-2016-4487",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.26/poc/2016-4491",
+    "sanitizer": "stack-overflow",
+    "function": "d_print_mod_list",
+    "file": "cp-demangle.c",
+    "line": 5457,
+    "target_bbs": [
+      "245985395f2a25a2",
+      "f829f5cf3ee23430"
+    ]
+  },
+  {
+    "target_key": "binutils-2.28_objcopy",
+    "template": "binutils-2.28_objcopy_CVE-2017-8393",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00374-binutils-NULLptr-concat_filename",
+    "sanitizer": "112",
+    "function": "bfd_malloc",
+    "file": "libbfd.c",
+    "line": 184,
+    "target_bbs": [
+      "b6a7e08b8b399b3b"
+    ]
+  },
+  {
+    "target_key": "binutils-2.28_objcopy",
+    "template": "binutils-2.28_objcopy_CVE-2017-8393",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00375-binutils-NULLptr-bfd_hash_hash",
+    "sanitizer": "112",
+    "function": "bfd_malloc",
+    "file": "libbfd.c",
+    "line": 184,
+    "target_bbs": [
+      "b6a7e08b8b399b3b"
+    ]
+  },
+  {
+    "target_key": "binutils-2.28_objcopy",
+    "template": "binutils-2.28_objcopy_CVE-2017-8393",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00370-binutils-heapoverflow-read_1_byte",
+    "sanitizer": "48",
+    "function": "bfd_malloc",
+    "file": "libbfd.c",
+    "line": 184,
+    "target_bbs": [
+      "b6a7e08b8b399b3b"
+    ]
+  },
+  {
+    "target_key": "binutils-2.28_objcopy",
+    "template": "binutils-2.28_objcopy_CVE-2017-8393",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00368-binutils-memallocfailure-_bfd_elf_slurp_version_tables",
+    "sanitizer": "50",
+    "function": "bfd_malloc",
+    "file": "libbfd.c",
+    "line": 184,
+    "target_bbs": [
+      "b6a7e08b8b399b3b"
+    ]
+  },
+  {
+    "target_key": "binutils-2.28_objcopy",
+    "template": "binutils-2.28_objcopy_CVE-2017-8393",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00031-elfutils-memalloc-__libelf_set_rawdata_wrlock",
+    "sanitizer": "out-of-memory",
+    "function": "bfd_malloc",
+    "file": "libbfd.c",
+    "line": 184,
+    "target_bbs": [
+      "b6a7e08b8b399b3b"
+    ]
+  },
+  {
+    "target_key": "binutils-2.28_objcopy",
+    "template": "binutils-2.28_objcopy_CVE-2017-8393",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00371-binutils-infiniteloop-find_abstract_instance_name",
+    "sanitizer": "17086",
+    "function": "bfd_malloc",
+    "file": "libbfd.c",
+    "line": 184,
+    "target_bbs": [
+      "b6a7e08b8b399b3b"
+    ]
+  },
+  {
+    "target_key": "binutils-2.28_objcopy",
+    "template": "binutils-2.28_objcopy_CVE-2017-8393",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00372-binutils-FPE-decode_line_info",
+    "sanitizer": "96",
+    "function": "bfd_malloc",
+    "file": "libbfd.c",
+    "line": 184,
+    "target_bbs": [
+      "b6a7e08b8b399b3b"
+    ]
+  },
+  {
+    "target_key": "binutils-2.28_objcopy",
+    "template": "binutils-2.28_objcopy_CVE-2017-8393",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00381-binutils-invalidread-find_abstract_instance_name",
+    "sanitizer": "48",
+    "function": "bfd_malloc",
+    "file": "libbfd.c",
+    "line": 184,
+    "target_bbs": [
+      "b6a7e08b8b399b3b"
+    ]
+  },
+  {
+    "target_key": "binutils-2.28_objcopy",
+    "template": "binutils-2.28_objcopy_CVE-2017-8393",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00369-binutils-NULLptr-scan_unit_for_symbols",
+    "sanitizer": "48",
+    "function": "bfd_malloc",
+    "file": "libbfd.c",
+    "line": 184,
+    "target_bbs": [
+      "b6a7e08b8b399b3b"
+    ]
+  },
+  {
+    "target_key": "binutils-2.28_objcopy",
+    "template": "binutils-2.28_objcopy_CVE-2017-8393",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00376-binutils-heapoverflow-parse_die",
+    "sanitizer": "48",
+    "function": "bfd_malloc",
+    "file": "libbfd.c",
+    "line": 184,
+    "target_bbs": [
+      "b6a7e08b8b399b3b"
+    ]
+  },
+  {
+    "target_key": "binutils-2.28_objcopy",
+    "template": "binutils-2.28_objcopy_CVE-2017-8393",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-15020/00376-binutils-heapoverflow-parse_die",
+    "sanitizer": "48",
+    "function": "bfd_malloc",
+    "file": "libbfd.c",
+    "line": 184,
+    "target_bbs": [
+      "b6a7e08b8b399b3b"
+    ]
+  },
+  {
+    "target_key": "binutils-2.28_objcopy",
+    "template": "binutils-2.28_objcopy_CVE-2017-8393",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-15938/00381-binutils-invalidread-find_abstract_instance_name",
+    "sanitizer": "48",
+    "function": "bfd_malloc",
+    "file": "libbfd.c",
+    "line": 184,
+    "target_bbs": [
+      "b6a7e08b8b399b3b"
+    ]
+  },
+  {
+    "target_key": "binutils-2.28_objcopy",
+    "template": "binutils-2.28_objcopy_CVE-2017-8393",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.28/seed/64_debug.elf",
+    "sanitizer": "393",
+    "function": "bfd_malloc",
+    "file": "libbfd.c",
+    "line": 184,
+    "target_bbs": [
+      "b6a7e08b8b399b3b"
+    ]
+  },
+  {
+    "target_key": "binutils-2.28_objcopy",
+    "template": "binutils-2.28_objcopy_CVE-2017-8393",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.28/poc-objdump/2017-8398",
+    "sanitizer": "193",
+    "function": "bfd_malloc",
+    "file": "libbfd.c",
+    "line": 184,
+    "target_bbs": [
+      "b6a7e08b8b399b3b"
+    ]
+  },
+  {
+    "target_key": "binutils-2.28_objcopy",
+    "template": "binutils-2.28_objcopy_CVE-2017-8393",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.28/poc-objdump/2017-8397",
+    "sanitizer": "190",
+    "function": "bfd_malloc",
+    "file": "libbfd.c",
+    "line": 184,
+    "target_bbs": [
+      "b6a7e08b8b399b3b"
+    ]
+  },
+  {
+    "target_key": "binutils-2.28_objcopy",
+    "template": "binutils-2.28_objcopy_CVE-2017-8393",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00367-binutils-heapoverflow-_bfd_x86_elf_get_synthetic_symtab",
+    "sanitizer": "608",
+    "function": "bfd_malloc",
+    "file": "libbfd.c",
+    "line": 184,
+    "target_bbs": [
+      "b6a7e08b8b399b3b"
+    ]
+  },
+  {
+    "target_key": "binutils-2.28_objcopy",
+    "template": "binutils-2.28_objcopy_CVE-2017-8393",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.28/seed/main64_exec.elf",
+    "sanitizer": "328",
+    "function": "bfd_malloc",
+    "file": "libbfd.c",
+    "line": 184,
+    "target_bbs": [
+      "b6a7e08b8b399b3b"
+    ]
+  },
+  {
+    "target_key": "binutils-2.28_objcopy",
+    "template": "binutils-2.28_objcopy_CVE-2017-8393",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00382-binutils-heapoverflow-get_line_filename_and_dirname",
+    "sanitizer": "48",
+    "function": "bfd_malloc",
+    "file": "libbfd.c",
+    "line": 184,
+    "target_bbs": [
+      "b6a7e08b8b399b3b"
+    ]
+  },
+  {
+    "target_key": "binutils-2.28_objcopy",
+    "template": "binutils-2.28_objcopy_CVE-2017-8393",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.28/poc-objdump/2017-8396",
+    "sanitizer": "264",
+    "function": "xmalloc",
+    "file": "xmalloc.c",
+    "line": 148,
+    "target_bbs": [
+      "b68f83c5b975143c"
+    ]
+  },
+  {
+    "target_key": "binutils-2.28_objcopy",
+    "template": "binutils-2.28_objcopy_CVE-2017-8393",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.28/poc-objdump/2017-14940",
+    "sanitizer": "50",
+    "function": "bfd_malloc",
+    "file": "libbfd.c",
+    "line": 184,
+    "target_bbs": [
+      "b6a7e08b8b399b3b"
+    ]
+  },
+  {
+    "target_key": "binutils-2.28_objcopy",
+    "template": "binutils-2.28_objcopy_CVE-2017-8393",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00383-binutils-heapoverflow-display_debug_macro",
+    "sanitizer": "69",
+    "function": "xmalloc",
+    "file": "xmalloc.c",
+    "line": 148,
+    "target_bbs": [
+      "b68f83c5b975143c"
+    ]
+  },
+  {
+    "target_key": "binutils-2.28_objcopy",
+    "template": "binutils-2.28_objcopy_CVE-2017-8393",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.29/seed/main64_exec.elf",
+    "sanitizer": "328",
+    "function": "bfd_malloc",
+    "file": "libbfd.c",
+    "line": 184,
+    "target_bbs": [
+      "b6a7e08b8b399b3b"
+    ]
+  },
+  {
+    "target_key": "binutils-2.28_objcopy",
+    "template": "binutils-2.28_objcopy_CVE-2017-8393",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.31.1/seed/main64_exec.elf",
+    "sanitizer": "328",
+    "function": "bfd_malloc",
+    "file": "libbfd.c",
+    "line": 184,
+    "target_bbs": [
+      "b6a7e08b8b399b3b"
+    ]
+  },
+  {
+    "target_key": "binutils-2.28_objcopy",
+    "template": "binutils-2.28_objcopy_CVE-2017-8393",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.31.1/seed/64_debug.elf",
+    "sanitizer": "393",
+    "function": "bfd_malloc",
+    "file": "libbfd.c",
+    "line": 184,
+    "target_bbs": [
+      "b6a7e08b8b399b3b"
+    ]
+  },
+  {
+    "target_key": "binutils-2.28_objcopy",
+    "template": "binutils-2.28_objcopy_CVE-2017-8393",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.28/poc-objcopy/2017-8393",
+    "sanitizer": "global-buffer-overflow",
+    "function": "_bfd_elf_get_reloc_section",
+    "file": "elf.c",
+    "line": 3562,
+    "target_bbs": [
+      "2f272527831f27f8",
+      "8955b3f3c675faa8"
+    ]
+  },
+  {
+    "target_key": "binutils-2.28_objcopy",
+    "template": "binutils-2.28_objcopy_CVE-2017-8393",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.29/poc-nm/2017-14940",
+    "sanitizer": "50",
+    "function": "bfd_malloc",
+    "file": "libbfd.c",
+    "line": 184,
+    "target_bbs": [
+      "b6a7e08b8b399b3b"
+    ]
+  },
+  {
+    "target_key": "binutils-2.28_objcopy",
+    "template": "binutils-2.28_objcopy_CVE-2017-8393",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.27/seed/main64_exec.elf",
+    "sanitizer": "328",
+    "function": "bfd_malloc",
+    "file": "libbfd.c",
+    "line": 184,
+    "target_bbs": [
+      "b6a7e08b8b399b3b"
+    ]
+  },
+  {
+    "target_key": "binutils-2.28_objcopy",
+    "template": "binutils-2.28_objcopy_CVE-2017-8393",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.27/seed/64_debug.elf",
+    "sanitizer": "393",
+    "function": "bfd_malloc",
+    "file": "libbfd.c",
+    "line": 184,
+    "target_bbs": [
+      "b6a7e08b8b399b3b"
+    ]
+  },
+  {
+    "target_key": "binutils-2.28_objcopy",
+    "template": "binutils-2.28_objcopy_CVE-2017-8393",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.29/seed/64_debug.elf",
+    "sanitizer": "393",
+    "function": "bfd_malloc",
+    "file": "libbfd.c",
+    "line": 184,
+    "target_bbs": [
+      "b6a7e08b8b399b3b"
+    ]
+  },
+  {
+    "target_key": "binutils-2.28_objdump",
+    "template": "binutils-2.28_objdump_CVE-2017-8392",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.28/poc-objdump/2017-14940",
+    "sanitizer": "out-of-memory",
+    "function": "_objalloc_alloc",
+    "file": "objalloc.c",
+    "line": 143,
+    "target_bbs": [
+      "70c16a240993f5e8"
+    ]
+  },
+  {
+    "target_key": "binutils-2.28_objdump",
+    "template": "binutils-2.28_objdump_CVE-2017-8392",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00368-binutils-memallocfailure-_bfd_elf_slurp_version_tables",
+    "sanitizer": "out-of-memory",
+    "function": "_objalloc_alloc",
+    "file": "objalloc.c",
+    "line": 143,
+    "target_bbs": [
+      "70c16a240993f5e8"
+    ]
+  },
+  {
+    "target_key": "binutils-2.29_nm",
+    "template": "binutils-2.29_nm_CVE-2017-15938",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00368-binutils-memallocfailure-_bfd_elf_slurp_version_tables",
+    "sanitizer": "out-of-memory",
+    "function": "_objalloc_alloc",
+    "file": "objalloc.c",
+    "line": 143,
+    "target_bbs": [
+      "71a7a2d79e5cfaae"
+    ]
+  },
+  {
+    "target_key": "binutils-2.28_objdump",
+    "template": "binutils-2.28_objdump_CVE-2017-8392",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.29/poc-nm/2017-14940",
+    "sanitizer": "out-of-memory",
+    "function": "_objalloc_alloc",
+    "file": "objalloc.c",
+    "line": 143,
+    "target_bbs": [
+      "70c16a240993f5e8"
+    ]
+  },
+  {
+    "target_key": "binutils-2.29_nm",
+    "template": "binutils-2.29_nm_CVE-2017-15938",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00367-binutils-heapoverflow-_bfd_x86_elf_get_synthetic_symtab",
+    "sanitizer": "280",
+    "function": "bfd_malloc",
+    "file": "libbfd.c",
+    "line": 193,
+    "target_bbs": [
+      "93e6d75eac3a94eb"
+    ]
+  },
+  {
+    "target_key": "binutils-2.29_nm",
+    "template": "binutils-2.29_nm_CVE-2017-15938",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00374-binutils-NULLptr-concat_filename",
+    "sanitizer": "SEGV",
+    "function": "concat_filename",
+    "file": "dwarf2.c",
+    "line": 1578,
+    "target_bbs": [
+      "7db1510461a13a11"
+    ]
+  },
+  {
+    "target_key": "binutils-2.29_nm",
+    "template": "binutils-2.29_nm_CVE-2017-15938",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00381-binutils-invalidread-find_abstract_instance_name",
+    "sanitizer": "SEGV",
+    "function": "find_abstract_instance_name",
+    "file": "dwarf2.c",
+    "line": 2872,
+    "target_bbs": [
+      "3253367d1a47ad78"
+    ]
+  },
+  {
+    "target_key": "binutils-2.29_nm",
+    "template": "binutils-2.29_nm_CVE-2017-15938",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00369-binutils-NULLptr-scan_unit_for_symbols",
+    "sanitizer": "SEGV",
+    "function": "scan_unit_for_symbols",
+    "file": "dwarf2.c",
+    "line": 3189,
+    "target_bbs": [
+      "80c264b6258e15ea"
+    ]
+  },
+  {
+    "target_key": "binutils-2.29_nm",
+    "template": "binutils-2.29_nm_CVE-2017-15938",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00380-binutils-NULLptr-concat_filename",
+    "sanitizer": "SEGV",
+    "function": "concat_filename",
+    "file": "dwarf2.c",
+    "line": 1578,
+    "target_bbs": [
+      "7db1510461a13a11"
+    ]
+  },
+  {
+    "target_key": "binutils-2.29_nm",
+    "template": "binutils-2.29_nm_CVE-2017-15938",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00376-binutils-heapoverflow-parse_die",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "parse_die",
+    "file": "dwarf1.c",
+    "line": 254,
+    "target_bbs": [
+      "a57115775a1926e6"
+    ]
+  },
+  {
+    "target_key": "binutils-2.29_nm",
+    "template": "binutils-2.29_nm_CVE-2017-15938",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00373-binutils-heapoverflow-bfd_getl32",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "bfd_getl32",
+    "file": "libbfd.c",
+    "line": 559,
+    "target_bbs": [
+      "8b06be00a3209e2c"
+    ]
+  },
+  {
+    "target_key": "binutils-2.29_nm",
+    "template": "binutils-2.29_nm_CVE-2017-15938",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.28/poc-objdump/2017-14940",
+    "sanitizer": "out-of-memory",
+    "function": "_objalloc_alloc",
+    "file": "objalloc.c",
+    "line": 143,
+    "target_bbs": [
+      "71a7a2d79e5cfaae"
+    ]
+  },
+  {
+    "target_key": "binutils-2.29_nm",
+    "template": "binutils-2.29_nm_CVE-2017-15938",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.28/seed/main32_exec.elf",
+    "sanitizer": "102",
+    "function": "bfd_malloc",
+    "file": "libbfd.c",
+    "line": 193,
+    "target_bbs": [
+      "93e6d75eac3a94eb"
+    ]
+  },
+  {
+    "target_key": "binutils-2.29_nm",
+    "template": "binutils-2.29_nm_CVE-2017-15938",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.29/poc-nm/2017-14940",
+    "sanitizer": "out-of-memory",
+    "function": "_objalloc_alloc",
+    "file": "objalloc.c",
+    "line": 143,
+    "target_bbs": [
+      "71a7a2d79e5cfaae"
+    ]
+  },
+  {
+    "target_key": "binutils-2.29_nm",
+    "template": "binutils-2.29_nm_CVE-2017-15938",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.31.1/seed/main64_exec.elf",
+    "sanitizer": "1",
+    "function": "bfd_malloc",
+    "file": "libbfd.c",
+    "line": 193,
+    "target_bbs": [
+      "93e6d75eac3a94eb"
+    ]
+  },
+  {
+    "target_key": "binutils-2.29_nm",
+    "template": "binutils-2.29_nm_CVE-2017-15938",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.29/seed/main32_exec.elf",
+    "sanitizer": "102",
+    "function": "bfd_malloc",
+    "file": "libbfd.c",
+    "line": 193,
+    "target_bbs": [
+      "93e6d75eac3a94eb"
+    ]
+  },
+  {
+    "target_key": "binutils-2.29_nm",
+    "template": "binutils-2.29_nm_CVE-2017-15938",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.31.1/seed/main32_exec.elf",
+    "sanitizer": "102",
+    "function": "bfd_malloc",
+    "file": "libbfd.c",
+    "line": 193,
+    "target_bbs": [
+      "93e6d75eac3a94eb"
+    ]
+  },
+  {
+    "target_key": "binutils-2.29_readelf",
+    "template": "binutils-2.29_readelf_CVE-2017-16828",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00374-binutils-NULLptr-concat_filename",
+    "sanitizer": "20480",
+    "function": "xrealloc",
+    "file": "xmalloc.c",
+    "line": 177,
+    "target_bbs": [
+      "12cadd6314828b00"
+    ]
+  },
+  {
+    "target_key": "binutils-2.29_readelf",
+    "template": "binutils-2.29_readelf_CVE-2017-16828",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00142-pax-utils-dumpelf-oob1",
+    "sanitizer": "1110",
+    "function": "xmalloc",
+    "file": "xmalloc.c",
+    "line": 147,
+    "target_bbs": [
+      "c110192dc907572b"
+    ]
+  },
+  {
+    "target_key": "binutils-2.29_readelf",
+    "template": "binutils-2.29_readelf_CVE-2017-16828",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00137-pax-utils-dumpelf-fpe1",
+    "sanitizer": "1110",
+    "function": "xmalloc",
+    "file": "xmalloc.c",
+    "line": 147,
+    "target_bbs": [
+      "c110192dc907572b"
+    ]
+  },
+  {
+    "target_key": "binutils-2.29_readelf",
+    "template": "binutils-2.29_readelf_CVE-2017-16828",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00375-binutils-NULLptr-bfd_hash_hash",
+    "sanitizer": "20480",
+    "function": "xrealloc",
+    "file": "xmalloc.c",
+    "line": 177,
+    "target_bbs": [
+      "12cadd6314828b00"
+    ]
+  },
+  {
+    "target_key": "binutils-2.29_readelf",
+    "template": "binutils-2.29_readelf_CVE-2017-16828",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00371-binutils-infiniteloop-find_abstract_instance_name",
+    "sanitizer": "1272",
+    "function": "xmalloc",
+    "file": "xmalloc.c",
+    "line": 147,
+    "target_bbs": [
+      "c110192dc907572b"
+    ]
+  },
+  {
+    "target_key": "binutils-2.29_readelf",
+    "template": "binutils-2.29_readelf_CVE-2017-16828",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00369-binutils-NULLptr-scan_unit_for_symbols",
+    "sanitizer": "21488",
+    "function": "xrealloc",
+    "file": "xmalloc.c",
+    "line": 177,
+    "target_bbs": [
+      "12cadd6314828b00"
+    ]
+  },
+  {
+    "target_key": "binutils-2.29_readelf",
+    "template": "binutils-2.29_readelf_CVE-2017-16828",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00025-libdwarf-heapoverflow-get_attr_value",
+    "sanitizer": "21284",
+    "function": "xrealloc",
+    "file": "xmalloc.c",
+    "line": 177,
+    "target_bbs": [
+      "12cadd6314828b00"
+    ]
+  },
+  {
+    "target_key": "binutils-2.29_readelf",
+    "template": "binutils-2.29_readelf_CVE-2017-16828",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00380-binutils-NULLptr-concat_filename",
+    "sanitizer": "21488",
+    "function": "xrealloc",
+    "file": "xmalloc.c",
+    "line": 177,
+    "target_bbs": [
+      "12cadd6314828b00"
+    ]
+  },
+  {
+    "target_key": "binutils-2.29_readelf",
+    "template": "binutils-2.29_readelf_CVE-2017-16828",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00024-libdwarf-memalloc-do_decompress_zlib",
+    "sanitizer": "21284",
+    "function": "xrealloc",
+    "file": "xmalloc.c",
+    "line": 177,
+    "target_bbs": [
+      "12cadd6314828b00"
+    ]
+  },
+  {
+    "target_key": "binutils-2.29_readelf",
+    "template": "binutils-2.29_readelf_CVE-2017-16828",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00373-binutils-heapoverflow-bfd_getl32",
+    "sanitizer": "906",
+    "function": "xmalloc",
+    "file": "xmalloc.c",
+    "line": 147,
+    "target_bbs": [
+      "c110192dc907572b"
+    ]
+  },
+  {
+    "target_key": "binutils-2.29_readelf",
+    "template": "binutils-2.29_readelf_CVE-2017-16828",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00382-binutils-heapoverflow-get_line_filename_and_dirname",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "get_line_filename_and_dirname",
+    "file": "dwarf.c",
+    "line": 4609,
+    "target_bbs": [
+      "477a47fd8de26ffb",
+      "254be8933c0f7adf",
+      "810c0bf7977be52f",
+      "911aa58cc26e29ff"
+    ]
+  },
+  {
+    "target_key": "binutils-2.29_readelf",
+    "template": "binutils-2.29_readelf_CVE-2017-16828",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.28/seed/64_debug.elf",
+    "sanitizer": "198",
+    "function": "xmalloc",
+    "file": "xmalloc.c",
+    "line": 147,
+    "target_bbs": [
+      "c110192dc907572b"
+    ]
+  },
+  {
+    "target_key": "binutils-2.29_readelf",
+    "template": "binutils-2.29_readelf_CVE-2017-16828",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-15939/00380-binutils-NULLptr-concat_filename",
+    "sanitizer": "21488",
+    "function": "xrealloc",
+    "file": "xmalloc.c",
+    "line": 177,
+    "target_bbs": [
+      "12cadd6314828b00"
+    ]
+  },
+  {
+    "target_key": "binutils-2.29_readelf",
+    "template": "binutils-2.29_readelf_CVE-2017-16828",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.28/poc-objdump/2017-8392",
+    "sanitizer": "144",
+    "function": "xmalloc",
+    "file": "xmalloc.c",
+    "line": 147,
+    "target_bbs": [
+      "c110192dc907572b"
+    ]
+  },
+  {
+    "target_key": "binutils-2.29_readelf",
+    "template": "binutils-2.29_readelf_CVE-2017-16828",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.28/poc-objdump/2017-8397",
+    "sanitizer": "432",
+    "function": "xmalloc",
+    "file": "xmalloc.c",
+    "line": 147,
+    "target_bbs": [
+      "c110192dc907572b"
+    ]
+  },
+  {
+    "target_key": "binutils-2.29_readelf",
+    "template": "binutils-2.29_readelf_CVE-2017-16828",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.28/poc-objcopy/2017-8395-a",
+    "sanitizer": "144",
+    "function": "xmalloc",
+    "file": "xmalloc.c",
+    "line": 147,
+    "target_bbs": [
+      "c110192dc907572b"
+    ]
+  },
+  {
+    "target_key": "binutils-2.29_readelf",
+    "template": "binutils-2.29_readelf_CVE-2017-16828",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.28/poc-objdump/2017-14940",
+    "sanitizer": "21284",
+    "function": "xrealloc",
+    "file": "xmalloc.c",
+    "line": 177,
+    "target_bbs": [
+      "12cadd6314828b00"
+    ]
+  },
+  {
+    "target_key": "binutils-2.29_readelf",
+    "template": "binutils-2.29_readelf_CVE-2017-16828",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.31.1/seed/64_debug.elf",
+    "sanitizer": "198",
+    "function": "xmalloc",
+    "file": "xmalloc.c",
+    "line": 147,
+    "target_bbs": [
+      "c110192dc907572b"
+    ]
+  },
+  {
+    "target_key": "binutils-2.29_readelf",
+    "template": "binutils-2.29_readelf_CVE-2017-16828",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.31.1/seed/main64_exec.elf",
+    "sanitizer": "606",
+    "function": "xmalloc",
+    "file": "xmalloc.c",
+    "line": 147,
+    "target_bbs": [
+      "c110192dc907572b"
+    ]
+  },
+  {
+    "target_key": "binutils-2.29_readelf",
+    "template": "binutils-2.29_readelf_CVE-2017-16828",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.31.1/seed/main32_exec.elf",
+    "sanitizer": "420",
+    "function": "xmalloc",
+    "file": "xmalloc.c",
+    "line": 147,
+    "target_bbs": [
+      "c110192dc907572b"
+    ]
+  },
+  {
+    "target_key": "binutils-2.29_readelf",
+    "template": "binutils-2.29_readelf_CVE-2017-16828",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.29/seed/64_debug.elf",
+    "sanitizer": "198",
+    "function": "xmalloc",
+    "file": "xmalloc.c",
+    "line": 147,
+    "target_bbs": [
+      "c110192dc907572b"
+    ]
+  },
+  {
+    "target_key": "binutils-2.29_readelf",
+    "template": "binutils-2.29_readelf_CVE-2017-16828",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.31.1/seed/32_stripped.elf",
+    "sanitizer": "204",
+    "function": "xmalloc",
+    "file": "xmalloc.c",
+    "line": 147,
+    "target_bbs": [
+      "c110192dc907572b"
+    ]
+  },
+  {
+    "target_key": "binutils-2.29_readelf",
+    "template": "binutils-2.29_readelf_CVE-2017-16828",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.29/seed/main64_exec.elf",
+    "sanitizer": "606",
+    "function": "xmalloc",
+    "file": "xmalloc.c",
+    "line": 147,
+    "target_bbs": [
+      "c110192dc907572b"
+    ]
+  },
+  {
+    "target_key": "binutils-2.29_readelf",
+    "template": "binutils-2.29_readelf_CVE-2017-16828",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.27/seed/64_debug.elf",
+    "sanitizer": "198",
+    "function": "xmalloc",
+    "file": "xmalloc.c",
+    "line": 147,
+    "target_bbs": [
+      "c110192dc907572b"
+    ]
+  },
+  {
+    "target_key": "binutils-2.29_readelf",
+    "template": "binutils-2.29_readelf_CVE-2017-16828",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.29/seed/32_stripped.elf",
+    "sanitizer": "204",
+    "function": "xmalloc",
+    "file": "xmalloc.c",
+    "line": 147,
+    "target_bbs": [
+      "c110192dc907572b"
+    ]
+  },
+  {
+    "target_key": "binutils-2.29_readelf",
+    "template": "binutils-2.29_readelf_CVE-2017-16828",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.27/seed/main32_exec.elf",
+    "sanitizer": "420",
+    "function": "xmalloc",
+    "file": "xmalloc.c",
+    "line": 147,
+    "target_bbs": [
+      "c110192dc907572b"
+    ]
+  },
+  {
+    "target_key": "libjpeg-1.5.90_cjpeg",
+    "template": "libjpeg-1.5.90_cjpeg_CVE-2018-14498",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libjpeg-2.0.4/poc/2020-13790",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "get_rgb_row",
+    "file": "rdppm.c",
+    "line": 434,
+    "target_bbs": [
+      "1329667a379626e2",
+      "d9e57163640f16c9",
+      "10e354d81562289e",
+      "27b21dfd0b0d69f8",
+      "814941e09f73c3f9"
+    ]
+  },
+  {
+    "target_key": "lame-3.99.5_lame",
+    "template": "lame-3.99.5_lame_CVE-2015-9101",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00292-lame-heapoverflow-fill_buffer_resample",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "fill_buffer_resample",
+    "file": "util.c",
+    "line": 606,
+    "target_bbs": [
+      "c2c6cfe8f641c6cc"
+    ]
+  }
+]

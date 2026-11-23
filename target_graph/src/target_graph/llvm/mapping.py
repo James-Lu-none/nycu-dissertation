@@ -44,6 +44,15 @@ class BasicBlockMapper:
         """Find BB IDs containing this source location, optionally filtered by function."""
         fn = Path(file_path).name
         bbs = self.line_to_bbs.get((fn, line), [])
+        if not bbs and function_name:
+            for offset in [-1, 1, -2, 2, -3, 3, -4, 4]:
+                cand = self.line_to_bbs.get((fn, line + offset), [])
+                matching = [
+                    b for b in cand
+                    if self.bb_records.get(b, {}).get("function") == function_name
+                ]
+                if matching:
+                    return matching
         if function_name:
             # Prioritize BBs belonging to the exact or matching function
             exact_bbs = [
