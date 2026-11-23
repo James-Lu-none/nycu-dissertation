@@ -4,11 +4,15 @@ on:
   pull_request:
     paths:
       - "target_graph/src/target_graph/dg/**"
+      - "target_graph/src/target_graph/llvm/passes/DGIdentityPass.cpp"
+      - "target_graph/src/target_graph/llvm/passes/CMakeLists.txt"
       - "target_graph/tests/unit/test_dg_validate.py"
       - ".github/workflows/target-graph-dg-validate.yml"
   push:
     paths:
       - "target_graph/src/target_graph/dg/**"
+      - "target_graph/src/target_graph/llvm/passes/DGIdentityPass.cpp"
+      - "target_graph/src/target_graph/llvm/passes/CMakeLists.txt"
       - "target_graph/tests/unit/test_dg_validate.py"
       - ".github/workflows/target-graph-dg-validate.yml"
 
@@ -23,3 +27,44 @@ jobs:
       - run: python -m pip install --disable-pip-version-check pytest
       - name: Unit tests (no Docker/GPU dependencies)
         run: PYTHONPATH=target_graph/src python -m pytest target_graph/tests/unit/test_dg_validate.py -q
+
+  identity-pass-llvm14:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y llvm-14-dev llvm-14-tools clang-14 cmake ninja-build
+      - name: Build identity-only LLVM14 pass
+        run: |
+          cmake -S target_graph/src/target_graph/llvm/passes \
+                -B /tmp/dg-passes -G Ninja \
+                -DLLVM_DIR=/usr/lib/llvm-14/lib/cmake/llvm
+          cmake --build /tmp/dg-passes --target DGIdentityPass -j 2
+      - name: Tag LLVM instructions and verify original mapping
+        run: |
+          mkdir -p /tmp/dg-fixture
+          clang-14 -O0 -g -fno-inline -emit-llvm -c \
+            target_graph/tests/fixtures/analysis_v2/no_false_dep.c \
+            -o /tmp/dg-fixture/original.bc
+          TARGET_GRAPH_BUILD_ID=v2_fixture \
+            opt-14 -load-pass-plugin=/tmp/dg-passes/libDGIdentityPass.so \
+            -passes=dg-tag -o /tmp/dg-fixture/tagged.bc /tmp/dg-fixture/original.bc
+          TARGET_GRAPH_DG_EXPORT=/tmp/dg-fixture/before.jsonl \
+            opt-14 -load-pass-plugin=/tmp/dg-passes/libDGIdentityPass.so \
+            -passes=dg-export -disable-output /tmp/dg-fixture/tagged.bc
+          cp /tmp/dg-fixture/before.jsonl /tmp/dg-fixture/after.jsonl
+          PYTHONPATH=target_graph/src python - <<'PY'
+          import json
+          from pathlib import Path
+          from target_graph.dg.validate import validate_survivors
+          root = Path("/tmp/dg-fixture")
+          records = [json.loads(x) for x in (root / "before.jsonl").read_text().splitlines()]
+          assert records
+          assert len({x["id"] for x in records}) == len(records)
+          payload = validate_survivors(
+              root / "before.jsonl", root / "after.jsonl",
+              records[0]["id"], criterion="identity-only-smoke-test",
+              source_bc=root / "original.bc")
+          assert payload["removed_instruction_count"] == 0
+          assert not payload["validated_for_supervision"]
+          print("LLVM14 DG identity bridge passed:", len(records), "instructions")
+          PY
