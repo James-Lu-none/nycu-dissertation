@@ -1,0 +1,25 @@
+name: Target Graph DG adapter checks
+
+on:
+  pull_request:
+    paths:
+      - "target_graph/src/target_graph/dg/**"
+      - "target_graph/tests/unit/test_dg_validate.py"
+      - ".github/workflows/target-graph-dg-validate.yml"
+  push:
+    paths:
+      - "target_graph/src/target_graph/dg/**"
+      - "target_graph/tests/unit/test_dg_validate.py"
+      - ".github/workflows/target-graph-dg-validate.yml"
+
+jobs:
+  unit:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --disable-pip-version-check pytest
+      - name: Unit tests (no Docker/GPU dependencies)
+        run: PYTHONPATH=target_graph/src python -m pytest target_graph/tests/unit/test_dg_validate.py -q

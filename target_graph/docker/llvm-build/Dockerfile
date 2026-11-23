@@ -75,3 +75,6 @@ CMD ["/bin/bash"]
 
 # New analysis core is isolated from the legacy TargetGraphPass pipeline.
 RUN cp /opt/target_graph/build/passes/libAnalysisV2Pass.so /usr/local/lib/AnalysisV2Pass.so
+
+# LLVM identity metadata survives (when supported by DG) for exact BB/trace mapping.
+RUN cp /opt/target_graph/build/passes/libDGIdentityPass.so /usr/local/lib/DGIdentityPass.so
