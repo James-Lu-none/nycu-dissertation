@@ -12,7 +12,7 @@ from target_graph.llvm.mapping import BasicBlockMapper
 
 def find_llvm_symbolizer() -> Optional[str]:
     """Locate llvm-symbolizer binary."""
-    for cand in ["llvm-symbolizer-14", "llvm-symbolizer", "llvm-symbolizer-15", "llvm-symbolizer-16"]:
+    for cand in ["llvm-symbolizer-18", "llvm-symbolizer-17", "llvm-symbolizer-16", "llvm-symbolizer-15", "llvm-symbolizer-14", "llvm-symbolizer"]:
         path = shutil.which(cand)
         if path:
             return path
@@ -163,24 +163,25 @@ def trace_to_basic_blocks(
     unique_pcs = list(dict.fromkeys(pcs))
     pc_map = symbolize_pcs(unique_pcs, binary_path, symbolizer_path=symbolizer_path)
 
-    ordered_bbs: List[str] = []
-    for pc in pcs:
+    # Pre-map unique PCs to basic blocks to avoid repeated mapper queries on large traces
+    pc_to_bbs: Dict[int, List[str]] = {}
+    for pc in unique_pcs:
         locs = pc_map.get(pc, [])
         matched_bbs: List[str] = []
-
-        # Check innermost frame first, then inlined caller frames
         for fn, file_path, line_no in locs:
             matched_bbs = bb_mapper.map_source_location(file_path, line_no, function_name=fn)
             if matched_bbs:
                 break
-
         if not matched_bbs and locs:
-            # Fallback without function filtering if not matched
             for _, file_path, line_no in locs:
                 matched_bbs = bb_mapper.map_source_location(file_path, line_no)
                 if matched_bbs:
                     break
+        pc_to_bbs[pc] = matched_bbs
 
+    ordered_bbs: List[str] = []
+    for pc in pcs:
+        matched_bbs = pc_to_bbs.get(pc, [])
         if matched_bbs:
             for bb in matched_bbs:
                 if not ordered_bbs or ordered_bbs[-1] != bb:

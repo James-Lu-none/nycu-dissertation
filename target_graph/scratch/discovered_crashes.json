@@ -1,0 +1,2092 @@
+[
+  {
+    "target_key": "binutils-2.26_cxxfilt",
+    "template": "binutils-2.26_cxxfilt_CVE-2016-4487",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.26/poc/2016-4492-case1",
+    "sanitizer": "SEGV",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [],
+    "stdin": true
+  },
+  {
+    "target_key": "binutils-2.26_cxxfilt",
+    "template": "binutils-2.26_cxxfilt_CVE-2016-4487",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.26/poc/2016-4487-a",
+    "sanitizer": "SEGV",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [],
+    "stdin": true
+  },
+  {
+    "target_key": "binutils-2.26_cxxfilt",
+    "template": "binutils-2.26_cxxfilt_CVE-2016-4487",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.26/poc/2016-4492-case3",
+    "sanitizer": "SEGV",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [],
+    "stdin": true
+  },
+  {
+    "target_key": "binutils-2.26_cxxfilt",
+    "template": "binutils-2.26_cxxfilt_CVE-2016-4487",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.26/poc/2016-4492-case2",
+    "sanitizer": "SEGV",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [],
+    "stdin": true
+  },
+  {
+    "target_key": "binutils-2.26_cxxfilt",
+    "template": "binutils-2.26_cxxfilt_CVE-2016-4487",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.26/poc/2016-4490",
+    "sanitizer": "SEGV",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [],
+    "stdin": true
+  },
+  {
+    "target_key": "binutils-2.26_cxxfilt",
+    "template": "binutils-2.26_cxxfilt_CVE-2016-4487",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.26/poc/2016-4487-b",
+    "sanitizer": "SEGV",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [],
+    "stdin": true
+  },
+  {
+    "target_key": "binutils-2.26_cxxfilt",
+    "template": "binutils-2.26_cxxfilt_CVE-2016-4487",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.26/poc/2016-4491",
+    "sanitizer": "stack-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [],
+    "stdin": true
+  },
+  {
+    "target_key": "binutils-2.27_strip",
+    "template": "binutils-2.27_strip_CVE-2017-7303",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.27/poc/2017-7303",
+    "sanitizer": "SEGV",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-s",
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.27/poc/2017-7303",
+      "-o",
+      "/tmp/out_s"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "binutils-2.27_strip",
+    "template": "binutils-2.27_strip_CVE-2017-7303",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.28/poc-objcopy/2017-8393",
+    "sanitizer": "global-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-s",
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.28/poc-objcopy/2017-8393",
+      "-o",
+      "/tmp/out_s"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "binutils-2.27_strip",
+    "template": "binutils-2.27_strip_CVE-2017-7303",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.28/poc-objcopy/2017-7303",
+    "sanitizer": "SEGV",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-s",
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.28/poc-objcopy/2017-7303",
+      "-o",
+      "/tmp/out_s"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "binutils-2.28_objcopy",
+    "template": "binutils-2.28_objcopy_CVE-2017-8395",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00031-elfutils-memalloc-__libelf_set_rawdata_wrlock",
+    "sanitizer": "allocator",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00031-elfutils-memalloc-__libelf_set_rawdata_wrlock",
+      "/tmp/out_o"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "binutils-2.28_objcopy",
+    "template": "binutils-2.28_objcopy_CVE-2017-8395",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.28/poc-objcopy/2017-8393",
+    "sanitizer": "global-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.28/poc-objcopy/2017-8393",
+      "/tmp/out_o"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "binutils-2.28_objdump",
+    "template": "binutils-2.28_objdump_CVE-2017-8392",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00368-binutils-memallocfailure-_bfd_elf_slurp_version_tables",
+    "sanitizer": "allocator",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-d",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00368-binutils-memallocfailure-_bfd_elf_slurp_version_tables"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "binutils-2.28_objdump",
+    "template": "binutils-2.28_objdump_CVE-2017-8392",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.29/poc-nm/2017-14940",
+    "sanitizer": "allocator",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-d",
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.29/poc-nm/2017-14940"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "binutils-2.28_objdump",
+    "template": "binutils-2.28_objdump_CVE-2017-8392",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.28/poc-objdump/2017-14940",
+    "sanitizer": "allocator",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-d",
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.28/poc-objdump/2017-14940"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "binutils-2.29_nm",
+    "template": "binutils-2.29_nm_CVE-2017-15020",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00370-binutils-heapoverflow-read_1_byte",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-l",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00370-binutils-heapoverflow-read_1_byte"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "binutils-2.29_nm",
+    "template": "binutils-2.29_nm_CVE-2017-15020",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00374-binutils-NULLptr-concat_filename",
+    "sanitizer": "SEGV",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-l",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00374-binutils-NULLptr-concat_filename"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "binutils-2.29_nm",
+    "template": "binutils-2.29_nm_CVE-2017-15020",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00381-binutils-invalidread-find_abstract_instance_name",
+    "sanitizer": "SEGV",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-l",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00381-binutils-invalidread-find_abstract_instance_name"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "binutils-2.29_nm",
+    "template": "binutils-2.29_nm_CVE-2017-15020",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00372-binutils-FPE-decode_line_info",
+    "sanitizer": "FPE",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-l",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00372-binutils-FPE-decode_line_info"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "binutils-2.29_nm",
+    "template": "binutils-2.29_nm_CVE-2017-15020",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00369-binutils-NULLptr-scan_unit_for_symbols",
+    "sanitizer": "SEGV",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-l",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00369-binutils-NULLptr-scan_unit_for_symbols"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "binutils-2.29_nm",
+    "template": "binutils-2.29_nm_CVE-2017-15020",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00376-binutils-heapoverflow-parse_die",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-l",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00376-binutils-heapoverflow-parse_die"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "binutils-2.29_nm",
+    "template": "binutils-2.29_nm_CVE-2017-15020",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-15020/00376-binutils-heapoverflow-parse_die",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-l",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-15020/00376-binutils-heapoverflow-parse_die"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "binutils-2.29_nm",
+    "template": "binutils-2.29_nm_CVE-2017-15020",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-15938/00381-binutils-invalidread-find_abstract_instance_name",
+    "sanitizer": "SEGV",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-l",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-15938/00381-binutils-invalidread-find_abstract_instance_name"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffcrop",
+    "template": "libtiff-4.0.6_tiffcrop_CVE-2016-10272",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/000103-libtiff-heapoverflow-writeCroppedImage",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-i",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/000103-libtiff-heapoverflow-writeCroppedImage",
+      "/tmp/out.tif"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffcrop",
+    "template": "libtiff-4.0.6_tiffcrop_CVE-2016-10272",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00071-libtiff-heapoverflow-_TIFFmemcpy",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-i",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00071-libtiff-heapoverflow-_TIFFmemcpy",
+      "/tmp/out.tif"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffcrop",
+    "template": "libtiff-4.0.6_tiffcrop_CVE-2016-10272",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00102-libtiff-heapoverflow-_TIFFmemcpy",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-i",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00102-libtiff-heapoverflow-_TIFFmemcpy",
+      "/tmp/out.tif"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffcrop",
+    "template": "libtiff-4.0.6_tiffcrop_CVE-2016-10272",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00100-libtiff-heapoverflow-_TIFFFax3fillruns",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-i",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00100-libtiff-heapoverflow-_TIFFFax3fillruns",
+      "/tmp/out.tif"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffcrop",
+    "template": "libtiff-4.0.6_tiffcrop_CVE-2016-10272",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00073-libtiff-fpe-writeBufferToSeparateTiles",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-i",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00073-libtiff-fpe-writeBufferToSeparateTiles",
+      "/tmp/out.tif"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "binutils-2.29_nm",
+    "template": "binutils-2.29_nm_CVE-2017-15020",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00371-binutils-infiniteloop-find_abstract_instance_name",
+    "sanitizer": "stack-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-l",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00371-binutils-infiniteloop-find_abstract_instance_name"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffcrop",
+    "template": "libtiff-4.0.6_tiffcrop_CVE-2016-10272",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00101-libtiff-heapoverflow-combineSeparateSamples16bits",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-i",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00101-libtiff-heapoverflow-combineSeparateSamples16bits",
+      "/tmp/out.tif"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffcrop",
+    "template": "libtiff-4.0.6_tiffcrop_CVE-2016-10272",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00069-libtiff-memalloc-_TIFFmalloc",
+    "sanitizer": "allocator",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-i",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00069-libtiff-memalloc-_TIFFmalloc",
+      "/tmp/out.tif"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffcrop",
+    "template": "libtiff-4.0.6_tiffcrop_CVE-2016-10272",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2016-10092/00102-libtiff-heapoverflow-_TIFFmemcpy",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-i",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2016-10092/00102-libtiff-heapoverflow-_TIFFmemcpy",
+      "/tmp/out.tif"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffcrop",
+    "template": "libtiff-4.0.6_tiffcrop_CVE-2016-10272",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2016-10271/00100-libtiff-heapoverflow-_TIFFFax3fillruns",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-i",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2016-10271/00100-libtiff-heapoverflow-_TIFFFax3fillruns",
+      "/tmp/out.tif"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffcrop",
+    "template": "libtiff-4.0.6_tiffcrop_CVE-2016-10272",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2016-10269/00071-libtiff-heapoverflow-_TIFFmemcpy",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-i",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2016-10269/00071-libtiff-heapoverflow-_TIFFmemcpy",
+      "/tmp/out.tif"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffcrop",
+    "template": "libtiff-4.0.6_tiffcrop_CVE-2016-10272",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00057-libtiff-memalloc-TIFFReadRawData",
+    "sanitizer": "allocator",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-i",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00057-libtiff-memalloc-TIFFReadRawData",
+      "/tmp/out.tif"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffcrop",
+    "template": "libtiff-4.0.6_tiffcrop_CVE-2016-10272",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00103-libtiff-heapoverflow-NeXTDecode",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-i",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00103-libtiff-heapoverflow-NeXTDecode",
+      "/tmp/out.tif"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffcrop",
+    "template": "libtiff-4.0.6_tiffcrop_CVE-2016-10272",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00068-libtiff-invalidwrite-cpStripToTile",
+    "sanitizer": "SEGV",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-i",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00068-libtiff-invalidwrite-cpStripToTile",
+      "/tmp/out.tif"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffcp",
+    "template": "libtiff-4.0.6_tiffcp_CVE-2016-10269",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00057-libtiff-memalloc-TIFFReadRawData",
+    "sanitizer": "allocator",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-i",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00057-libtiff-memalloc-TIFFReadRawData",
+      "/tmp/out.tif"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffcp",
+    "template": "libtiff-4.0.6_tiffcp_CVE-2016-10269",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00069-libtiff-memalloc-_TIFFmalloc",
+    "sanitizer": "allocator",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-i",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00069-libtiff-memalloc-_TIFFmalloc",
+      "/tmp/out.tif"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffcrop",
+    "template": "libtiff-4.0.6_tiffcrop_CVE-2016-10272",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2016-10272/00103-libtiff-heapoverflow-NeXTDecode",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-i",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2016-10272/00103-libtiff-heapoverflow-NeXTDecode",
+      "/tmp/out.tif"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffcp",
+    "template": "libtiff-4.0.6_tiffcp_CVE-2016-10269",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/000103-libtiff-heapoverflow-writeCroppedImage",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-i",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/000103-libtiff-heapoverflow-writeCroppedImage",
+      "/tmp/out.tif"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffcp",
+    "template": "libtiff-4.0.6_tiffcp_CVE-2016-10269",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00065-libtiff-fpe-readSeparateTilesIntoBuffer",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-i",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00065-libtiff-fpe-readSeparateTilesIntoBuffer",
+      "/tmp/out.tif"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libtiff-4.0.6_tiffcp",
+    "template": "libtiff-4.0.6_tiffcp_CVE-2016-10269",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00067-libtiff-heapoverflow-tiffcp",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-i",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00067-libtiff-heapoverflow-tiffcp",
+      "/tmp/out.tif"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "jasper-1.900.1_imginfo",
+    "template": "jasper-1.900.1_imginfo_CVE-2016-8887",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00124-jasper-nullptr-jp2_cdef_destroy",
+    "sanitizer": "SEGV",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-f",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00124-jasper-nullptr-jp2_cdef_destroy"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "jasper-1.900.1_imginfo",
+    "template": "jasper-1.900.1_imginfo_CVE-2016-8887",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00002-jasper-NULLptr-jp2_colr_destroy",
+    "sanitizer": "SEGV",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-f",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00002-jasper-NULLptr-jp2_colr_destroy"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "jasper-1.900.1_imginfo",
+    "template": "jasper-1.900.1_imginfo_CVE-2016-8887",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00029-jasper-uninitvalue-jpc_pi_nextcprl",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-f",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00029-jasper-uninitvalue-jpc_pi_nextcprl"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "jasper-1.900.1_imginfo",
+    "template": "jasper-1.900.1_imginfo_CVE-2016-8887",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00052-jasper-misalignedaddress",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-f",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00052-jasper-misalignedaddress"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "jasper-1.900.1_imginfo",
+    "template": "jasper-1.900.1_imginfo_CVE-2016-8887",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-6850/00124-jasper-nullptr-jp2_cdef_destroy",
+    "sanitizer": "SEGV",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-f",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-6850/00124-jasper-nullptr-jp2_cdef_destroy"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "jasper-1.900.1_imginfo",
+    "template": "jasper-1.900.1_imginfo_CVE-2016-8887",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2016-10251/00029-jasper-uninitvalue-jpc_pi_nextcprl",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-f",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2016-10251/00029-jasper-uninitvalue-jpc_pi_nextcprl"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "jasper-1.900.1_imginfo",
+    "template": "jasper-1.900.1_imginfo_CVE-2016-8887",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00054-jasper-invalidread-jpc_undo_roi",
+    "sanitizer": "SEGV",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-f",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00054-jasper-invalidread-jpc_undo_roi"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "bento4-1.5.0_mp42aac",
+    "template": "bento4-1.5.0_mp42aac_CVE-2017-14638",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00360-bento4-globaloverflow-AP4_MemoryByteStream_WritePartial",
+    "sanitizer": "requested",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00360-bento4-globaloverflow-AP4_MemoryByteStream_WritePartial",
+      "/tmp/out.aac"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "bento4-1.5.0_mp42aac",
+    "template": "bento4-1.5.0_mp42aac_CVE-2017-14638",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00339-bento4-NULLptr-AP4_StdcFileByteStream_ReadPartial",
+    "sanitizer": "requested",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00339-bento4-NULLptr-AP4_StdcFileByteStream_ReadPartial",
+      "/tmp/out.aac"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "bento4-1.5.0_mp42aac",
+    "template": "bento4-1.5.0_mp42aac_CVE-2017-14638",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00344-bento4-stackunderflow-AP4_VisualSampleEntry_ReadFields",
+    "sanitizer": "stack-buffer-underflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00344-bento4-stackunderflow-AP4_VisualSampleEntry_ReadFields",
+      "/tmp/out.aac"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "bento4-1.5.0_mp42aac",
+    "template": "bento4-1.5.0_mp42aac_CVE-2017-14638",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00355-bento4-heapoverflow-AP4_HvccAtom_AP4_HvccAtom",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00355-bento4-heapoverflow-AP4_HvccAtom_AP4_HvccAtom",
+      "/tmp/out.aac"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "bento4-1.5.0_mp42aac",
+    "template": "bento4-1.5.0_mp42aac_CVE-2017-14638",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00356-bento4-heapoverflow-AP4_AvccAtom_Create",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00356-bento4-heapoverflow-AP4_AvccAtom_Create",
+      "/tmp/out.aac"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "bento4-1.5.0_mp42aac",
+    "template": "bento4-1.5.0_mp42aac_CVE-2017-14638",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00336-bento4-NULLptr-AP4_Atom_SetType",
+    "sanitizer": "SEGV",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00336-bento4-NULLptr-AP4_Atom_SetType",
+      "/tmp/out.aac"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "bento4-1.5.0_mp42aac",
+    "template": "bento4-1.5.0_mp42aac_CVE-2017-14638",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00342-bento4-heapoverflow-AP4_DataBuffer_SetData",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00342-bento4-heapoverflow-AP4_DataBuffer_SetData",
+      "/tmp/out.aac"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "bento4-1.5.0_mp42aac",
+    "template": "bento4-1.5.0_mp42aac_CVE-2017-14638",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00338-bento4-NULLptr-AP4_DataAtom_AP4_DataAtom",
+    "sanitizer": "SEGV",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00338-bento4-NULLptr-AP4_DataAtom_AP4_DataAtom",
+      "/tmp/out.aac"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "bento4-1.5.0_mp42aac",
+    "template": "bento4-1.5.0_mp42aac_CVE-2017-14638",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00340-bento4-heapoverflow-AP4_HdlrAtom_AP4_HdlrAtom",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00340-bento4-heapoverflow-AP4_HdlrAtom_AP4_HdlrAtom",
+      "/tmp/out.aac"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "bento4-1.5.0_mp42aac",
+    "template": "bento4-1.5.0_mp42aac_CVE-2017-14638",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00337-bento4-NULLptr-AP4_AtomSampleTable_GetSample",
+    "sanitizer": "SEGV",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00337-bento4-NULLptr-AP4_AtomSampleTable_GetSample",
+      "/tmp/out.aac"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "bento4-1.5.0_mp42aac",
+    "template": "bento4-1.5.0_mp42aac_CVE-2017-14638",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00358-bento4-NULLptr-AP4_DataBuffer_SetData",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00358-bento4-NULLptr-AP4_DataBuffer_SetData",
+      "/tmp/out.aac"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "bento4-1.5.0_mp42aac",
+    "template": "bento4-1.5.0_mp42aac_CVE-2017-14638",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-14644/00340-bento4-heapoverflow-AP4_HdlrAtom_AP4_HdlrAtom",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-14644/00340-bento4-heapoverflow-AP4_HdlrAtom_AP4_HdlrAtom",
+      "/tmp/out.aac"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "bento4-1.5.0_mp42aac",
+    "template": "bento4-1.5.0_mp42aac_CVE-2017-14638",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-14639/00344-bento4-stackunderflow-AP4_VisualSampleEntry_ReadFields",
+    "sanitizer": "stack-buffer-underflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-14639/00344-bento4-stackunderflow-AP4_VisualSampleEntry_ReadFields",
+      "/tmp/out.aac"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "bento4-1.5.0_mp42aac",
+    "template": "bento4-1.5.0_mp42aac_CVE-2017-14638",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-14642/00339-bento4-NULLptr-AP4_StdcFileByteStream_ReadPartial",
+    "sanitizer": "requested",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-14642/00339-bento4-NULLptr-AP4_StdcFileByteStream_ReadPartial",
+      "/tmp/out.aac"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "bento4-1.5.0_mp42aac",
+    "template": "bento4-1.5.0_mp42aac_CVE-2017-14638",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-14638/00336-bento4-NULLptr-AP4_Atom_SetType",
+    "sanitizer": "SEGV",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-14638/00336-bento4-NULLptr-AP4_Atom_SetType",
+      "/tmp/out.aac"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "bento4-1.5.0_mp42aac",
+    "template": "bento4-1.5.0_mp42aac_CVE-2017-14638",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-14641/00338-bento4-NULLptr-AP4_DataAtom_AP4_DataAtom",
+    "sanitizer": "SEGV",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-14641/00338-bento4-NULLptr-AP4_DataAtom_AP4_DataAtom",
+      "/tmp/out.aac"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "bento4-1.5.0_mp42aac",
+    "template": "bento4-1.5.0_mp42aac_CVE-2017-14638",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-14640/00337-bento4-NULLptr-AP4_AtomSampleTable_GetSample",
+    "sanitizer": "SEGV",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-14640/00337-bento4-NULLptr-AP4_AtomSampleTable_GetSample",
+      "/tmp/out.aac"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "bento4-1.5.0_mp42aac",
+    "template": "bento4-1.5.0_mp42aac_CVE-2017-14638",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-14646/00342-bento4-heapoverflow-AP4_DataBuffer_SetData",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-14646/00342-bento4-heapoverflow-AP4_DataBuffer_SetData",
+      "/tmp/out.aac"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "zziplib-0.13.62_unzzipcat-mem",
+    "template": "zziplib-0.13.62_unzzipcat-mem_CVE-2017-5974",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00151-zziplib-heapoverflow-__zzip_get64",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00151-zziplib-heapoverflow-__zzip_get64"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "zziplib-0.13.62_unzzipcat-mem",
+    "template": "zziplib-0.13.62_unzzipcat-mem_CVE-2017-5974",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00155-zziplib-nullptr-main",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00155-zziplib-nullptr-main"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "zziplib-0.13.62_unzzipcat-mem",
+    "template": "zziplib-0.13.62_unzzipcat-mem_CVE-2017-5974",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00156-zziplib-oobread-zzip_mem_entry_new",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00156-zziplib-oobread-zzip_mem_entry_new"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "zziplib-0.13.62_unzzipcat-mem",
+    "template": "zziplib-0.13.62_unzzipcat-mem_CVE-2017-5974",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00150-zziplib-heapoverflow-__zzip_get32",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00150-zziplib-heapoverflow-__zzip_get32"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "zziplib-0.13.62_unzzipcat-mem",
+    "template": "zziplib-0.13.62_unzzipcat-mem_CVE-2017-5974",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00158-zziplib-nullptr-main",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00158-zziplib-nullptr-main"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "zziplib-0.13.62_unzzipcat-mem",
+    "template": "zziplib-0.13.62_unzzipcat-mem_CVE-2017-5974",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00152-zziplib-heapoverflow-zzip_mem_entry_extra_block",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00152-zziplib-heapoverflow-zzip_mem_entry_extra_block"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "zziplib-0.13.62_unzzipcat-mem",
+    "template": "zziplib-0.13.62_unzzipcat-mem_CVE-2017-5974",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00153-zziplib-invalidread-zzip_mem_entry_extra_block",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00153-zziplib-invalidread-zzip_mem_entry_extra_block"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "zziplib-0.13.62_unzzipcat-mem",
+    "template": "zziplib-0.13.62_unzzipcat-mem_CVE-2017-5974",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00154-zziplib-nullptr-zzip_mem_entry_new",
+    "sanitizer": "SEGV",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00154-zziplib-nullptr-zzip_mem_entry_new"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "zziplib-0.13.62_unzzipcat-mem",
+    "template": "zziplib-0.13.62_unzzipcat-mem_CVE-2017-5974",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00239-libzip-UAF-_zip_buffer_free",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00239-libzip-UAF-_zip_buffer_free"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "zziplib-0.13.62_unzzipcat-mem",
+    "template": "zziplib-0.13.62_unzzipcat-mem_CVE-2017-5974",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-12858/poc.zip",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-12858/poc.zip"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "zziplib-0.13.62_unzzipcat-mem",
+    "template": "zziplib-0.13.62_unzzipcat-mem_CVE-2017-5974",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-5977/00153-zziplib-invalidread-zzip_mem_entry_extra_block",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-5977/00153-zziplib-invalidread-zzip_mem_entry_extra_block"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "zziplib-0.13.62_unzzipcat-mem",
+    "template": "zziplib-0.13.62_unzzipcat-mem_CVE-2017-5974",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-5980/00154-zziplib-nullptr-zzip_mem_entry_new",
+    "sanitizer": "SEGV",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-5980/00154-zziplib-nullptr-zzip_mem_entry_new"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "zziplib-0.13.62_unzzipcat-mem",
+    "template": "zziplib-0.13.62_unzzipcat-mem_CVE-2017-5974",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-5978/00156-zziplib-oobread-zzip_mem_entry_new",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-5978/00156-zziplib-oobread-zzip_mem_entry_new"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "zziplib-0.13.62_unzzipcat-mem",
+    "template": "zziplib-0.13.62_unzzipcat-mem_CVE-2017-5974",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-5974/00150-zziplib-heapoverflow-__zzip_get32",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-5974/00150-zziplib-heapoverflow-__zzip_get32"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "zziplib-0.13.62_unzzipcat-mem",
+    "template": "zziplib-0.13.62_unzzipcat-mem_CVE-2017-5974",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-5976/00152-zziplib-heapoverflow-zzip_mem_entry_extra_block",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-5976/00152-zziplib-heapoverflow-zzip_mem_entry_extra_block"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libming-4.7.1_swftophp",
+    "template": "libming-4.7.1_swftophp_CVE-2017-7578",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-7868-repro",
+    "sanitizer": "requested",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-7868-repro"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libming-4.7.1_swftophp",
+    "template": "libming-4.7.1_swftophp_CVE-2017-7578",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-8962-b",
+    "sanitizer": "heap-use-after-free",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-8962-b"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libming-4.7.1_swftophp",
+    "template": "libming-4.7.1_swftophp_CVE-2017-7578",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-8962-e",
+    "sanitizer": "heap-use-after-free",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-8962-e"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libming-4.7.1_swftophp",
+    "template": "libming-4.7.1_swftophp_CVE-2017-7578",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-8962-f",
+    "sanitizer": "heap-use-after-free",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-8962-f"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libming-4.7.1_swftophp",
+    "template": "libming-4.7.1_swftophp_CVE-2017-7578",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-20427",
+    "sanitizer": "requested",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-20427"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libming-4.7.1_swftophp",
+    "template": "libming-4.7.1_swftophp_CVE-2017-7578",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2020-6628",
+    "sanitizer": "requested",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2020-6628"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libming-4.7.1_swftophp",
+    "template": "libming-4.7.1_swftophp_CVE-2017-7578",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2019-12982",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2019-12982"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libming-4.7.1_swftophp",
+    "template": "libming-4.7.1_swftophp_CVE-2017-7578",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-8962-d",
+    "sanitizer": "heap-use-after-free",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-8962-d"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libming-4.7.1_swftophp",
+    "template": "libming-4.7.1_swftophp_CVE-2017-7578",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-11226",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-11226"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libming-4.7.1_swftophp",
+    "template": "libming-4.7.1_swftophp_CVE-2017-7578",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-8962-a",
+    "sanitizer": "heap-use-after-free",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-8962-a"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libming-4.7.1_swftophp",
+    "template": "libming-4.7.1_swftophp_CVE-2017-7578",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-11225",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-11225"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libming-4.7.1_swftophp",
+    "template": "libming-4.7.1_swftophp_CVE-2017-7578",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-11095-github",
+    "sanitizer": "heap-use-after-free",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-11095-github"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libming-4.7.1_swftophp",
+    "template": "libming-4.7.1_swftophp_CVE-2017-7578",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-7868-github",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-7868-github"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libming-4.7.1_swftophp",
+    "template": "libming-4.7.1_swftophp_CVE-2017-7578",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-8962-c",
+    "sanitizer": "heap-use-after-free",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-8962-c"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libming-4.7.1_swftophp",
+    "template": "libming-4.7.1_swftophp_CVE-2017-7578",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-8962-g",
+    "sanitizer": "heap-use-after-free",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-8962-g"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libming-4.7.1_swftophp",
+    "template": "libming-4.7.1_swftophp_CVE-2017-7578",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-8807",
+    "sanitizer": "heap-use-after-free",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-8807"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libming-4.7.1_swftophp",
+    "template": "libming-4.7.1_swftophp_CVE-2017-7578",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-11095-repro",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-11095-repro"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libming-4.7.1_swftophp",
+    "template": "libming-4.7.1_swftophp_CVE-2017-7578",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.7.1/poc/2017-7578",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.7.1/poc/2017-7578"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libming-4.7.1_swftophp",
+    "template": "libming-4.7.1_swftophp_CVE-2017-7578",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.7/poc/2017-11729",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.7/poc/2017-11729"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libming-4.7.1_swftophp",
+    "template": "libming-4.7.1_swftophp_CVE-2017-7578",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.7/poc/2017-11728",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.7/poc/2017-11728"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libming-4.7.1_swftophp",
+    "template": "libming-4.7.1_swftophp_CVE-2017-7578",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.7/poc/2017-9988-github",
+    "sanitizer": "allocator",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.7/poc/2017-9988-github"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libming-4.8_swftophp",
+    "template": "libming-4.8_swftophp_CVE-2018-8962",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-7868-repro",
+    "sanitizer": "requested",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-7868-repro"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libming-4.8_swftophp",
+    "template": "libming-4.8_swftophp_CVE-2018-8962",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-8962-b",
+    "sanitizer": "heap-use-after-free",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-8962-b"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libming-4.8_swftophp",
+    "template": "libming-4.8_swftophp_CVE-2018-8962",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-8962-e",
+    "sanitizer": "heap-use-after-free",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-8962-e"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libming-4.8_swftophp",
+    "template": "libming-4.8_swftophp_CVE-2018-8962",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-8962-f",
+    "sanitizer": "heap-use-after-free",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-8962-f"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libming-4.8_swftophp",
+    "template": "libming-4.8_swftophp_CVE-2018-8962",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2019-12982",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2019-12982"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libming-4.8_swftophp",
+    "template": "libming-4.8_swftophp_CVE-2018-8962",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-20427",
+    "sanitizer": "requested",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-20427"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libming-4.8_swftophp",
+    "template": "libming-4.8_swftophp_CVE-2018-8962",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-11226",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-11226"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libming-4.8_swftophp",
+    "template": "libming-4.8_swftophp_CVE-2018-8962",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-8962-d",
+    "sanitizer": "heap-use-after-free",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-8962-d"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libming-4.8_swftophp",
+    "template": "libming-4.8_swftophp_CVE-2018-8962",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-8962-a",
+    "sanitizer": "heap-use-after-free",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-8962-a"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libming-4.8_swftophp",
+    "template": "libming-4.8_swftophp_CVE-2018-8962",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-11225",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-11225"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libming-4.8_swftophp",
+    "template": "libming-4.8_swftophp_CVE-2018-8962",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-8962-c",
+    "sanitizer": "heap-use-after-free",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-8962-c"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libming-4.8_swftophp",
+    "template": "libming-4.8_swftophp_CVE-2018-8962",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-7868-github",
+    "sanitizer": "heap-use-after-free",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-7868-github"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libming-4.8_swftophp",
+    "template": "libming-4.8_swftophp_CVE-2018-8962",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-8962-g",
+    "sanitizer": "heap-use-after-free",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-8962-g"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libming-4.8_swftophp",
+    "template": "libming-4.8_swftophp_CVE-2018-8962",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-11095-github",
+    "sanitizer": "heap-use-after-free",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-11095-github"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libming-4.8_swftophp",
+    "template": "libming-4.8_swftophp_CVE-2018-8962",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-8807",
+    "sanitizer": "heap-use-after-free",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-8807"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libming-4.8_swftophp",
+    "template": "libming-4.8_swftophp_CVE-2018-8962",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-11095-repro",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2018-11095-repro"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libming-4.8_swftophp",
+    "template": "libming-4.8_swftophp_CVE-2018-8962",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2020-6628",
+    "sanitizer": "requested",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.8/poc/2020-6628"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libming-4.8_swftophp",
+    "template": "libming-4.8_swftophp_CVE-2018-8962",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.7/poc/2017-11728",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.7/poc/2017-11728"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libming-4.8_swftophp",
+    "template": "libming-4.8_swftophp_CVE-2018-8962",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.7/poc/2017-11729",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.7/poc/2017-11729"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libming-4.8_swftophp",
+    "template": "libming-4.8_swftophp_CVE-2018-8962",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.7/poc/2017-9988-github",
+    "sanitizer": "allocator",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.7/poc/2017-9988-github"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libxml2-2.9.4_xmllint",
+    "template": "libxml2-2.9.4_xmllint_CVE-2017-5969",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libxml2-2.9.4/poc/2017-5969",
+    "sanitizer": "SEGV",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "--recover",
+      "--valid",
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libxml2-2.9.4/poc/2017-5969"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libjpeg-1.5.90_cjpeg",
+    "template": "libjpeg-1.5.90_cjpeg_CVE-2018-14498",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libjpeg-1.5.90/poc/2018-14498",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libjpeg-1.5.90/poc/2018-14498"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "jhead-3.04_jhead",
+    "template": "jhead-3.04_jhead_issue54",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00318-openjpeg-heapoverflow-opj_bio_byteout",
+    "sanitizer": "global-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-ds2020:01:01:1111111111111111111111111111111111111111",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00318-openjpeg-heapoverflow-opj_bio_byteout"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libxml2-2.9.4_xmllint",
+    "template": "libxml2-2.9.4_xmllint_CVE-2017-5969",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libxml2-2.9.4/poc/2017-9047",
+    "sanitizer": "SEGV",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "--recover",
+      "--valid",
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libxml2-2.9.4/poc/2017-9047"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "libjpeg-1.5.90_cjpeg",
+    "template": "libjpeg-1.5.90_cjpeg_CVE-2018-14498",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libjpeg-2.0.4/poc/2020-13790",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libjpeg-2.0.4/poc/2020-13790"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "jhead-3.04_jhead",
+    "template": "jhead-3.04_jhead_issue54",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00120-libtiff-signintoverflow-tif_jpeg",
+    "sanitizer": "global-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-ds2020:01:01:1111111111111111111111111111111111111111",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00120-libtiff-signintoverflow-tif_jpeg"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "jhead-3.04_jhead",
+    "template": "jhead-3.04_jhead_issue54",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00021-jasper-uninitvalue-jpg_mkimage",
+    "sanitizer": "global-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-ds2020:01:01:1111111111111111111111111111111111111111",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00021-jasper-uninitvalue-jpg_mkimage"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "jhead-3.04_jhead",
+    "template": "jhead-3.04_jhead_issue54",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00123-libtiff-fpe-JPEGSetupEncode",
+    "sanitizer": "global-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-ds2020:01:01:1111111111111111111111111111111111111111",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00123-libtiff-fpe-JPEGSetupEncode"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "jhead-3.04_jhead",
+    "template": "jhead-3.04_jhead_issue54",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00119-libtiff-shift-long-tif_jpeg",
+    "sanitizer": "global-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-ds2020:01:01:1111111111111111111111111111111111111111",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00119-libtiff-shift-long-tif_jpeg"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "jhead-3.04_jhead",
+    "template": "jhead-3.04_jhead_issue54",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00322-openjpeg-heapoverflow-opj_t2_encode_packet",
+    "sanitizer": "global-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-ds2020:01:01:1111111111111111111111111111111111111111",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00322-openjpeg-heapoverflow-opj_t2_encode_packet"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "jhead-3.04_jhead",
+    "template": "jhead-3.04_jhead_issue54",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00321-openjpeg-heapoverflow-opj_write_bytes_LE",
+    "sanitizer": "global-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-ds2020:01:01:1111111111111111111111111111111111111111",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00321-openjpeg-heapoverflow-opj_write_bytes_LE"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "jhead-3.04_jhead",
+    "template": "jhead-3.04_jhead_issue54",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00326-openjpeg-invalidwrite-tgatoimage",
+    "sanitizer": "global-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-ds2020:01:01:1111111111111111111111111111111111111111",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00326-openjpeg-invalidwrite-tgatoimage"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "jhead-3.04_jhead",
+    "template": "jhead-3.04_jhead_issue54",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00323-openjpeg-heapoverflow-opj_t2_encode_packet",
+    "sanitizer": "global-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-ds2020:01:01:1111111111111111111111111111111111111111",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00323-openjpeg-heapoverflow-opj_t2_encode_packet"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "jhead-3.04_jhead",
+    "template": "jhead-3.04_jhead_issue54",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00083-libtiff-fpe-OJPEGDecodeRaw",
+    "sanitizer": "global-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-ds2020:01:01:1111111111111111111111111111111111111111",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00083-libtiff-fpe-OJPEGDecodeRaw"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "jhead-3.04_jhead",
+    "template": "jhead-3.04_jhead_issue54",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00320-openjpeg-memallocfailure-opj_aligned_alloc_n",
+    "sanitizer": "global-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-ds2020:01:01:1111111111111111111111111111111111111111",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00320-openjpeg-memallocfailure-opj_aligned_alloc_n"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "jhead-3.04_jhead",
+    "template": "jhead-3.04_jhead_issue54",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00315-openjpeg-memallocfailure-opj_aligned_alloc_n",
+    "sanitizer": "global-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-ds2020:01:01:1111111111111111111111111111111111111111",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00315-openjpeg-memallocfailure-opj_aligned_alloc_n"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "jhead-3.04_jhead",
+    "template": "jhead-3.04_jhead_issue54",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00314-openjpeg-heapoverflow-opj_mqc_flush",
+    "sanitizer": "global-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-ds2020:01:01:1111111111111111111111111111111111111111",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00314-openjpeg-heapoverflow-opj_mqc_flush"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "jhead-3.04_jhead",
+    "template": "jhead-3.04_jhead_issue54",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00317-openjpeg-heapoverflow-opj_write_bytes_LE",
+    "sanitizer": "global-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-ds2020:01:01:1111111111111111111111111111111111111111",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00317-openjpeg-heapoverflow-opj_write_bytes_LE"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "jhead-3.04_jhead",
+    "template": "jhead-3.04_jhead_issue54",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00327-openjpeg-stackoverflow-pgxtoimage",
+    "sanitizer": "global-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-ds2020:01:01:1111111111111111111111111111111111111111",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00327-openjpeg-stackoverflow-pgxtoimage"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "jhead-3.04_jhead",
+    "template": "jhead-3.04_jhead_issue54",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00328-openjpeg-memallocfailure-opj_aligned_alloc_n",
+    "sanitizer": "global-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-ds2020:01:01:1111111111111111111111111111111111111111",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00328-openjpeg-memallocfailure-opj_aligned_alloc_n"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "jhead-3.04_jhead",
+    "template": "jhead-3.04_jhead_issue54",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2011-0708/ihaterepeating.jpeg",
+    "sanitizer": "global-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-ds2020:01:01:1111111111111111111111111111111111111111",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2011-0708/ihaterepeating.jpeg"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "jhead-3.04_jhead",
+    "template": "jhead-3.04_jhead_issue54",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2016-7445/openjpeg-nullptr-github-issue-842.ppm",
+    "sanitizer": "global-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-ds2020:01:01:1111111111111111111111111111111111111111",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2016-7445/openjpeg-nullptr-github-issue-842.ppm"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "jhead-3.04_jhead",
+    "template": "jhead-3.04_jhead_issue54",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-7601/00119-libtiff-shift-long-tif_jpeg",
+    "sanitizer": "global-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-ds2020:01:01:1111111111111111111111111111111111111111",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2017-7601/00119-libtiff-shift-long-tif_jpeg"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "jhead-3.04_jhead",
+    "template": "jhead-3.04_jhead_issue54",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libjpeg-2.0.4/poc/2020-13790",
+    "sanitizer": "global-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-ds2020:01:01:1111111111111111111111111111111111111111",
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libjpeg-2.0.4/poc/2020-13790"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "jhead-3.04_jhead",
+    "template": "jhead-3.04_jhead_issue54",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2011-0708/ihaterepeating2.jpeg",
+    "sanitizer": "global-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-ds2020:01:01:1111111111111111111111111111111111111111",
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/linuxflaw_poc/CVE-2011-0708/ihaterepeating2.jpeg"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "jhead-3.04_jhead",
+    "template": "jhead-3.04_jhead_issue54",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libjpeg-1.5.90/poc/2018-14498",
+    "sanitizer": "global-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-ds2020:01:01:1111111111111111111111111111111111111111",
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libjpeg-1.5.90/poc/2018-14498"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "lrzip-ed51e14_lrzip",
+    "template": "lrzip-ed51e14_lrzip_CVE-2018-11496",
+    "poc": "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/lrzip-ed51e14/poc/2018-11496",
+    "sanitizer": "heap-use-after-free",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "-t",
+      "/home/user/workspace/nycu-dissertation/bench/target/benchmark-project/lrzip-ed51e14/poc/2018-11496"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "lame-3.99.5_lame",
+    "template": "lame-3.99.5_lame_CVE-2015-9101",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00289-lame-fpe-get_audio.c.wav",
+    "sanitizer": "FPE",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00289-lame-fpe-get_audio.c.wav",
+      "/tmp/out.mp3"
+    ],
+    "stdin": false
+  },
+  {
+    "target_key": "lame-3.99.5_lame",
+    "template": "lame-3.99.5_lame_CVE-2015-9101",
+    "poc": "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00292-lame-heapoverflow-fill_buffer_resample",
+    "sanitizer": "heap-buffer-overflow",
+    "function": "unknown",
+    "file": "unknown",
+    "line": 0,
+    "cmd": [
+      "/home/user/workspace/nycu-dissertation/target_graph/build_test/asarubbo_poc/00292-lame-heapoverflow-fill_buffer_resample",
+      "/tmp/out.mp3"
+    ],
+    "stdin": false
+  }
+]

@@ -16,8 +16,8 @@ from target_graph.labels.slicing import (
     trace_backward_slice_diagnostics,
 )
 from target_graph.llvm.mapping import BasicBlockMapper
-from target_graph.tracing.sanitizer import parse_sanitizer_output
-from target_graph.tracing.symbolizer import trace_to_basic_blocks
+from target_graph.tracing.sanitizer import parse_sanitizer_output, StackFrame
+from target_graph.tracing.symbolizer import trace_to_basic_blocks, symbolize_pcs
 
 
 @dataclass
@@ -91,6 +91,30 @@ def audit_case(
     if not san_report:
         raise ValueError(f"Failed to parse sanitizer report from {stderr_file}")
 
+    has_valid_frame = any(f.function_name and f.function_name != "unknown" for f in san_report.frames)
+    if not has_valid_frame and san_report.fault_pc:
+        inst_bin = case_dir / f"{case_cfg['target_binary']}_inst"
+        if not inst_bin.exists():
+            inst_bin = case_dir / f"{case_cfg['target_binary']}_base"
+        if inst_bin.exists():
+            try:
+                fault_int = int(san_report.fault_pc, 16)
+                syms = symbolize_pcs([fault_int], inst_bin)
+                locs = syms.get(fault_int, [])
+                if locs:
+                    san_report.frames = [
+                        StackFrame(
+                            frame_index=idx,
+                            pc=san_report.fault_pc,
+                            function_name=fn,
+                            source_file=src_file,
+                            line_number=line_no,
+                        )
+                        for idx, (fn, src_file, line_no) in enumerate(locs)
+                    ]
+            except Exception:
+                pass
+
     exp_oracle = case_cfg["expected_oracle"]
     exp_file_base = Path(exp_oracle["file"]).name
 
@@ -119,7 +143,7 @@ def audit_case(
         and abs(obs_line - exp_oracle["line"]) <= 5  # Allow minor line offset due to comments
     )
 
-    # 2. Map target BB
+    # 2. Map target BB candidates
     mapper = BasicBlockMapper(case_dir / "bb_map.jsonl")
     target_bbs = mapper.map_source_location(obs_file, obs_line, function_name=obs_fn)
     if not target_bbs and obs_fn != exp_oracle["function"]:
@@ -133,7 +157,6 @@ def audit_case(
         target_bbs = mapper.map_source_location(exp_file_base, exp_oracle["line"])
     if not target_bbs:
         raise ValueError(f"Could not map crash site {obs_file}:{obs_line} to any basic block in {case_id}")
-    target_bb = target_bbs[0]
 
     # 3. Symbolize trace
     nodes_df = pd.read_parquet(parquet_dir / "nodes.parquet")
@@ -153,6 +176,18 @@ def audit_case(
         binary_path=inst_binary,
         bb_mapper=mapper,
     )
+
+    # Disambiguate multiple inlined candidates by trace execution
+    in_trace_bbs = [b for b in target_bbs if b in executed_bbs]
+    if not in_trace_bbs:
+        for delta in [exp_oracle["line"] - obs_line, -1, 1, -2, 2, -3, 3, -4, 4]:
+            alt_bbs = mapper.map_source_location(obs_file, obs_line + delta, function_name=obs_fn)
+            alt_in_trace = [b for b in alt_bbs if b in executed_bbs]
+            if alt_in_trace:
+                target_bbs = alt_bbs
+                in_trace_bbs = alt_in_trace
+                break
+    target_bb = in_trace_bbs[0] if in_trace_bbs else target_bbs[0]
 
     # 4. Partition candidates
     all_bbs = set(nodes_df["bb_id"].unique())
@@ -267,6 +302,7 @@ def run_full_label_audit(
     config_path: Path,
     cases_root: Path,
     output_dir: Path,
+    case_id: Optional[str] = None,
 ) -> List[CaseAuditRecord]:
     """Run label yield audit across all configured cases and emit audit reports."""
     with open(config_path, "r", encoding="utf-8") as f:
@@ -278,6 +314,8 @@ def run_full_label_audit(
     diag_dir.mkdir(parents=True, exist_ok=True)
 
     for c in cfg["cases"]:
+        if case_id and c["case_id"] != case_id:
+            continue
         record, ab, diag = audit_case(c, cases_root, return_context=True)
         records.append(record)
 
@@ -498,12 +536,14 @@ def main():
     parser.add_argument("--config", type=Path, default=Path("/home/user/workspace/nycu-dissertation/target_graph/configs/projects/cases.yaml"))
     parser.add_argument("--cases-root", type=Path, default=Path("/home/user/workspace/nycu-dissertation/target_graph/cases"))
     parser.add_argument("--output-dir", type=Path, default=Path("/home/user/workspace/nycu-dissertation/target_graph/reports"))
+    parser.add_argument("--case-id", type=str, default=None, help="Audit a specific case_id")
     args = parser.parse_args()
 
     records = run_full_label_audit(
         config_path=args.config,
         cases_root=args.cases_root,
         output_dir=args.output_dir,
+        case_id=args.case_id,
     )
     print(f"Successfully audited {len(records)} cases. Reports saved to {args.output_dir}")
 

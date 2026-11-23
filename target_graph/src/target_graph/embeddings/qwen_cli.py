@@ -59,12 +59,17 @@ def main() -> None:
                 spans_raw = json.loads(row["source_spans"])
                 if spans_raw and func_id not in function_sources:
                     raw_file = spans_raw[0]["file"]
+                    fname = Path(raw_file).name
                     candidate_paths = [
-                        case_dir / "src" / Path(raw_file).name,
+                        case_dir / "src" / fname,
                         Path(raw_file),
                         root / raw_file.lstrip("/"),
                         root / raw_file.replace("/workspace/", "").lstrip("/"),
-                        case_dir / Path(raw_file).name,
+                        root / "build_test" / raw_file.replace("/build/", "").lstrip("/"),
+                        root / "build_test" / raw_file.replace("/workspace/build_test/", "").lstrip("/"),
+                        root.parent / raw_file.replace("/workspace/nycu-dissertation/", "").lstrip("/"),
+                        root.parent / "bench" / "target" / "benchmark-project" / raw_file.lstrip("/"),
+                        case_dir / fname,
                     ]
                     for cp in candidate_paths:
                         if cp.exists() and cp.is_file():
