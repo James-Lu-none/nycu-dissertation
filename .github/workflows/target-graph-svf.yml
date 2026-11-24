@@ -61,7 +61,8 @@ jobs:
         run: |
           cmake -S /tmp/svf -B /tmp/svf-build -G Ninja \
             -DLLVM_DIR=/usr/lib/llvm-14/lib/cmake/llvm \
-            -DZ3_DIR=/usr -DCMAKE_BUILD_TYPE=Release
+            -DZ3_DIR=/usr -DCMAKE_BUILD_TYPE=Release \
+      -DSVF_WARN_AS_ERROR=OFF
           cmake --build /tmp/svf-build --target targetgraph-svf -j 2
           test -x /tmp/svf-build/bin/targetgraph-svf
       - name: Build LLVM original-instruction tag pass
