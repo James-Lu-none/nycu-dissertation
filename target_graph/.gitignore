@@ -11,3 +11,4 @@ cache
 *.pdf
 sources_pool
 sources
+build_artifacts
