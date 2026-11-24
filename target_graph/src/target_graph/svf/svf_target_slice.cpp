@@ -21,6 +21,7 @@
 #include "Graphs/SVFG.h"
 #include "WPA/Andersen.h"
 #include "Util/Options.h"
+#include "Util/ExtAPI.h"
 
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Metadata.h"
@@ -46,7 +47,7 @@ namespace {
 const char *const MetadataKey = "target_graph.dg.inst_id";
 
 struct Args {
-    std::string input, output, target;
+    std::string input, output, target, extapi;
     size_t max_nodes = 100000, max_edges = 300000;
 };
 
@@ -70,13 +71,15 @@ bool parseArgs(int argc, char **argv, Args &a) {
         if (key == "--input") a.input = val;
         else if (key == "--output") a.output = val;
         else if (key == "--target-inst") a.target = val;
+        else if (key == "--extapi-bc") a.extapi = val;
         else if (key == "--max-nodes") {
             if (!parseSize(val, a.max_nodes)) return false;
         } else if (key == "--max-edges") {
             if (!parseSize(val, a.max_edges)) return false;
         } else return false;
     }
-    return !a.input.empty() && !a.output.empty() && !a.target.empty();
+    return !a.input.empty() && !a.output.empty() && !a.target.empty() &&
+           !a.extapi.empty();
 }
 
 // Map SVFG evidence back to an ORIGINAL, identity-tagged LLVM instruction.
@@ -131,7 +134,15 @@ int main(int argc, char **argv) {
     if (!parseArgs(argc, argv, args)) {
         llvm::errs()
             << "Usage: targetgraph-svf --input TAGGED.bc --target-inst BB:ORD "
-            << "--output svfg.json [--max-nodes N] [--max-edges N]\n";
+            << "--output svfg.json --extapi-bc /path/to/extapi.bc "
+            << "[--max-nodes N] [--max-edges N]\n";
+        return 2;
+    }
+
+    // Upstream SVF needs the matching external-function model. Do not rely
+    // on working-directory searches or silently continue without it.
+    if (!ExtAPI::setExtBcPath(args.extapi)) {
+        llvm::errs() << "[svf] Missing/invalid extapi.bc: " << args.extapi << "\n";
         return 2;
     }
 
