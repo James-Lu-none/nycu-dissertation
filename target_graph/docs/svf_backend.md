@@ -51,6 +51,47 @@ original LLVM instruction. The raw graph retains their SVFG identities;
 Missing nodes, candidate faults and unresolved memory must NOT become
 negative vulnerability labels.
 
+### Original graph identity / relocated cases
+
+**Important for ASARUBBO aliases and repeated CVEs:** the existing
+`TargetGraphPass` derives each BB ID as SHA256 of
+`build_id:module_name:function:BB_ordinal`, where the complete module path
+is significant. Directory aliases are not safe hashing inputs.
+
+`scripts/svf_slice.sh` now reads **both** `build_id` and `module_name`
+from the original `pass_summary.json`, and supplies these to the
+identity-only LLVM pass. It does not rename or alter the LLVM module.
+Before launching Andersen, `preflight` verifies the complete original
+instruction-ID set against `analysis_v2_nodes.jsonl` and the legacy
+`bb_map.jsonl`. Existing function/opcode fields are also compared.
+
+This change addresses the confirmed imageworsener and Bento4 cases where
+`before.jsonl` from an alias build had no IDs in common with v2, even
+though *all* instruction opcodes and owning functions matched by traversal
+order. The exact security semantics of separately compiled binaries
+still require independent bitcode provenance / PoC review.
+
+**Use the canonical target instruction ID from analysis-v2, not the
+former alias-hashed ID.** For the two archived diagnostic examples:
+
+| Case | Alias-hashed target (incorrect for old graph) | Canonical v2 target |
+| --- | --- | --- |
+| imageworsener ASARUBBO-282 | `ccded5213c5b9424:3` | `72a7e069d71abdd7:3` |
+| Bento4 CVE-2017-14261 | `1c9c3b95b14d42ec:6` | `055a12017da77749:6` |
+
+The canonical IDs above came from strict same-ordinal function/opcode
+matching over the archived samples. Reconfirm each target's source
+location and PoC evidence before using it as a criterion.
+
+**A separate issue:** the earlier 30-case evaluator reported
+`PREFLIGHT_TARGET_NOT_TAGGED` for libxml2 even though the archived
+`before.jsonl` contains that exact target and matches all 272,785 v2
+instruction IDs. The archive also includes native-SVF log files created
+around 120 seconds before the summary, consistent with a potential SVF
+timeout. This is **not yet a verified timeout diagnosis**: preserve
+subprocess exit code, stage and stderr when revising the batch runner;
+never classify every nonzero exit as a preflight identity mismatch.
+
 The SVF adapter uses the original `target_graph.dg.inst_id` LLVM metadata
 written by the existing identity pass. This is an identity bridge, **not**
 the DG dependence engine. Original BB identifiers are retained without
