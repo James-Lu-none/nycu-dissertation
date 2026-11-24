@@ -48,13 +48,15 @@ jobs:
         run: |
           git clone --quiet https://github.com/SVF-tools/SVF.git /tmp/svf
           git -C /tmp/svf checkout --detach 0e56bc038bf207a1ca320b5f5ad241e13ab33e14
+          mkdir -p /tmp/svf/svf-llvm/tools/TargetGraph
           cp target_graph/src/target_graph/svf/svf_target_slice.cpp \
-            /tmp/svf/svf-llvm/tools/Example/targetgraph-svf.cpp
-          cat >> /tmp/svf/svf-llvm/tools/Example/CMakeLists.txt <<'EOF'
+            /tmp/svf/svf-llvm/tools/TargetGraph/targetgraph-svf.cpp
+          cat > /tmp/svf/svf-llvm/tools/TargetGraph/CMakeLists.txt <<'EOF'
           add_llvm_executable(targetgraph-svf targetgraph-svf.cpp)
           target_link_libraries(targetgraph-svf PUBLIC ${llvm_libs} SvfLLVM)
           set_target_properties(targetgraph-svf PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
           EOF
+          echo 'add_subdirectory(TargetGraph)' >> /tmp/svf/svf-llvm/tools/CMakeLists.txt
       - name: Build the real Andersen + SVFG adapter against LLVM14
         run: |
           cmake -S /tmp/svf -B /tmp/svf-build -G Ninja \
