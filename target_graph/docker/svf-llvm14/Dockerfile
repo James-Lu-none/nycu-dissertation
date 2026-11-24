@@ -25,6 +25,7 @@ RUN cmake -S /opt/SVF -B /opt/SVF/Release-build -G Ninja \
       -DLLVM_DIR=/usr/lib/llvm-14/lib/cmake/llvm \
       -DZ3_DIR=/usr \
       -DCMAKE_BUILD_TYPE=Release \
+      -DSVF_WARN_AS_ERROR=OFF \
       -DSVF_ENABLE_ASSERTIONS=ON && \
     cmake --build /opt/SVF/Release-build --target targetgraph-svf -j 2 && \
     test -x /opt/SVF/Release-build/bin/targetgraph-svf && \
