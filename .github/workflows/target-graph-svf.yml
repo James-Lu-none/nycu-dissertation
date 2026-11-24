@@ -91,6 +91,7 @@ jobs:
           clang-14 -g -O0 -emit-llvm -c /tmp/svf-fixture/sample.c \
             -o /tmp/svf-fixture/original.bc
           TARGET_GRAPH_BUILD_ID=svf_fixture \
+          TARGET_GRAPH_ID_MODULE_NAME=/canonical/original/path/sample.bc \
             opt-14 -load-pass-plugin=/tmp/identity-build/libDGIdentityPass.so \
             -passes=dg-tag -o /tmp/svf-fixture/tagged.bc \
             /tmp/svf-fixture/original.bc
@@ -103,6 +104,13 @@ jobs:
           from target_graph.svf.validate import preflight
           root = Path("/tmp/svf-fixture")
           records = [json.loads(s) for s in (root/"before.jsonl").read_text().splitlines()]
+          import hashlib
+          expected_bb = hashlib.sha256(
+              b"svf_fixture:/canonical/original/path/sample.bc:main:0"
+          ).hexdigest()[:16]
+          assert records[0]["bb_id"] == expected_bb, (
+              "Identity tagger must honor canonical module path"
+          )
           candidates = [r["id"] for r in records if r["function"]=="main" and r["opcode"]=="store"]
           assert candidates, "Expected at least one LLVM store"
           target = candidates[-1]
