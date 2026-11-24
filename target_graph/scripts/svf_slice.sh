@@ -107,6 +107,7 @@ cd "$out"
 timeout --signal=TERM --kill-after=10s "$SVF_TIMEOUT_SEC" \
   targetgraph-svf \
     --input "$out/tagged.bc" \
+    --extapi-bc "/opt/SVF/Release-build/svf-llvm/extapi.bc" \
     --target-inst "$TARGET_INST" \
     --max-nodes "$MAX_NODES" \
     --max-edges "$MAX_EDGES" \
