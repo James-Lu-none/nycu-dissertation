@@ -1,5 +1,9 @@
 name: target-graph-svf
 
+concurrency:
+  group: svf-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
 on:
   pull_request:
     paths:
