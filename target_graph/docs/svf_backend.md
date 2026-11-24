@@ -68,8 +68,7 @@ docker build -t target-graph:svf-llvm14 \
   -f docker/svf-llvm14/Dockerfile .
 ```
 
-The second build compiles upstream SVF-2.9 and the C++ adapter using
-LLVM14/Z3. It intentionally does NOT download a modern SVF master.
+The second build compiles upstream SVF-2.9, its matching `extapi.bc` external-function model, and the C++ adapter using LLVM14/Z3. It intentionally does NOT download a modern SVF master.
 
 ## One case
 
