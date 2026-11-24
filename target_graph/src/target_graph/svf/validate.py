@@ -12,7 +12,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from target_graph.dg.validate import _legacy_bbs, _records, _v2_instructions
+from target_graph.dg.validate import _legacy_bbs, _records
 
 SVF_COMMIT = "0e56bc038bf207a1ca320b5f5ad241e13ab33e14"
 EDGE_KINDS = frozenset({
@@ -44,23 +44,67 @@ def preflight(
     original = _records(before)
     if not original:
         raise ValueError("Original bitcode has no tagged LLVM instructions")
-    if target not in original:
-        raise ValueError(
-            "Selected target instruction was not tagged in the original bitcode; "
-            "stop before SVF analysis and repair build/target mapping"
-        )
+
+    # Validate WHOLE-BUILD identity before blaming a particular target.
+    # An alias case can give the target a valid ID in the wrongly rehashed
+    # bitcode even though NONE of its IDs match the saved full graph.
     if bb_map is not None:
         if not bb_map.is_file():
             raise ValueError(f"Missing BB mapping: {bb_map}")
         bbs = _legacy_bbs(bb_map)
         missing = {row["bb_id"] for row in original.values()} - bbs
         if missing:
-            raise ValueError(f"Original identities not present in bb_map: {len(missing)}")
+            raise ValueError(
+                f"Original identities not present in bb_map: {len(missing)}. "
+                "Compare canonical build_id and module_name in pass_summary.json "
+                "before claiming a target-location failure"
+            )
     if v2_nodes is not None:
         if not v2_nodes.is_file():
             raise ValueError(f"Missing v2 nodes: {v2_nodes}")
-        if set(original) != _v2_instructions(v2_nodes):
-            raise ValueError("Original identities differ from analysis_v2_nodes.jsonl")
+        v2_ids: set[str] = set()
+        wrong_semantics: list[str] = []
+        with v2_nodes.open(encoding="utf-8") as source:
+            for line_no, line in enumerate(source, 1):
+                if not line.strip():
+                    continue
+                row = json.loads(line)
+                if row.get("kind") != "instruction":
+                    continue
+                identity = row.get("id")
+                if not isinstance(identity, str) or identity in v2_ids:
+                    raise ValueError(
+                        f"Invalid/duplicate v2 instruction at line {line_no}"
+                    )
+                v2_ids.add(identity)
+                before_row = original.get(identity)
+                if before_row is None:
+                    continue
+                if (row.get("function") and before_row.get("function") and
+                        row["function"] != before_row["function"]):
+                    wrong_semantics.append(identity)
+                if (row.get("text") and before_row.get("opcode") and
+                        row["text"] != before_row["opcode"]):
+                    wrong_semantics.append(identity)
+        if set(original) != v2_ids:
+            raise ValueError(
+                "Original identities differ from analysis_v2_nodes.jsonl: "
+                f"only_tagged={len(set(original) - v2_ids)}, "
+                f"only_v2={len(v2_ids - set(original))}; "
+                "check build_id, module_name and IR provenance"
+            )
+        if wrong_semantics:
+            raise ValueError(
+                f"Instruction function/opcode mismatch for "
+                f"{len(set(wrong_semantics))} identities; "
+                "same IDs do not prove same IR instructions"
+            )
+    if target not in original:
+        raise ValueError(
+            "Selected target instruction was not tagged in the original bitcode; "
+            "check whether the target ID came from a relocated/alias build. "
+            "Choose an original instruction from analysis_v2.cli --list-targets"
+        )
     return original
 
 
