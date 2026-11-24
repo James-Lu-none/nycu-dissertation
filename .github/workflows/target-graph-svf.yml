@@ -63,8 +63,9 @@ jobs:
             -DLLVM_DIR=/usr/lib/llvm-14/lib/cmake/llvm \
             -DZ3_DIR=/usr -DCMAKE_BUILD_TYPE=Release \
             -DSVF_WARN_AS_ERROR=OFF
-          cmake --build /tmp/svf-build --target targetgraph-svf -j 2
+          cmake --build /tmp/svf-build --target gen_extapi_ir targetgraph-svf -j 2
           test -x /tmp/svf-build/bin/targetgraph-svf
+          test -s /tmp/svf-build/svf-llvm/extapi.bc
       - name: Build LLVM original-instruction tag pass
         run: |
           cmake -S target_graph/src/target_graph/llvm/passes \
@@ -108,6 +109,7 @@ jobs:
           TARGET="$(cat /tmp/svf-fixture/target.txt)"
           timeout 180 /tmp/svf-build/bin/targetgraph-svf \
             --input /tmp/svf-fixture/tagged.bc --target-inst "$TARGET" \
+            --extapi-bc /tmp/svf-build/svf-llvm/extapi.bc \
             --output /tmp/svf-fixture/svfg_raw.json
           PYTHONPATH=target_graph/src python - <<'PY'
           from pathlib import Path
