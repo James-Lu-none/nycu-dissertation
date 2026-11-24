@@ -1,0 +1,121 @@
+name: target-graph-svf
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/target-graph-svf.yml"
+      - "target_graph/src/target_graph/svf/**"
+      - "target_graph/scripts/svf_slice.sh"
+      - "target_graph/docker/svf-llvm14/**"
+      - "target_graph/tests/unit/test_svf_validate.py"
+  push:
+    paths:
+      - ".github/workflows/target-graph-svf.yml"
+      - "target_graph/src/target_graph/svf/**"
+      - "target_graph/scripts/svf_slice.sh"
+      - "target_graph/docker/svf-llvm14/**"
+      - "target_graph/tests/unit/test_svf_validate.py"
+
+jobs:
+  python-unit:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install pytest
+      - name: Fail-closed SVFG validation tests
+        run: |
+          PYTHONPATH=target_graph/src python -m pytest \
+            target_graph/tests/unit/test_svf_validate.py \
+            target_graph/tests/unit/test_dg_validate.py -q
+      - name: Check bash syntax
+        run: bash -n target_graph/scripts/svf_slice.sh
+
+  svf-llvm14-build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install LLVM14, Z3 and build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential cmake ninja-build git clang-14 llvm-14-dev \
+            llvm-14-tools libz3-dev libncurses-dev
+      - name: Checkout pinned upstream SVF-2.9
+        run: |
+          git clone --quiet https://github.com/SVF-tools/SVF.git /tmp/svf
+          git -C /tmp/svf checkout --detach 0e56bc038bf207a1ca320b5f5ad241e13ab33e14
+          cp target_graph/src/target_graph/svf/svf_target_slice.cpp \
+            /tmp/svf/svf-llvm/tools/Example/targetgraph-svf.cpp
+          cat >> /tmp/svf/svf-llvm/tools/Example/CMakeLists.txt <<'EOF'
+          add_llvm_executable(targetgraph-svf targetgraph-svf.cpp)
+          target_link_libraries(targetgraph-svf PUBLIC ${llvm_libs} SvfLLVM)
+          set_target_properties(targetgraph-svf PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+          EOF
+      - name: Build the real Andersen + SVFG adapter against LLVM14
+        run: |
+          cmake -S /tmp/svf -B /tmp/svf-build -G Ninja \
+            -DLLVM_DIR=/usr/lib/llvm-14/lib/cmake/llvm \
+            -DZ3_DIR=/usr -DCMAKE_BUILD_TYPE=Release
+          cmake --build /tmp/svf-build --target targetgraph-svf -j 2
+          test -x /tmp/svf-build/bin/targetgraph-svf
+      - name: Build LLVM original-instruction tag pass
+        run: |
+          cmake -S target_graph/src/target_graph/llvm/passes \
+            -B /tmp/identity-build -G Ninja \
+            -DLLVM_DIR=/usr/lib/llvm-14/lib/cmake/llvm
+          cmake --build /tmp/identity-build --target DGIdentityPass -j 2
+      - name: Native SVFG smoke test with LLVM instruction identities
+        run: |
+          mkdir -p /tmp/svf-fixture
+          cat > /tmp/svf-fixture/sample.c <<'EOF'
+          volatile int global_sink;
+          int main(void) {
+            int x = 7;
+            int *p = &x;
+            global_sink = *p;
+            return x;
+          }
+          EOF
+          clang-14 -g -O0 -emit-llvm -c /tmp/svf-fixture/sample.c \
+            -o /tmp/svf-fixture/original.bc
+          TARGET_GRAPH_BUILD_ID=svf_fixture \
+            opt-14 -load-pass-plugin=/tmp/identity-build/libDGIdentityPass.so \
+            -passes=dg-tag -o /tmp/svf-fixture/tagged.bc \
+            /tmp/svf-fixture/original.bc
+          TARGET_GRAPH_DG_EXPORT=/tmp/svf-fixture/before.jsonl \
+            opt-14 -load-pass-plugin=/tmp/identity-build/libDGIdentityPass.so \
+            -passes=dg-export -disable-output /tmp/svf-fixture/tagged.bc
+          PYTHONPATH=target_graph/src python - <<'PY'
+          import json
+          from pathlib import Path
+          from target_graph.svf.validate import preflight
+          root = Path("/tmp/svf-fixture")
+          records = [json.loads(s) for s in (root/"before.jsonl").read_text().splitlines()]
+          candidates = [r["id"] for r in records if r["function"]=="main" and r["opcode"]=="store"]
+          assert candidates, "Expected at least one LLVM store"
+          target = candidates[-1]
+          (root/"target.txt").write_text(target)
+          preflight(root/"before.jsonl", target)
+          print("Selected tagged instruction:", target)
+          PY
+          TARGET="$(cat /tmp/svf-fixture/target.txt)"
+          timeout 180 /tmp/svf-build/bin/targetgraph-svf \
+            --input /tmp/svf-fixture/tagged.bc --target-inst "$TARGET" \
+            --output /tmp/svf-fixture/svfg_raw.json
+          PYTHONPATH=target_graph/src python - <<'PY'
+          from pathlib import Path
+          from target_graph.svf.validate import validate_svf
+          root = Path("/tmp/svf-fixture")
+          target = (root/"target.txt").read_text()
+          report = validate_svf(root/"before.jsonl", root/"svfg_raw.json", target,
+                                root/"original.bc")
+          assert report["instruction_ids"]
+          assert report["target_seed_svfg_ids"]
+          assert not report["validated_for_supervision"]
+          print("Native SVFG smoke test:", report["visited_svfg_nodes"], "nodes;",
+                len(report["basic_blocks"]), "original BBs")
+          PY
