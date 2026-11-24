@@ -9,3 +9,5 @@ cache
 *.log
 *.out
 *.pdf
+sources_pool
+sources

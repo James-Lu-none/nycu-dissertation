@@ -1,0 +1,535 @@
+cases:
+- case_id: cJSON-1.7.8_cJSON_CVE-2019-1010239
+  source_id: cJSON-1.7.8
+  project: cJSON
+  target_binary: cjson_test
+  cve: CVE-2019-1010239
+  canonical_target_inst: 78f704d5e62a0d44:4
+  poc_path: /home/user/workspace/nycu-dissertation/target_graph/cases/cJSON-1.7.8_cJSON_CVE-2019-1010239/poc.json
+  poc_cmd:
+  - '{binary}'
+  - '{poc}'
+  poc_stdin: null
+  expected_oracle:
+    sanitizer: SEGV
+    relative_source_file: cJSON.c
+    line: 1784
+    function: get_object_item
+    oracle_line_text: while ((current_element != NULL) && (strcmp(name, current_element->string)
+      != 0))
+    source_file_sha256: 0bbc7f87d61545c2a848d1830a4a93e70a492f0d83c48eeb50210c5d0fd185ad
+- case_id: cJSON-1.7.8_cJSON_CVE-2019-11835
+  source_id: cJSON-1.7.8
+  project: cJSON
+  target_binary: cjson_test
+  cve: CVE-2019-11835
+  canonical_target_inst: b2beb8deb41c41f0:4
+  poc_path: /home/user/workspace/nycu-dissertation/target_graph/cases/cJSON-1.7.8_cJSON_CVE-2019-11835/poc
+  poc_cmd:
+  - '{binary}'
+  - '{poc}'
+  poc_stdin: null
+  expected_oracle:
+    sanitizer: heap-buffer-overflow
+    relative_source_file: cJSON.c
+    line: 2638
+    function: cJSON_Minify
+    oracle_line_text: while (*json)
+    source_file_sha256: 0bbc7f87d61545c2a848d1830a4a93e70a492f0d83c48eeb50210c5d0fd185ad
+- case_id: imageworsener-1.3.1_imagew_ASARUBBO-281
+  source_id: imageworsener-1.3.1
+  project: imageworsener
+  target_binary: imagew
+  cve: ISSUE-ASARUBBO-281
+  canonical_target_inst: e732fcbd7d588329:3
+  poc_path: /home/user/workspace/nycu-dissertation/target_graph/cases/imageworsener-1.3.1_imagew_ASARUBBO-281/poc
+  poc_cmd: &id001
+  - '{binary}'
+  - '{poc}'
+  - /tmp/out.bmp
+  - -outfmt
+  - bmp
+  poc_stdin: null
+  expected_oracle:
+    sanitizer: SEGV
+    relative_source_file: src/imagew-util.c
+    line: 405
+    function: iw_get_ui16le
+    oracle_line_text: return (unsigned int)b[0] | ((unsigned int)b[1]<<8);
+    source_file_sha256: 885d24c1992445d5a4444384d92776266f52a91596150bec4eec0b16b1193882
+- case_id: imageworsener-1.3.1_imagew_ASARUBBO-282
+  source_id: imageworsener-1.3.1
+  project: imageworsener
+  target_binary: imagew
+  cve: ISSUE-ASARUBBO-282
+  canonical_target_inst: 72a7e069d71abdd7:3
+  poc_path: /home/user/workspace/nycu-dissertation/target_graph/cases/imageworsener-1.3.1_imagew_ASARUBBO-282/poc
+  poc_cmd: *id001
+  poc_stdin: null
+  expected_oracle:
+    sanitizer: SEGV
+    relative_source_file: src/imagew-util.c
+    line: 422
+    function: iw_get_ui16be
+    oracle_line_text: return ((unsigned int)b[0]<<8) | (unsigned int)b[1];
+    source_file_sha256: 885d24c1992445d5a4444384d92776266f52a91596150bec4eec0b16b1193882
+- case_id: imageworsener-1.3.1_imagew_ASARUBBO-283
+  source_id: imageworsener-1.3.1
+  project: imageworsener
+  target_binary: imagew
+  cve: ISSUE-ASARUBBO-283
+  canonical_target_inst: aad5e654e34972a0:3
+  poc_path: /home/user/workspace/nycu-dissertation/target_graph/cases/imageworsener-1.3.1_imagew_ASARUBBO-283/poc
+  poc_cmd: *id001
+  poc_stdin: null
+  expected_oracle:
+    sanitizer: heap-buffer-overflow
+    relative_source_file: src/imagew-util.c
+    line: 405
+    function: iw_get_ui16le
+    oracle_line_text: return (unsigned int)b[0] | ((unsigned int)b[1]<<8);
+    source_file_sha256: 885d24c1992445d5a4444384d92776266f52a91596150bec4eec0b16b1193882
+- case_id: imageworsener-1.3.1_imagew_ASARUBBO-284
+  source_id: imageworsener-1.3.1
+  project: imageworsener
+  target_binary: imagew
+  cve: ISSUE-ASARUBBO-284
+  canonical_target_inst: f5ea5a92a3c18b1e:3
+  poc_path: /home/user/workspace/nycu-dissertation/target_graph/cases/imageworsener-1.3.1_imagew_ASARUBBO-284/poc
+  poc_cmd: *id001
+  poc_stdin: null
+  expected_oracle:
+    sanitizer: heap-buffer-overflow
+    relative_source_file: src/imagew-util.c
+    line: 422
+    function: iw_get_ui16be
+    oracle_line_text: return ((unsigned int)b[0]<<8) | (unsigned int)b[1];
+    source_file_sha256: 885d24c1992445d5a4444384d92776266f52a91596150bec4eec0b16b1193882
+- case_id: zziplib-0.13.62_unzzipcat-mem_ASARUBBO-150
+  source_id: zziplib-0.13.62
+  project: zziplib
+  target_binary: unzzipcat-mem
+  cve: ISSUE-ASARUBBO-150
+  canonical_target_inst: cfc647f5ff84c4a9:3
+  poc_path: /home/user/workspace/nycu-dissertation/target_graph/cases/zziplib-0.13.62_unzzipcat-mem_ASARUBBO-150/poc
+  poc_cmd: &id002
+  - '{binary}'
+  - '{poc}'
+  poc_stdin: null
+  expected_oracle:
+    sanitizer: heap-buffer-overflow
+    relative_source_file: zzip/fetch.c
+    line: 32
+    function: __zzip_get32
+    oracle_line_text: return ((uint32_t) s[3] << 24) | ((uint32_t) s[2] << 16)
+    source_file_sha256: b80b800d85444e17e4c0b7bae8ece25b47b67bcb859cda7d68ed3c62998b215d
+- case_id: zziplib-0.13.62_unzzipcat-mem_ASARUBBO-151
+  source_id: zziplib-0.13.62
+  project: zziplib
+  target_binary: unzzipcat-mem
+  cve: ISSUE-ASARUBBO-151
+  canonical_target_inst: 49205ad4934c7078:1
+  poc_path: /home/user/workspace/nycu-dissertation/target_graph/cases/zziplib-0.13.62_unzzipcat-mem_ASARUBBO-151/poc
+  poc_cmd: *id002
+  poc_stdin: null
+  expected_oracle:
+    sanitizer: heap-buffer-overflow
+    relative_source_file: zzip/memdisk.c
+    line: 182
+    function: zzip_mem_entry_new
+    oracle_line_text: item->zz_data = zzip_file_header_to_data(header);
+    source_file_sha256: 496029bb7d4c480f4b2fd276431e2951c8c8b4de2f838574e9facce60b05d2c2
+- case_id: zziplib-0.13.62_unzzipcat-mem_ASARUBBO-152
+  source_id: zziplib-0.13.62
+  project: zziplib
+  target_binary: unzzipcat-mem
+  cve: ISSUE-ASARUBBO-152
+  canonical_target_inst: aa52976b208503e8:0
+  poc_path: /home/user/workspace/nycu-dissertation/target_graph/cases/zziplib-0.13.62_unzzipcat-mem_ASARUBBO-152/poc
+  poc_cmd: *id002
+  poc_stdin: null
+  expected_oracle:
+    sanitizer: heap-buffer-overflow
+    relative_source_file: zzip/memdisk.c
+    line: 248
+    function: zzip_mem_entry_extra_block
+    oracle_line_text: while (*(short *) (ext->z_datatype))
+    source_file_sha256: 496029bb7d4c480f4b2fd276431e2951c8c8b4de2f838574e9facce60b05d2c2
+- case_id: zziplib-0.13.62_unzzipcat-mem_ASARUBBO-153
+  source_id: zziplib-0.13.62
+  project: zziplib
+  target_binary: unzzipcat-mem
+  cve: ISSUE-ASARUBBO-153
+  canonical_target_inst: 7622b3e652fe6d2e:0
+  poc_path: /home/user/workspace/nycu-dissertation/target_graph/cases/zziplib-0.13.62_unzzipcat-mem_ASARUBBO-153/poc
+  poc_cmd: *id002
+  poc_stdin: null
+  expected_oracle:
+    sanitizer: heap-buffer-overflow
+    relative_source_file: zzip/memdisk.c
+    line: 248
+    function: zzip_mem_entry_extra_block
+    oracle_line_text: while (*(short *) (ext->z_datatype))
+    source_file_sha256: 496029bb7d4c480f4b2fd276431e2951c8c8b4de2f838574e9facce60b05d2c2
+- case_id: bento4-1.5.0_mp42aac_ASARUBBO-336
+  source_id: bento4-1.5.0
+  project: bento4
+  target_binary: mp42aac
+  cve: ISSUE-ASARUBBO-336
+  canonical_target_inst: 171dedb8b52f7d76:10
+  poc_path: /home/user/workspace/nycu-dissertation/target_graph/cases/bento4-1.5.0_mp42aac_ASARUBBO-336/poc
+  poc_cmd: &id003
+  - '{binary}'
+  - '{poc}'
+  - /tmp/out.aac
+  poc_stdin: null
+  expected_oracle:
+    sanitizer: SEGV
+    relative_source_file: Source/C++/Core/Ap4Atom.h
+    line: 247
+    function: AP4_Atom::SetType(unsigned
+    oracle_line_text: void               SetType(Type type) { m_Type = type; }
+    source_file_sha256: 13abd4d2ab53ed125b82b09d0a0af00471eb750683a56ed65d20a8f08d956bf2
+- case_id: bento4-1.5.0_mp42aac_ASARUBBO-337
+  source_id: bento4-1.5.0
+  project: bento4
+  target_binary: mp42aac
+  cve: ISSUE-ASARUBBO-337
+  canonical_target_inst: b5d3c08b1326826c:27
+  poc_path: /home/user/workspace/nycu-dissertation/target_graph/cases/bento4-1.5.0_mp42aac_ASARUBBO-337/poc
+  poc_cmd: *id003
+  poc_stdin: null
+  expected_oracle:
+    sanitizer: SEGV
+    relative_source_file: Source/C++/Core/Ap4AtomSampleTable.cpp
+    line: 143
+    function: AP4_AtomSampleTable::GetSample(unsigned
+    oracle_line_text: result = m_SttsAtom->GetDts(index, dts, &duration);
+    source_file_sha256: 214e576c032066f965c6b8f694b3c206af4a83761c0ed0032c648b60c9a6b2b2
+- case_id: bento4-1.5.0_mp42aac_CVE-2017-14261
+  source_id: bento4-1.5.0
+  project: bento4
+  target_binary: mp42aac
+  cve: CVE-2017-14261
+  canonical_target_inst: 055a12017da77749:6
+  poc_path: /home/user/workspace/nycu-dissertation/target_graph/cases/bento4-1.5.0_mp42aac_CVE-2017-14261/poc
+  poc_cmd:
+  - '{binary}'
+  - '{poc}'
+  - /tmp/out.aac
+  poc_stdin: null
+  expected_oracle:
+    sanitizer: heap-buffer-overflow
+    relative_source_file: Source/C++/Core/Ap4Utils.h
+    line: 113
+    function: AP4_BytesToUInt16BE(unsigned
+    oracle_line_text: ( ((AP4_UI16)bytes[1])     );
+    source_file_sha256: 7a7be759dc3cd1c8325f887f1c09ab223ba95ef565aec22c5b53bac769472644
+- case_id: binutils-2.26_cxxfilt_CVE-2016-4487
+  source_id: binutils-2.26
+  project: binutils
+  target_binary: cxxfilt
+  cve: CVE-2016-4487
+  canonical_target_inst: db14b9a09fc8238b:4
+  poc_path: /home/user/workspace/nycu-dissertation/bench/target/benchmark-project/binutils-2.26/poc/2016-4487-a
+  poc_cmd:
+  - '{binary}'
+  poc_stdin: '{poc}'
+  expected_oracle:
+    sanitizer: SEGV
+    relative_source_file: libiberty/cplus-dem.c
+    line: 4319
+    function: register_Btype
+    oracle_line_text: work -> btypevec[ret] = NULL;
+    source_file_sha256: effe379ec7799e0f3df320847e77f8ebbba6cb060f4dad06604ab9143f733280
+- case_id: binutils-2.29_readelf_ASARUBBO-382
+  source_id: binutils-2.29
+  project: binutils
+  target_binary: readelf
+  cve: ISSUE-ASARUBBO-382
+  canonical_target_inst: 3476d49c92ea6f32:4
+  poc_path: /home/user/workspace/nycu-dissertation/target_graph/cases/binutils-2.29_readelf_ASARUBBO-382/poc
+  poc_cmd:
+  - '{binary}'
+  - -w
+  - '{poc}'
+  poc_stdin: null
+  expected_oracle:
+    sanitizer: heap-buffer-overflow
+    relative_source_file: binutils/dwarf.c
+    line: 4609
+    function: get_line_filename_and_dirname
+    oracle_line_text: for (; *hdrptr != '\0' && fileidx > 1; fileidx--)
+    source_file_sha256: 658f1c5ba8056ef3508b05bf2db85b631dcffbd73496768ca399157cf7e905cf
+- case_id: binutils-2.28_objdump_CVE-2017-8392
+  source_id: binutils-2.28
+  project: binutils
+  target_binary: objdump
+  cve: CVE-2017-8392
+  canonical_target_inst: a9d13733d40f4c39:2
+  poc_path: /home/user/workspace/nycu-dissertation/target_graph/cases/binutils-2.28_objdump_CVE-2017-8392/poc
+  poc_cmd:
+  - '{binary}'
+  - -SD
+  - '{poc}'
+  poc_stdin: null
+  expected_oracle:
+    sanitizer: heap-buffer-overflow
+    relative_source_file: bfd/libbfd.c
+    line: 548
+    function: bfd_getl32
+    oracle_line_text: unsigned long v;
+    source_file_sha256: c4a04b14b98682488235b8fc7fa557adb40fb8269f323b7c64bd8d3c7dd00d8d
+- case_id: binutils-2.29_nm_ASARUBBO-369
+  source_id: binutils-2.29
+  project: binutils
+  target_binary: nm
+  cve: ISSUE-ASARUBBO-369
+  canonical_target_inst: ccb2b857c2229c25:0
+  poc_path: /home/user/workspace/nycu-dissertation/target_graph/cases/binutils-2.29_nm_ASARUBBO-369/poc
+  poc_cmd:
+  - '{binary}'
+  - -l
+  - '{poc}'
+  poc_stdin: null
+  expected_oracle:
+    sanitizer: SEGV
+    relative_source_file: bfd/dwarf2.c
+    line: 3189
+    function: scan_unit_for_symbols
+    oracle_line_text: if (*attr.u.blk->data == DW_OP_addr)
+    source_file_sha256: 3d6a95f665fa44d4f73a87f531447f98b9664cbad16c72b39c3d5841df778633
+- case_id: jasper-1.900.1_imginfo_ASARUBBO-002
+  source_id: jasper-1.900.1
+  project: jasper
+  target_binary: imginfo
+  cve: ISSUE-ASARUBBO-002
+  canonical_target_inst: a9eb221852d8ed0b:3
+  poc_path: /home/user/workspace/nycu-dissertation/target_graph/cases/jasper-1.900.1_imginfo_ASARUBBO-002/poc
+  poc_cmd: &id004
+  - '{binary}'
+  - -f
+  - '{poc}'
+  poc_stdin: null
+  expected_oracle:
+    sanitizer: SEGV
+    relative_source_file: src/libjasper/jp2/jp2_cod.c
+    line: 444
+    function: jp2_colr_destroy
+    oracle_line_text: jas_free(colr->iccp);
+    source_file_sha256: 5329a78569e97a14e06e99cace9fdf40d0660e860cb31cac47d14e6619209bd9
+- case_id: jasper-1.900.1_imginfo_ASARUBBO-054
+  source_id: jasper-1.900.1
+  project: jasper
+  target_binary: imginfo
+  cve: ISSUE-ASARUBBO-054
+  canonical_target_inst: 483a5ad232bf79bb:0
+  poc_path: /home/user/workspace/nycu-dissertation/target_graph/cases/jasper-1.900.1_imginfo_ASARUBBO-054/poc
+  poc_cmd: *id004
+  poc_stdin: null
+  expected_oracle:
+    sanitizer: SEGV
+    relative_source_file: src/libjasper/jpc/jpc_dec.c
+    line: 1814
+    function: jpc_undo_roi
+    oracle_line_text: val = jas_matrix_get(x, i, j);
+    source_file_sha256: 6541bcdc3228aa4502ae5f14ecd36c7c2a853a7f792b4e7256af51f521a50b97
+- case_id: jasper-1.900.1_imginfo_CVE-2017-6850
+  source_id: jasper-1.900.1
+  project: jasper
+  target_binary: imginfo
+  cve: CVE-2017-6850
+  canonical_target_inst: b6176252e7b8f484:4
+  poc_path: /home/user/workspace/nycu-dissertation/target_graph/cases/jasper-1.900.1_imginfo_CVE-2017-6850/poc
+  poc_cmd:
+  - '{binary}'
+  - -f
+  - '{poc}'
+  poc_stdin: null
+  expected_oracle:
+    sanitizer: SEGV
+    relative_source_file: src/libjasper/jp2/jp2_cod.c
+    line: 229
+    function: jp2_cdef_destroy
+    oracle_line_text: jas_free(cdef->ents);
+    source_file_sha256: 5329a78569e97a14e06e99cace9fdf40d0660e860cb31cac47d14e6619209bd9
+- case_id: jhead-3.04_jhead_ASARUBBO-083
+  source_id: jhead-3.04
+  project: jhead
+  target_binary: jhead
+  cve: ISSUE-ASARUBBO-083
+  canonical_target_inst: 16f9e762cf77f39b:3
+  poc_path: /home/user/workspace/nycu-dissertation/target_graph/cases/jhead-3.04_jhead_ASARUBBO-083/poc
+  poc_cmd: &id005
+  - '{binary}'
+  - -te
+  - '{poc}'
+  poc_stdin: null
+  expected_oracle:
+    sanitizer: global-buffer-overflow
+    relative_source_file: jhead.c
+    line: 1637
+    function: main
+    oracle_line_text: a = 0;
+    source_file_sha256: f3e77813ab2843294201207e37f89bbfa11ea5221c58b8645ea10908ea1decd3
+- case_id: jhead-3.04_jhead_ASARUBBO-119
+  source_id: jhead-3.04
+  project: jhead
+  target_binary: jhead
+  cve: ISSUE-ASARUBBO-119
+  canonical_target_inst: af1939675fd32957:3
+  poc_path: /home/user/workspace/nycu-dissertation/target_graph/cases/jhead-3.04_jhead_ASARUBBO-119/poc
+  poc_cmd: *id005
+  poc_stdin: null
+  expected_oracle:
+    sanitizer: global-buffer-overflow
+    relative_source_file: jhead.c
+    line: 1637
+    function: main
+    oracle_line_text: a = 0;
+    source_file_sha256: f3e77813ab2843294201207e37f89bbfa11ea5221c58b8645ea10908ea1decd3
+- case_id: jhead-3.04_jhead_ASARUBBO-120
+  source_id: jhead-3.04
+  project: jhead
+  target_binary: jhead
+  cve: ISSUE-ASARUBBO-120
+  canonical_target_inst: 3c2583105dcd42dc:3
+  poc_path: /home/user/workspace/nycu-dissertation/target_graph/cases/jhead-3.04_jhead_ASARUBBO-120/poc
+  poc_cmd: *id005
+  poc_stdin: null
+  expected_oracle:
+    sanitizer: global-buffer-overflow
+    relative_source_file: jhead.c
+    line: 1637
+    function: main
+    oracle_line_text: a = 0;
+    source_file_sha256: f3e77813ab2843294201207e37f89bbfa11ea5221c58b8645ea10908ea1decd3
+- case_id: lame-3.99.5_lame_ASARUBBO-292
+  source_id: lame-3.99.5
+  project: lame
+  target_binary: lame
+  cve: ISSUE-ASARUBBO-292
+  canonical_target_inst: ea1081ddcccbe703:14
+  poc_path: /home/user/workspace/nycu-dissertation/target_graph/cases/lame-3.99.5_lame_ASARUBBO-292/poc
+  poc_cmd: &id006
+  - '{binary}'
+  - '{poc}'
+  - /dev/null
+  poc_stdin: null
+  expected_oracle:
+    sanitizer: heap-buffer-overflow
+    relative_source_file: libmp3lame/util.c
+    line: 606
+    function: fill_buffer_resample
+    oracle_line_text: 'y = (j2 < 0) ? inbuf_old[BLACKSIZE + j2] : inbuf[j2];'
+    source_file_sha256: 4b7ab3ebcca8d47a6a017772453e0f68ff0e7983bafea558254eaa60d95e1ed9
+- case_id: lame-3.99.5_lame_ASARUBBO-298
+  source_id: lame-3.99.5
+  project: lame
+  target_binary: lame
+  cve: ISSUE-ASARUBBO-298
+  canonical_target_inst: 996603622a771cbe:7
+  poc_path: /home/user/workspace/nycu-dissertation/target_graph/cases/lame-3.99.5_lame_ASARUBBO-298/poc.c
+  poc_cmd: *id006
+  poc_stdin: null
+  expected_oracle:
+    sanitizer: SEGV
+    relative_source_file: libmp3lame/util.c
+    line: 606
+    function: fill_buffer_resample
+    oracle_line_text: 'y = (j2 < 0) ? inbuf_old[BLACKSIZE + j2] : inbuf[j2];'
+    source_file_sha256: 4b7ab3ebcca8d47a6a017772453e0f68ff0e7983bafea558254eaa60d95e1ed9
+- case_id: libming-4.7.1_swftophp_CVE-2017-7578
+  source_id: libming-4.7.1
+  project: libming
+  target_binary: swftophp
+  cve: CVE-2017-7578
+  canonical_target_inst: cd5e2a872cb23870:5
+  poc_path: /home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libming-4.7.1/poc/2017-7578
+  poc_cmd:
+  - '{binary}'
+  - '{poc}'
+  poc_stdin: null
+  expected_oracle:
+    sanitizer: heap-buffer-overflow
+    relative_source_file: util/parser.c
+    line: 68
+    function: parseSWF_RGBA
+    oracle_line_text: rgb->red = readUInt8 (f);
+    source_file_sha256: 1244c4f58db6d32d8897d3ef40cd32bf5e368ef6c90c04a0981477d6c6563cd5
+- case_id: libming-4.7_swftophp_CVE-2017-11728
+  source_id: libming-4.7
+  project: libming
+  target_binary: swftophp
+  cve: CVE-2017-11728
+  canonical_target_inst: 91b003e2bf33b1bb:2
+  poc_path: /home/user/workspace/nycu-dissertation/target_graph/cases/libming-4.7_swftophp_CVE-2017-11728/poc
+  poc_cmd:
+  - '{binary}'
+  - '{poc}'
+  poc_stdin: null
+  expected_oracle:
+    sanitizer: heap-buffer-overflow
+    relative_source_file: util/decompile.c
+    line: 868
+    function: OpCode
+    oracle_line_text: return actions[n].SWF_ACTIONRECORD.ActionCode;
+    source_file_sha256: e3999ce50bdb07e6b4715eb914ae73b9bc54c4d93138712fa51e5d7849f9979b
+- case_id: libming-4.8_swftophp_CVE-2018-11226
+  source_id: libming-4.8
+  project: libming
+  target_binary: swftophp
+  cve: CVE-2018-11226
+  canonical_target_inst: 5886cf77c064e531:2
+  poc_path: /home/user/workspace/nycu-dissertation/target_graph/cases/libming-4.8_swftophp_CVE-2018-11226/poc
+  poc_cmd:
+  - '{binary}'
+  - '{poc}'
+  poc_stdin: null
+  expected_oracle:
+    sanitizer: heap-buffer-overflow
+    relative_source_file: util/decompile.c
+    line: 2015
+    function: decompile_SWITCH
+    oracle_line_text: if (actions[i+1].SWF_ACTIONRECORD.Offset==off1end)
+    source_file_sha256: e3999ce50bdb07e6b4715eb914ae73b9bc54c4d93138712fa51e5d7849f9979b
+- case_id: libtiff-4.0.6_tiffcp_ASARUBBO-0103
+  source_id: libtiff-4.0.6
+  project: libtiff
+  target_binary: tiffcp
+  cve: ISSUE-ASARUBBO-0103
+  canonical_target_inst: fe964858947f2f67:10
+  poc_path: /home/user/workspace/nycu-dissertation/target_graph/cases/libtiff-4.0.6_tiffcp_ASARUBBO-0103/poc
+  poc_cmd:
+  - '{binary}'
+  - -i
+  - '{poc}'
+  - /tmp/out.tif
+  poc_stdin: null
+  expected_oracle:
+    sanitizer: heap-buffer-overflow
+    relative_source_file: tools/tiffcp.c
+    line: 784
+    function: tiffcp
+    oracle_line_text: inknameslen += (strlen(cp) + 1);
+    source_file_sha256: 4cdda21c5744c99d51228554bc413d8bd8aab354e7a12125b0e1675a15d419e8
+- case_id: libxml2-2.9.4_xmllint_CVE-2017-5969
+  source_id: libxml2-2.9.4
+  project: libxml2
+  target_binary: xmllint
+  cve: CVE-2017-5969
+  canonical_target_inst: 6885f7edbf1a0b0f:9
+  poc_path: /home/user/workspace/nycu-dissertation/bench/target/benchmark-project/libxml2-2.9.4/poc/2017-5969
+  poc_cmd:
+  - '{binary}'
+  - --recover
+  - --valid
+  - '{poc}'
+  poc_stdin: null
+  expected_oracle:
+    sanitizer: SEGV
+    relative_source_file: valid.c
+    line: 1181
+    function: xmlDumpElementContent
+    oracle_line_text: if ((content->c2->type == XML_ELEMENT_CONTENT_OR) ||
+    source_file_sha256: 03eb2f7b74aff20779ce575883db07864a708f27538f908b7e24da8a87ec6a9b

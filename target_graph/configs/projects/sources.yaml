@@ -1,0 +1,120 @@
+sources:
+  cJSON-1.7.8:
+    project: cJSON
+    version: 1.7.8
+    local_path: sources_pool/cJSON-1.7.8
+    upstream_type: git
+    upstream_url: https://github.com/DaveGamble/cJSON.git
+    git_commit: 08103f048e5f54c8f60aaefda16761faf37114f2
+    build_dir_prefix: /build
+  imageworsener-1.3.1:
+    project: imageworsener
+    version: 1.3.1
+    local_path: sources_pool/imageworsener-1.3.1
+    upstream_type: git
+    upstream_url: https://github.com/jsummers/imageworsener.git
+    git_commit: e2f74906e9cca95ee48e7f019436b9635eab30ba
+    build_dir_prefix: /build
+  zziplib-0.13.62:
+    project: zziplib
+    version: 0.13.62
+    local_path: sources_pool/zziplib-0.13.62
+    upstream_type: git
+    upstream_url: https://github.com/gdraheim/zziplib
+    git_commit: 0283ed8eeb494d7fc30d019b53e49490b3e8a6d7
+    build_dir_prefix: /build
+  bento4-1.5.0:
+    project: bento4
+    version: 1.5.0
+    local_path: sources_pool/bento4-1.5.0
+    upstream_type: git
+    upstream_url: https://github.com/axiomatic-systems/Bento4.git
+    git_commit: 3f2ad0b82d59aa5995d027df64b2964ebcf59e10
+    build_dir_prefix: /build
+  binutils-2.26:
+    project: binutils
+    version: '2.26'
+    local_path: ../bench/src/cbfb902b39f3/binutils-2.26
+    upstream_type: archive
+    upstream_url: https://ftp.gnu.org/gnu/binutils/binutils-2.26.tar.gz
+    archive_sha256: 9615feddaeedc214d1a1ecd77b6697449c952eab69d79ab2125ea050e944bcc1
+    build_dir_prefix: /build
+  binutils-2.28:
+    project: binutils
+    version: '2.28'
+    local_path: ../bench/src/9dd55bea0859/binutils-2.28
+    upstream_type: archive
+    upstream_url: https://ftp.gnu.org/gnu/binutils/binutils-2.28.tar.gz
+    archive_sha256: cd717966fc761d840d451dbd58d44e1e5b92949d2073d75b73fccb476d772fcf
+    build_dir_prefix: /build
+  binutils-2.29:
+    project: binutils
+    version: '2.29'
+    local_path: ../bench/src/259e26594237/binutils-2.29
+    upstream_type: archive
+    upstream_url: https://ftp.gnu.org/gnu/binutils/binutils-2.29.tar.gz
+    archive_sha256: 172e8c89472cf52712fd23a9f14e9bca6182727fb45b0f8f482652a83d5a11b4
+    build_dir_prefix: /build
+  jasper-1.900.1:
+    project: jasper
+    version: 1.900.1
+    local_path: sources_pool/jasper-1.900.1
+    upstream_type: git
+    upstream_url: https://github.com/jasper-software/jasper.git
+    git_commit: b13b8c86be870107f83b0a9a4b77557cb2b65d69
+    build_dir_prefix: /build
+  jhead-3.04:
+    project: jhead
+    version: '3.04'
+    local_path: sources_pool/jhead-3.04
+    upstream_type: git
+    upstream_url: https://github.com/Matthias-Wandel/jhead.git
+    git_commit: ba1da7dce9e8f3269159b57b88ff9688624426d2
+    build_dir_prefix: /build
+  lame-3.99.5:
+    project: lame
+    version: 3.99.5
+    local_path: sources_pool/lame-3.99.5
+    upstream_type: archive
+    upstream_url: https://sourceforge.net/projects/lame/files/lame/3.99/lame-3.99.5.tar.gz/download
+    build_dir_prefix: /build
+  libming-4.7:
+    project: libming
+    version: '4.7'
+    local_path: ../bench/src/f5bda7ee3a2b/libming
+    upstream_type: git
+    upstream_url: https://github.com/libming/libming.git
+    git_commit: 6f91d1aa8f2351c2226020df015d3f05e453f3ee
+    build_dir_prefix: /build
+  libming-4.7.1:
+    project: libming
+    version: 4.7.1
+    local_path: ../bench/src/cd6d1f73bb92/libming
+    upstream_type: git
+    upstream_url: https://github.com/libming/libming.git
+    git_commit: 6dff24bc2543c55f277662144d0cec97e4a6d0c1
+    build_dir_prefix: /build
+  libming-4.8:
+    project: libming
+    version: '4.8'
+    local_path: ../bench/src/b8a5c20ca76d/libming
+    upstream_type: git
+    upstream_url: https://github.com/libming/libming.git
+    git_commit: b72cc2fda0e8b3792b7b3f7361fc3f917f269433
+    build_dir_prefix: /build
+  libtiff-4.0.6:
+    project: libtiff
+    version: 4.0.6
+    local_path: sources_pool/libtiff-4.0.6
+    upstream_type: git
+    upstream_url: https://gitlab.com/libtiff/libtiff.git
+    git_commit: 5612707c086cda76319552a0a2afeddcfa67d1b3
+    build_dir_prefix: /build
+  libxml2-2.9.4:
+    project: libxml2
+    version: 2.9.4
+    local_path: ../bench/src/e1d26d3c6b0e/libxml2-2.9.4
+    upstream_type: archive
+    upstream_url: https://gitlab.gnome.org/GNOME/libxml2/-/archive/v2.9.4/libxml2-v2.9.4.tar.gz
+    archive_sha256: 7a2037650a3b47f56f677c76272136c4b5d50dc3f2166dd2e498f60aef1742c9
+    build_dir_prefix: /build

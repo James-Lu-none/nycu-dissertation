@@ -5,7 +5,8 @@ FROM target-graph:llvm14
 ARG SVF_COMMIT=0e56bc038bf207a1ca320b5f5ad241e13ab33e14
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libz3-dev libncurses-dev && \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt/lists/* && \
+    pip3 install --no-cache-dir cmake
 
 RUN git clone https://github.com/SVF-tools/SVF.git /opt/SVF && \
     git -C /opt/SVF checkout --detach "$SVF_COMMIT" && \
