@@ -7,6 +7,7 @@ import json
 import pytest
 
 from target_graph.svf.validate import preflight, validate_svf
+from target_graph.svf.provenance import canonical_identity
 
 
 @pytest.fixture()
@@ -134,4 +135,54 @@ def test_rejects_build_id_mismatch_and_unverified_targets(example):
     )
     bb_map.write_text('{"bb_id":"bb0"}\n')
     with pytest.raises(ValueError, match="not present in bb_map"):
+        preflight(before, "bb1:0", bb_map=bb_map, v2_nodes=v2)
+
+
+
+def test_canonical_provenance_not_aliased_case_id(tmp_path):
+    summary = tmp_path / "pass_summary.json"
+    summary.write_text(json.dumps({
+        "build_id": "imageworsener-1.3.1_imagew_CVE-2017-9204",
+        "module_name": "/workspace/cases/"
+                       "imageworsener-1.3.1_imagew_CVE-2017-9204/imagew.bc",
+    }))
+    assert canonical_identity(summary, "imagew.bc") == (
+        "imageworsener-1.3.1_imagew_CVE-2017-9204",
+        "/workspace/cases/"
+        "imageworsener-1.3.1_imagew_CVE-2017-9204/imagew.bc",
+    )
+    with pytest.raises(ValueError, match="Bitcode file name differs"):
+        canonical_identity(summary, "different.bc")
+
+
+def test_provenance_missing_or_incomplete_is_not_guessed(tmp_path):
+    summary = tmp_path / "pass_summary.json"
+    with pytest.raises(ValueError, match="Missing"):
+        canonical_identity(summary, "x.bc")
+    summary.write_text('{"build_id": "alias", "module_name": ""}')
+    with pytest.raises(ValueError, match="invalid canonical"):
+        canonical_identity(summary, "x.bc")
+
+
+def test_mismatched_alias_is_detected_before_target(example):
+    before, _, _, bb_map, v2, _ = example
+    # Same underlying LLVM structure but different build/module hash.
+    before.write_text(
+        '{"id":"alias0:0","bb_id":"alias0","function":"main","opcode":"load"}\n'
+        '{"id":"alias1:0","bb_id":"alias1","function":"main","opcode":"store"}\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="Original identities not present in bb_map"):
+        preflight(before, "alias1:0", bb_map=bb_map, v2_nodes=v2)
+
+
+def test_matching_id_but_wrong_opcode_is_not_accepted(example):
+    before, _, _, bb_map, v2, _ = example
+    rows = [
+        {"kind":"instruction", "id":"bb0:0", "function":"main", "text":"sub"},
+        {"kind":"instruction", "id":"bb1:0", "function":"main", "text":"store"},
+        {"kind":"instruction", "id":"bb1:1", "function":"main", "text":"ret"},
+    ]
+    v2.write_text("".join(json.dumps(row) + "\n" for row in rows))
+    with pytest.raises(ValueError, match="function/opcode mismatch"):
         preflight(before, "bb1:0", bb_map=bb_map, v2_nodes=v2)
