@@ -11,12 +11,15 @@ RUN git clone https://github.com/SVF-tools/SVF.git /opt/SVF && \
     git -C /opt/SVF checkout --detach "$SVF_COMMIT" && \
     test "$(git -C /opt/SVF rev-parse HEAD)" = "$SVF_COMMIT"
 
-# Compile the adapter inside SVF's official example build, using the same
-# SvfLLVM/LLVM14 libraries.
+# Create a separate CMake directory because add_llvm_executable checks for
+# unlisted source files in sibling targets' directories.
+RUN mkdir -p /opt/SVF/svf-llvm/tools/TargetGraph
 COPY src/target_graph/svf/svf_target_slice.cpp \
-     /opt/SVF/svf-llvm/tools/Example/targetgraph-svf.cpp
-RUN printf '\nadd_llvm_executable(targetgraph-svf targetgraph-svf.cpp)\ntarget_link_libraries(targetgraph-svf PUBLIC ${llvm_libs} SvfLLVM)\nset_target_properties(targetgraph-svf PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)\n' \
-    >> /opt/SVF/svf-llvm/tools/Example/CMakeLists.txt
+     /opt/SVF/svf-llvm/tools/TargetGraph/targetgraph-svf.cpp
+RUN printf 'add_llvm_executable(targetgraph-svf targetgraph-svf.cpp)\ntarget_link_libraries(targetgraph-svf PUBLIC ${llvm_libs} SvfLLVM)\nset_target_properties(targetgraph-svf PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)\n' \
+      > /opt/SVF/svf-llvm/tools/TargetGraph/CMakeLists.txt && \
+    printf '\nadd_subdirectory(TargetGraph)\n' \
+      >> /opt/SVF/svf-llvm/tools/CMakeLists.txt
 
 RUN cmake -S /opt/SVF -B /opt/SVF/Release-build -G Ninja \
       -DLLVM_DIR=/usr/lib/llvm-14/lib/cmake/llvm \
