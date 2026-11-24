@@ -27,8 +27,9 @@ RUN cmake -S /opt/SVF -B /opt/SVF/Release-build -G Ninja \
       -DCMAKE_BUILD_TYPE=Release \
       -DSVF_WARN_AS_ERROR=OFF \
       -DSVF_ENABLE_ASSERTIONS=ON && \
-    cmake --build /opt/SVF/Release-build --target targetgraph-svf -j 2 && \
+    cmake --build /opt/SVF/Release-build --target gen_extapi_ir targetgraph-svf -j 2 && \
     test -x /opt/SVF/Release-build/bin/targetgraph-svf && \
+    test -s /opt/SVF/Release-build/svf-llvm/extapi.bc && \
     ln -s /opt/SVF/Release-build/bin/targetgraph-svf \
           /usr/local/bin/targetgraph-svf
 
