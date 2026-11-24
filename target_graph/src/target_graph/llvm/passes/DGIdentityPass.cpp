@@ -54,6 +54,16 @@ public:
     if (!BuildIdEnv || !*BuildIdEnv)
       report_fatal_error("dg-tag requires TARGET_GRAPH_BUILD_ID");
     const std::string BuildId(BuildIdEnv);
+    // Identity provenance is the *original* TargetGraphPass module name.
+    // The LLVM module identifier may change when a case is copied/aliased.
+    // This overrides hashing only; the actual IR module is not renamed.
+    const char *IdModuleEnv = std::getenv("TARGET_GRAPH_ID_MODULE_NAME");
+    const std::string IdModule =
+        (IdModuleEnv && *IdModuleEnv) ? std::string(IdModuleEnv)
+                                     : M.getName().str();
+    if (IdModule != M.getName().str())
+      errs() << "[dg-identity] using canonical module identity: " << IdModule
+             << " (bitcode module name: " << M.getName() << ")\n";
     std::set<std::string> SeenBlocks;
     size_t Tagged = 0;
 
@@ -62,7 +72,7 @@ public:
         continue;
       unsigned BlockOrdinal = 0;
       for (BasicBlock &BB : F) {
-        const std::string Key = BuildId + ":" + M.getName().str() + ":" +
+        const std::string Key = BuildId + ":" + IdModule + ":" +
                                 F.getName().str() + ":" +
                                 std::to_string(BlockOrdinal++);
         std::string BBId = shortSHA256(Key);
