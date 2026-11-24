@@ -53,6 +53,26 @@ if [[ ${#BC_FILES[@]} -ne 1 ]]; then
   exit 1
 fi
 BC_NAME="$(basename "${BC_FILES[0]}")"
+export PYTHONPATH="$ROOT_DIR/src:${PYTHONPATH:-}"
+PYTHON_BIN="${VIRTUAL_ENV:+$VIRTUAL_ENV/bin/python3}"
+if [[ -z "$PYTHON_BIN" || ! -x "$PYTHON_BIN" ]]; then PYTHON_BIN=python3; fi
+
+# Never use CASE_ID as the hashing input if this is an alias/relocated case.
+# Pass summary records the exact build/module pair used for bb_map + v2.
+CANONICAL_RECORD="$("$PYTHON_BIN" -m target_graph.svf.provenance \
+  --pass-summary "$CASE_DIR/pass_summary.json" \
+  --bitcode-name "$BC_NAME")"
+mapfile -t CANONICAL_FIELDS <<< "$CANONICAL_RECORD"
+if [[ ${#CANONICAL_FIELDS[@]} -ne 2 ||
+      -z "${CANONICAL_FIELDS[0]}" || -z "${CANONICAL_FIELDS[1]}" ]]; then
+  echo "Invalid original graph identity provenance" >&2
+  exit 1
+fi
+CANONICAL_BUILD_ID="${CANONICAL_FIELDS[0]}"
+CANONICAL_MODULE_NAME="${CANONICAL_FIELDS[1]}"
+if [[ "$CANONICAL_BUILD_ID" != "$CASE_ID" ]]; then
+  echo "[svf] alias case $CASE_ID -> canonical graph build $CANONICAL_BUILD_ID" >&2
+fi
 OUT_DIR="$CASE_DIR/svf_backend"
 mkdir -p "$OUT_DIR"
 if [[ -e "$OUT_DIR/svf_slice.json" ]]; then
@@ -63,7 +83,8 @@ fi
 # Step 1: preserve original instruction/BB identities before SVF's builder.
 docker run --rm --user "$(id -u):$(id -g)" \
   -v "$ROOT_DIR:/workspace" \
-  -e "TARGET_GRAPH_BUILD_ID=$CASE_ID" \
+  -e "TARGET_GRAPH_BUILD_ID=$CANONICAL_BUILD_ID" \
+  -e "TARGET_GRAPH_ID_MODULE_NAME=$CANONICAL_MODULE_NAME" \
   -e "CASE_ID=$CASE_ID" -e "BC_NAME=$BC_NAME" \
   "$SVF_IMAGE" bash -c '
 set -euo pipefail
@@ -78,9 +99,6 @@ TARGET_GRAPH_DG_EXPORT="$out/before.jsonl" \
     -disable-output "$out/tagged.bc"
 '
 
-export PYTHONPATH="$ROOT_DIR/src:${PYTHONPATH:-}"
-PYTHON_BIN="${VIRTUAL_ENV:+$VIRTUAL_ENV/bin/python3}"
-if [[ -z "$PYTHON_BIN" || ! -x "$PYTHON_BIN" ]]; then PYTHON_BIN=python3; fi
 CHECK_ARGS=(--before "$OUT_DIR/before.jsonl" --target-inst "$TARGET_INST")
 if [[ -f "$CASE_DIR/bb_map.jsonl" ]]; then
   CHECK_ARGS+=(--bb-map "$CASE_DIR/bb_map.jsonl")
