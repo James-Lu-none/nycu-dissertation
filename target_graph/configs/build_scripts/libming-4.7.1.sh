@@ -14,6 +14,35 @@ trap 'rm -rf "${BUILD_TMP}"' EXIT
 cd "${BUILD_TMP}"
 cp -r "${SRC_DIR}/." .
 
+# Ensure ming.h exists
+if [[ ! -f src/ming.h && -f src/ming.h.in ]]; then
+    sed -e 's/@MAJOR_VERSION@/0/' -e 's/@MINOR_VERSION@/4/' -e 's/@MICRO_VERSION@/7/' src/ming.h.in > src/ming.h
+fi
+
+# Ensure ming_config.h exists
+if [[ ! -f src/ming_config.h ]]; then
+    cat << 'EOF' > src/ming_config.h
+#ifndef __MING_CONFIG_H
+#define __MING_CONFIG_H
+#define HAVE_DLFCN_H 1
+#define HAVE_GETOPT 1
+#define HAVE_GETOPT_H 1
+#define HAVE_GETOPT_LONG 1
+#define HAVE_INTTYPES_H 1
+#define HAVE_MKSTEMP 1
+#define HAVE_STDINT_H 1
+#define HAVE_STDIO_H 1
+#define HAVE_STDLIB_H 1
+#define HAVE_STRINGS_H 1
+#define HAVE_STRING_H 1
+#define HAVE_SYS_STAT_H 1
+#define HAVE_SYS_TYPES_H 1
+#define HAVE_UNISTD_H 1
+#define STDC_HEADERS 1
+#endif
+EOF
+fi
+
 SRCS="util/outputscript.c util/main.c util/action.c util/blocktypes.c util/decompile.c util/parser.c util/read.c util/vasprintf.c"
 if [[ -f src/blocks/error.c ]]; then
     SRCS="${SRCS} src/blocks/error.c"

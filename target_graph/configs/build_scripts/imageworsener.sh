@@ -14,13 +14,21 @@ trap 'rm -rf "${BUILD_TMP}"' EXIT
 cd "${BUILD_TMP}"
 cp -r "${SRC_DIR}/." .
 
+if [[ ! -f ./configure ]]; then
+    if [[ -f ./scripts/autogen.sh ]]; then
+        ./scripts/autogen.sh
+    elif [[ -f ./autogen.sh ]]; then
+        ./autogen.sh
+    fi
+fi
+
 # 1. Compile bitcode using wllvm
 export LLVM_COMPILER=clang
 ./configure CC=wllvm CFLAGS="-g -O1" --disable-shared
 make -j"$(nproc)"
-extract-bc src/imagew
-cp src/imagew.bc "${TARGET_OUT}/imagew.bc"
-cp src/imagew "${TARGET_OUT}/imagew_base"
+extract-bc imagew
+cp imagew.bc "${TARGET_OUT}/imagew.bc"
+cp imagew "${TARGET_OUT}/imagew_base"
 
 # 2. Run TargetGraphPass
 export TARGET_GRAPH_BUILD_ID="${BUILD_ID}"
@@ -34,6 +42,6 @@ make clean || true
     LDFLAGS="-fsanitize=address -no-pie -Wl,--whole-archive /usr/local/lib/libtarget_graph_trace.a -Wl,--no-whole-archive" \
     --disable-shared
 make -j"$(nproc)"
-cp src/imagew "${TARGET_OUT}/imagew_inst"
+cp imagew "${TARGET_OUT}/imagew_inst"
 
 echo "[BUILD][imageworsener] Finished building imagew in ${TARGET_OUT}"

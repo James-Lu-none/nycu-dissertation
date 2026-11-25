@@ -31,9 +31,12 @@ opt -load-pass-plugin=/usr/local/lib/TargetGraphPass.so -passes="target-graph" -
 make clean || true
 ./configure CC=clang \
     CFLAGS="-g -O1 -fsanitize=address -fsanitize-coverage=trace-pc-guard,no-prune -no-pie" \
-    LDFLAGS="-fsanitize=address -no-pie -Wl,--whole-archive /usr/local/lib/libtarget_graph_trace.a -Wl,--no-whole-archive" \
     --disable-shared
-make -j"$(nproc)"
-cp src/appl/imginfo "${TARGET_OUT}/imginfo_inst"
+make -j"$(nproc)" -C src/libjasper
+make -j"$(nproc)" -C src/appl imginfo.o
+clang -g -O1 -fsanitize=address -no-pie \
+    src/appl/imginfo.o src/libjasper/.libs/libjasper.a -lm \
+    -Wl,--whole-archive /usr/local/lib/libtarget_graph_trace.a -Wl,--no-whole-archive \
+    -o "${TARGET_OUT}/imginfo_inst"
 
 echo "[BUILD][jasper] Finished building imginfo in ${TARGET_OUT}"

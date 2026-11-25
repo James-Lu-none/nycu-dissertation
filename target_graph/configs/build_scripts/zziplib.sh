@@ -14,13 +14,24 @@ trap 'rm -rf "${BUILD_TMP}"' EXIT
 cd "${BUILD_TMP}"
 cp -r "${SRC_DIR}/." .
 
-# 1. Compile bitcode using wllvm
 export LLVM_COMPILER=clang
+
+# 1. Compile bitcode using wllvm
 ./configure CC=wllvm CFLAGS="-g -O1 -D_USE_MMAP" --disable-shared
-make -j"$(nproc)"
-extract-bc bins/unzzipcat-mem
-cp bins/unzzipcat-mem.bc "${TARGET_OUT}/unzzipcat-mem.bc"
-cp bins/unzzipcat-mem "${TARGET_OUT}/unzzipcat-mem_base"
+BUILD_SUBDIR="$(ls -d Linux_*.d 2>/dev/null | head -n 1 || echo "")"
+if [[ -n "${BUILD_SUBDIR}" && -d "${BUILD_SUBDIR}" ]]; then
+    make -j"$(nproc)" -C "${BUILD_SUBDIR}/zzip"
+    make -j"$(nproc)" -C "${BUILD_SUBDIR}/bins"
+    extract-bc "${BUILD_SUBDIR}/bins/unzzipcat-mem"
+    cp "${BUILD_SUBDIR}/bins/unzzipcat-mem.bc" "${TARGET_OUT}/unzzipcat-mem.bc"
+    cp "${BUILD_SUBDIR}/bins/unzzipcat-mem" "${TARGET_OUT}/unzzipcat-mem_base"
+else
+    make -j"$(nproc)" -C zzip
+    make -j"$(nproc)" -C bins
+    extract-bc bins/unzzipcat-mem
+    cp bins/unzzipcat-mem.bc "${TARGET_OUT}/unzzipcat-mem.bc"
+    cp bins/unzzipcat-mem "${TARGET_OUT}/unzzipcat-mem_base"
+fi
 
 # 2. Run TargetGraphPass
 export TARGET_GRAPH_BUILD_ID="${BUILD_ID}"
@@ -28,12 +39,24 @@ export TARGET_GRAPH_OUT_DIR="${TARGET_OUT}"
 opt -load-pass-plugin=/usr/local/lib/TargetGraphPass.so -passes="target-graph" -disable-output "${TARGET_OUT}/unzzipcat-mem.bc"
 
 # 3. Compile instrumented binary with ASan and trace
+if [[ -n "${BUILD_SUBDIR}" && -d "${BUILD_SUBDIR}" ]]; then
+    rm -rf "${BUILD_SUBDIR}"
+fi
 make clean || true
 ./configure CC=clang \
     CFLAGS="-g -O1 -fsanitize=address -fsanitize-coverage=trace-pc-guard,no-prune -no-pie -D_USE_MMAP" \
     LDFLAGS="-fsanitize=address -no-pie -Wl,--whole-archive /usr/local/lib/libtarget_graph_trace.a -Wl,--no-whole-archive" \
     --disable-shared
-make -j"$(nproc)"
-cp bins/unzzipcat-mem "${TARGET_OUT}/unzzipcat-mem_inst"
+
+BUILD_SUBDIR="$(ls -d Linux_*.d 2>/dev/null | head -n 1 || echo "")"
+if [[ -n "${BUILD_SUBDIR}" && -d "${BUILD_SUBDIR}" ]]; then
+    make -j"$(nproc)" -C "${BUILD_SUBDIR}/zzip"
+    make -j"$(nproc)" -C "${BUILD_SUBDIR}/bins"
+    cp "${BUILD_SUBDIR}/bins/unzzipcat-mem" "${TARGET_OUT}/unzzipcat-mem_inst"
+else
+    make -j"$(nproc)" -C zzip
+    make -j"$(nproc)" -C bins
+    cp bins/unzzipcat-mem "${TARGET_OUT}/unzzipcat-mem_inst"
+fi
 
 echo "[BUILD][zziplib] Finished building unzzipcat-mem in ${TARGET_OUT}"
