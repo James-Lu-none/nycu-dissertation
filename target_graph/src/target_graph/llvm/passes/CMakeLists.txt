@@ -13,8 +13,8 @@ include_directories(${LLVM_INCLUDE_DIRS})
 separate_arguments(LLVM_DEFINITIONS_LIST NATIVE_COMMAND ${LLVM_DEFINITIONS})
 add_definitions(${LLVM_DEFINITIONS_LIST})
 
-add_library(TargetGraphPass MODULE TargetGraphPass.cpp)
-target_compile_definitions(TargetGraphPass PRIVATE ${LLVM_DEFINITIONS})
+add_library(BBIdentityPass MODULE BBIdentityPass.cpp)
+target_compile_definitions(BBIdentityPass PRIVATE ${LLVM_DEFINITIONS})
 
 # Independent instruction-level analysis; legacy pass remains unchanged.
 add_library(AnalysisV2Pass MODULE AnalysisV2Pass.cpp)
@@ -23,6 +23,3 @@ target_compile_definitions(AnalysisV2Pass PRIVATE ${LLVM_DEFINITIONS})
 # Identity bridge only; DG does all slicing in its independent backend.
 add_library(DGIdentityPass MODULE DGIdentityPass.cpp)
 target_compile_definitions(DGIdentityPass PRIVATE ${LLVM_DEFINITIONS})
-
-add_library(TraceInstrumentPass MODULE TraceInstrumentPass.cpp)
-target_compile_definitions(TraceInstrumentPass PRIVATE ${LLVM_DEFINITIONS})

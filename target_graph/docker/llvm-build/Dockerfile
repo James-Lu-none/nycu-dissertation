@@ -62,13 +62,13 @@ RUN mkdir -p /opt/target_graph/build/trace_runtime && \
     cp libtarget_graph_trace.a /usr/local/lib/ && \
     cp libtarget_graph_trace.so /usr/local/lib/
 
-# Build TargetGraphPass LLVM New-PM plugin
+# Build BBIdentityPass LLVM New-PM plugin (provides bb-tag and bb-trace)
 RUN mkdir -p /opt/target_graph/build/passes && \
     cd /opt/target_graph/build/passes && \
     cmake -G Ninja -DLLVM_DIR=/usr/lib/llvm-${LLVM_VERSION}/lib/cmake/llvm /opt/target_graph/llvm/passes && \
     ninja && \
-    cp libTargetGraphPass.so /usr/local/lib/TargetGraphPass.so && \
-    cp libTargetGraphPass.so /usr/local/lib/
+    cp libBBIdentityPass.so /usr/local/lib/BBIdentityPass.so && \
+    ln -sf /usr/local/lib/BBIdentityPass.so /usr/local/lib/TargetGraphPass.so
 
 WORKDIR /workspace
 CMD ["/bin/bash"]
@@ -78,6 +78,3 @@ RUN cp /opt/target_graph/build/passes/libAnalysisV2Pass.so /usr/local/lib/Analys
 
 # LLVM identity metadata survives (when supported by DG) for exact BB/trace mapping.
 RUN cp /opt/target_graph/build/passes/libDGIdentityPass.so /usr/local/lib/DGIdentityPass.so
-
-# Direct BB-ID trace instrumentation pass.
-RUN cp /opt/target_graph/build/passes/libTraceInstrumentPass.so /usr/local/lib/TraceInstrumentPass.so

@@ -23,13 +23,13 @@ llvm-link -o "${TARGET_OUT}/jhead.bc" *.bc
 # 2. Run TargetGraphPass
 export TARGET_GRAPH_BUILD_ID="${BUILD_ID}"
 export TARGET_GRAPH_OUT_DIR="${TARGET_OUT}"
-opt -load-pass-plugin=/usr/local/lib/TargetGraphPass.so -passes="target-graph" -disable-output "${TARGET_OUT}/jhead.bc"
+opt -load-pass-plugin=/usr/local/lib/BBIdentityPass.so -passes="bb-tag" -o "${TARGET_OUT}/jhead.bc" "${TARGET_OUT}/jhead.bc"
 
 # 3. Compile base binary
 clang -g -O1 -no-pie ${SRCS} -o "${TARGET_OUT}/jhead_base" -lm
 
 # 4. Instrument bitcode with TraceInstrumentPass and compile ASan binary
-opt -load-pass-plugin=/usr/local/lib/TraceInstrumentPass.so -passes="target-graph-trace" -o "${TARGET_OUT}/jhead_trace.bc" "${TARGET_OUT}/jhead.bc"
+opt -load-pass-plugin=/usr/local/lib/BBIdentityPass.so -passes="bb-trace" -o "${TARGET_OUT}/jhead_trace.bc" "${TARGET_OUT}/jhead.bc"
 clang -g -O1 -no-pie -fsanitize=address \
     "${TARGET_OUT}/jhead_trace.bc" \
     -Wl,--whole-archive,/usr/local/lib/libtarget_graph_trace.a,--no-whole-archive \

@@ -38,10 +38,10 @@ cp imagew "${TARGET_OUT}/imagew_base"
 # 2. Run TargetGraphPass
 export TARGET_GRAPH_BUILD_ID="${BUILD_ID}"
 export TARGET_GRAPH_OUT_DIR="${TARGET_OUT}"
-opt -load-pass-plugin=/usr/local/lib/TargetGraphPass.so -passes="target-graph" -disable-output "${TARGET_OUT}/imagew.bc"
+opt -load-pass-plugin=/usr/local/lib/BBIdentityPass.so -passes="bb-tag" -o "${TARGET_OUT}/imagew.bc" "${TARGET_OUT}/imagew.bc"
 
 # 3. Instrument bitcode with TraceInstrumentPass and compile ASan binary (link libjpeg statically for container portability)
-opt -load-pass-plugin=/usr/local/lib/TraceInstrumentPass.so -passes="target-graph-trace" -o "${TARGET_OUT}/imagew_trace.bc" "${TARGET_OUT}/imagew.bc"
+opt -load-pass-plugin=/usr/local/lib/BBIdentityPass.so -passes="bb-trace" -o "${TARGET_OUT}/imagew_trace.bc" "${TARGET_OUT}/imagew.bc"
 clang -g -O1 -fsanitize=address -no-pie \
     "${TARGET_OUT}/imagew_trace.bc" \
     /usr/lib/x86_64-linux-gnu/libjpeg.a -lz -lm \

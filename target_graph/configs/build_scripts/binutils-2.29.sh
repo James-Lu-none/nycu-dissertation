@@ -32,7 +32,7 @@ cp "${BUILD_TMP_BC}/bc_bins/nm.bc" "${NM_OUT}/nm.bc"
 cp "${BUILD_TMP_BC}/bc_bins/nm_base" "${NM_OUT}/nm_base"
 export TARGET_GRAPH_BUILD_ID="${BUILD_ID}"
 export TARGET_GRAPH_OUT_DIR="${NM_OUT}"
-opt -load-pass-plugin=/usr/local/lib/TargetGraphPass.so -passes="target-graph" -disable-output "${NM_OUT}/nm.bc"
+opt -load-pass-plugin=/usr/local/lib/BBIdentityPass.so -passes="bb-tag" -o "${NM_OUT}/nm.bc" "${NM_OUT}/nm.bc"
 
 # Export readelf
 READELF_OUT="${OUT_DIR}/readelf"
@@ -41,17 +41,17 @@ cp "${BUILD_TMP_BC}/bc_bins/readelf.bc" "${READELF_OUT}/readelf.bc"
 cp "${BUILD_TMP_BC}/bc_bins/readelf_base" "${READELF_OUT}/readelf_base"
 export TARGET_GRAPH_BUILD_ID="${BUILD_ID}"
 export TARGET_GRAPH_OUT_DIR="${READELF_OUT}"
-opt -load-pass-plugin=/usr/local/lib/TargetGraphPass.so -passes="target-graph" -disable-output "${READELF_OUT}/readelf.bc"
+opt -load-pass-plugin=/usr/local/lib/BBIdentityPass.so -passes="bb-tag" -o "${READELF_OUT}/readelf.bc" "${READELF_OUT}/readelf.bc"
 rm -rf "${BUILD_TMP_BC}"
 
 # 2. Instrument bitcode with TraceInstrumentPass and compile ASan binaries
-opt -load-pass-plugin=/usr/local/lib/TraceInstrumentPass.so -passes="target-graph-trace" -o "${NM_OUT}/nm_trace.bc" "${NM_OUT}/nm.bc"
+opt -load-pass-plugin=/usr/local/lib/BBIdentityPass.so -passes="bb-trace" -o "${NM_OUT}/nm_trace.bc" "${NM_OUT}/nm.bc"
 clang -g -O1 -fsanitize=address -no-pie \
     "${NM_OUT}/nm_trace.bc" \
     -Wl,--whole-archive,/usr/local/lib/libtarget_graph_trace.a,--no-whole-archive \
     -ldl -lm -o "${NM_OUT}/nm_inst"
 
-opt -load-pass-plugin=/usr/local/lib/TraceInstrumentPass.so -passes="target-graph-trace" -o "${READELF_OUT}/readelf_trace.bc" "${READELF_OUT}/readelf.bc"
+opt -load-pass-plugin=/usr/local/lib/BBIdentityPass.so -passes="bb-trace" -o "${READELF_OUT}/readelf_trace.bc" "${READELF_OUT}/readelf.bc"
 clang -g -O1 -fsanitize=address -no-pie \
     "${READELF_OUT}/readelf_trace.bc" \
     -Wl,--whole-archive,/usr/local/lib/libtarget_graph_trace.a,--no-whole-archive \

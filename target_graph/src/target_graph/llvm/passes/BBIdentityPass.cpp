@@ -1,12 +1,17 @@
 /*
- * TargetGraphPass.cpp
- * Minimal, deterministic LLVM New-PM Pass for canonical BB identity & mapping.
+ * BBIdentityPass.cpp
+ * Unified LLVM New-PM plugin providing two canonical BB identity passes:
  *
- * Emits:
- * 1. bb_map.jsonl: Canonical BB IDs, function names, debug locations, and CFG successors
- * 2. pass_summary.json: Provenance metadata (build_id, module_name, total_bbs, collisions_resolved)
+ * 1. bb-tag (alias: target-graph):
+ *    Computes deterministic canonical BB IDs via BBIdentity.h, writes
+ *    bb_map.jsonl and pass_summary.json, and tags each BasicBlock terminator
+ *    with !target_graph.bb_id metadata.
  *
- * Also tags each BasicBlock terminator with !target_graph.bb_id metadata.
+ * 2. bb-trace:
+ *    Fail-closed trace instrumentation pass. Requires target_graph.bb_id (or
+ *    target_graph.dg.inst_id) metadata on every BasicBlock, inserts a call to
+ *    __target_graph_trace_bb(uint64_t bb_id), and adds Attribute::SanitizeAddress
+ *    to all non-declaration functions.
  */
 
 #include "BBIdentity.h"
@@ -18,11 +23,15 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Attributes.h"
 #include "llvm/IR/DebugInfoMetadata.h"
+#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/JSON.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include <cstdint>
 #include <cstdlib>
 #include <map>
 #include <set>
@@ -33,7 +42,7 @@ using namespace llvm;
 
 namespace {
 
-class TargetGraphPass : public PassInfoMixin<TargetGraphPass> {
+class BBTagPass : public PassInfoMixin<BBTagPass> {
 public:
     PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM) {
         (void)MAM;
@@ -115,7 +124,57 @@ public:
         });
         summaryOut << "\n";
 
-        return PreservedAnalyses::all();
+        return PreservedAnalyses::none();
+    }
+};
+
+class BBTracePass : public PassInfoMixin<BBTracePass> {
+public:
+    PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM) {
+        (void)MAM;
+
+        // Pass 1: Require canonical BB IDs from tagged metadata (fail-closed).
+        std::map<BasicBlock *, uint64_t> bbToIdVal;
+
+        for (Function &F : M) {
+            if (F.isDeclaration()) continue;
+            for (BasicBlock &BB : F) {
+                std::string bbId = target_graph::readBBIdMetadata(BB);
+                if (bbId.empty()) {
+                    report_fatal_error(
+                        Twine("BBTracePass: missing target_graph.bb_id metadata in function ") +
+                        F.getName());
+                }
+                bbToIdVal[&BB] = std::stoull(bbId, nullptr, 16);
+            }
+        }
+
+        // Pass 2: Insert __target_graph_trace_bb(bb_id) and enable ASan attribute.
+        LLVMContext &Ctx = M.getContext();
+        FunctionCallee traceFn = M.getOrInsertFunction(
+            "__target_graph_trace_bb",
+            Type::getVoidTy(Ctx),
+            Type::getInt64Ty(Ctx));
+
+        for (Function &F : M) {
+            if (F.isDeclaration()) continue;
+            if (F.getName() == "__target_graph_trace_bb") continue;
+
+            F.addFnAttr(Attribute::SanitizeAddress);
+
+            for (BasicBlock &BB : F) {
+                auto it = bbToIdVal.find(&BB);
+                if (it == bbToIdVal.end()) continue;
+
+                auto IP = BB.getFirstInsertionPt();
+                if (IP == BB.end()) continue;
+
+                IRBuilder<> Builder(&BB, IP);
+                Builder.CreateCall(traceFn, {Builder.getInt64(it->second)});
+            }
+        }
+
+        return PreservedAnalyses::none();
     }
 };
 
@@ -124,13 +183,17 @@ public:
 extern "C" LLVM_ATTRIBUTE_WEAK ::llvm::PassPluginLibraryInfo llvmGetPassPluginInfo() {
     return {
         LLVM_PLUGIN_API_VERSION,
-        "TargetGraphPass",
+        "BBIdentityPass",
         LLVM_VERSION_STRING,
         [](PassBuilder &PB) {
             PB.registerPipelineParsingCallback(
                 [](StringRef Name, ModulePassManager &MPM, ArrayRef<PassBuilder::PipelineElement>) {
-                    if (Name == "target-graph") {
-                        MPM.addPass(TargetGraphPass());
+                    if (Name == "bb-tag" || Name == "target-graph") {
+                        MPM.addPass(BBTagPass());
+                        return true;
+                    }
+                    if (Name == "bb-trace") {
+                        MPM.addPass(BBTracePass());
                         return true;
                     }
                     return false;
