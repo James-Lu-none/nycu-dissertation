@@ -14,6 +14,7 @@ on:
       - "target_graph/tests/unit/test_svf_validate.py"
       - "target_graph/tests/unit/test_trace_audit.py"
       - "target_graph/tests/unit/test_target_calibration.py"
+      - "target_graph/tests/unit/test_target_resolution.py"
       - "target_graph/scripts/calibrate_targets.py"
       - "target_graph/scripts/graph_v2.sh"
       - "target_graph/docs/2026-11-27_target_audit_rerun.md"
@@ -32,6 +33,7 @@ on:
       - "target_graph/tests/unit/test_svf_validate.py"
       - "target_graph/tests/unit/test_trace_audit.py"
       - "target_graph/tests/unit/test_target_calibration.py"
+      - "target_graph/tests/unit/test_target_resolution.py"
       - "target_graph/scripts/calibrate_targets.py"
       - "target_graph/scripts/graph_v2.sh"
       - "target_graph/docs/2026-11-27_target_audit_rerun.md"
@@ -57,7 +59,8 @@ jobs:
             target_graph/tests/unit/test_svf_validate.py \
             target_graph/tests/unit/test_dg_validate.py \
             target_graph/tests/unit/test_trace_audit.py \
-            target_graph/tests/unit/test_target_calibration.py -q
+            target_graph/tests/unit/test_target_calibration.py \
+            target_graph/tests/unit/test_target_resolution.py -q
       - name: Check bash syntax
         run: |
           bash -n target_graph/scripts/svf_slice.sh
