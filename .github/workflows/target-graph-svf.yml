@@ -13,6 +13,8 @@ on:
       - "target_graph/docker/svf-llvm14/**"
       - "target_graph/tests/unit/test_svf_validate.py"
       - "target_graph/tests/unit/test_trace_audit.py"
+      - "target_graph/tests/unit/test_target_calibration.py"
+      - "target_graph/scripts/calibrate_targets.py"
       - "target_graph/src/target_graph/tracing/**"
       - "target_graph/src/target_graph/llvm/passes/**"
       - "target_graph/src/target_graph/llvm/trace_runtime/**"
@@ -27,6 +29,8 @@ on:
       - "target_graph/docker/svf-llvm14/**"
       - "target_graph/tests/unit/test_svf_validate.py"
       - "target_graph/tests/unit/test_trace_audit.py"
+      - "target_graph/tests/unit/test_target_calibration.py"
+      - "target_graph/scripts/calibrate_targets.py"
       - "target_graph/src/target_graph/tracing/**"
       - "target_graph/src/target_graph/llvm/passes/**"
       - "target_graph/src/target_graph/llvm/trace_runtime/**"
@@ -48,7 +52,8 @@ jobs:
           PYTHONPATH=target_graph/src python -m pytest \
             target_graph/tests/unit/test_svf_validate.py \
             target_graph/tests/unit/test_dg_validate.py \
-            target_graph/tests/unit/test_trace_audit.py -q
+            target_graph/tests/unit/test_trace_audit.py \
+            target_graph/tests/unit/test_target_calibration.py -q
       - name: Check bash syntax
         run: bash -n target_graph/scripts/svf_slice.sh
 
