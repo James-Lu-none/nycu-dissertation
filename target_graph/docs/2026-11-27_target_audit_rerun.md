@@ -217,3 +217,73 @@ python3 scripts/calibrate_targets.py \
 Compare `target_diagnostics.json` and `target_calibration.json`.
 Do NOT use `--apply` without reviewed independent crash-PC/operand
 evidence. No automatic target changes were made by this code review.
+
+
+## 2026-11-27 21:58+08 — Bento4 ASARUBBO-336 candidate audit
+
+Uploaded outputs:
+
+- The **30-case** audit remains 11/30 (8 ASAN_FRAME_MISMATCH,
+  7 TARGET_BB_NOT_HIT_IN_DIRECT_TRACE, 4 TARGET_NOT_IN_CURRENT_GRAPH).
+- The separate **one-case** audit for Bento4-336 is 0/1 because the
+  currently configured target `b06991cc1ff4d469:1` belongs to
+  `AP4_ProtectedSampleDescription::ToAtom` and was not executed.
+- The executed oracle BB `002d55dafb123847` belongs to
+  `AP4_AtomFactory::CreateAtomFromStream`. Its per-instruction DebugLoc
+  is `Ap4Atom.h:247` with `inlinedAt=Ap4AtomFactory.cpp:499`.
+  Both `002d55dafb123847:5` (`getelementptr`) and
+  `002d55dafb123847:6` (`store`) meet the strict DebugLoc + direct-BB
+  conditions.
+- The prior `svfg_compatible_proposal=:5` only means the native SVF
+  backend selected the first candidate with a mapped value-flow node.
+  It DOES NOT establish that the GEP itself is the faulting memory
+  operation. The actual setter's `store` is a stronger *faulting-write
+  candidate*, but this is NOT yet confirmed by the crash PC/operand.
+
+### Candidate probe fixes
+
+`targetgraph-svf` now emits `candidate_seed_counts` for **all**
+requested candidate instructions from one native SVFG construction.
+
+`calibrate_targets.py` now:
+1. Removes old probe outputs and does **not** swallow nonzero native
+   exit codes or accept resolved-target log messages as success.
+2. Requires a completed `EXPLORATORY_ONLY` report with matching target,
+   candidate ordering, nonzero selected seeds and valid mapped nodes.
+3. Saves `svfg_candidate_probe` with each candidate's seed count,
+   `candidate_instruction_evidence` with opcode/inline provenance, and
+   `direct_memory_access_alternatives` when the first mapped seed is only
+   address computation.
+4. Never automatically changes the benchmark Oracle or LLVM target.
+   `--apply` still needs explicit, reviewed fault-site evidence.
+
+**This change requires rebuilding only the SVF Docker image; no source,
+Bitcode, PoC, or Direct BB Trace rebuild is needed.**
+
+```bash
+cd target_graph
+git fetch origin
+git switch refactor/target-graph-svf-backend
+git pull --ff-only origin refactor/target-graph-svf-backend
+
+docker build -t target-graph:svf-llvm14 \
+  -f docker/svf-llvm14/Dockerfile .
+
+python3 scripts/calibrate_targets.py \
+  --case bento4-1.5.0_mp42aac_ASARUBBO-336
+```
+
+Inspect `cases/bento4-1.5.0_mp42aac_ASARUBBO-336/target_calibration.json`:
+`svfg_candidate_probe.candidate_seed_counts` should contain both
+`:5` and `:6`; each has an independently reported number of SVFG
+nodes. If the native analysis exceeds the budget or fails, it must show
+`SVFG_PROBE_INCOMPLETE` and preserve the reason — no stale proposal.
+
+Even if `:6` has SVFG seeds, confirm its store pointer corresponds to
+`AP4_Atom::SetType`'s field write and the ASan fault PC. A BB-entry
+trace proves BB execution, not that every instruction in the BB completed.
+Do not automatically approve either seed or label the remaining BBs negative.
+
+For next review, provide the fresh `target_calibration.json` and, if
+probe fails, `svf_backend/test.err` plus native exit code. Do not rerun
+all 30 cases solely to compare these two candidates.
