@@ -191,6 +191,43 @@ targetgraph-svf \\
         return None
 
 
+def review_memory_access_candidates(
+    instruction_evidence: List[Dict[str, Any]],
+    probe: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Prioritize faulting *memory access* review, never approve a target.
+
+    A getelementptr is pure pointer computation. Load/store/atomic operations
+    can dereference memory, but a BB-entry trace and SVFG seed count do NOT
+    establish that a given instruction faulted or even executed.
+    """
+    compatible = set(probe.get("svfg_compatible_candidates") or [])
+    by_id = {
+        row.get("instruction_id"): row for row in instruction_evidence
+        if isinstance(row, dict) and isinstance(row.get("instruction_id"), str)
+    }
+    memory = [
+        inst_id for inst_id, row in by_id.items()
+        if inst_id in compatible and row.get("fault_site_role") == "DIRECT_MEMORY_ACCESS"
+    ]
+    other = [
+        inst_id for inst_id in probe.get("svfg_compatible_candidates", [])
+        if inst_id in by_id and inst_id not in memory
+    ]
+    result = {
+        "memory_access_review_candidates": memory,
+        "other_value_flow_review_candidates": other,
+        "manual_review_order": memory + other,
+        "requires_fault_pc_operand_verification": True,
+        "memory_access_priority_is_not_ground_truth": True,
+    }
+    if len(memory) == 1:
+        result["single_memory_access_hypothesis"] = memory[0]
+    else:
+        result["single_memory_access_hypothesis"] = None
+    return result
+
+
 def find_candidate_instructions(case_dir: Path, oracle: Dict[str, Any]) -> List[str]:
     bb_map_path = case_dir / "bb_map.jsonl"
     before_path = case_dir / "svf_backend" / "before.jsonl"
@@ -542,6 +579,9 @@ def main():
                 and inst != proposed
             ]
             result["direct_memory_access_alternatives"] = direct_memory_alternatives
+            result["faulting_access_review"] = review_memory_access_candidates(
+                result["candidate_instruction_evidence"], probe_details
+            )
             if chosen_role == "ADDRESS_COMPUTATION" and direct_memory_alternatives:
                 result["candidate_review_warning"] = (
                     "FIRST_SVFG_SEED_IS_GEP_BUT_POC_EXECUTED_DIRECT_MEMORY_ACCESS"
