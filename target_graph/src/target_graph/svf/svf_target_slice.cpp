@@ -184,6 +184,18 @@ int main(int argc, char **argv) {
         }
     }
 
+    // Report seed availability for EVERY requested candidate from this SAME
+    // SVFG construction. First resolvable does not establish fault causality.
+    llvm::json::Array candidate_seed_counts;
+    for (const auto &cand : target_candidates) {
+        const auto it = nodes_by_inst.find(cand);
+        llvm::json::Object entry;
+        entry["instruction_id"] = cand;
+        entry["svfg_seed_count"] = static_cast<int64_t>(
+            it == nodes_by_inst.end() ? 0 : it->second.size());
+        candidate_seed_counts.push_back(std::move(entry));
+    }
+
     std::string selected_target;
     std::queue<const VFGNode *> todo;
     std::set<NodeID> visited;
@@ -285,6 +297,7 @@ int main(int argc, char **argv) {
     report["context_sensitive"] = false;
     report["control_dependencies_included"] = false;
     report["target"] = args.target;
+    report["candidate_seed_counts"] = std::move(candidate_seed_counts);
     report["target_seed_svfg_ids"] = std::move(seed_ids);
     report["svfg_total_nodes"] = static_cast<int64_t>(svfg->getSVFGNodeNum());
     report["visited_svfg_nodes"] = static_cast<int64_t>(visited.size());
