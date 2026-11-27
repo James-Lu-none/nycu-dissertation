@@ -356,7 +356,8 @@ def main():
                 raise ValueError(f"Expected exactly one original .bc, found {len(bc_files)}")
             bc = bc_files[0]
             build_id, module_name = get_canonical_provenance(cdir, bc.name)
-            ensure_tagged_bc(cid, cdir, bc.name, build_id, module_name)
+            # Fail fast on an incorrect PoC/ASan/trace before paying for
+            # LLVM tagging or SVFG graph construction.
             direct_bbs, trace_error = _execution_evidence(case, cdir, bc)
             result["execution_evidence_status"] = trace_error or "VERIFIED_DIRECT_BB_ASAN"
             if trace_error:
@@ -365,6 +366,7 @@ def main():
                     rejected.append(cid + ": " + trace_error)
                 continue
 
+            ensure_tagged_bc(cid, cdir, bc.name, build_id, module_name)
             mapper = BasicBlockMapper(cdir / "bb_map.jsonl")
             diagnostic = inspect_target(
                 mapper.bb_records, direct_bbs, case.get("expected_oracle", {}),
