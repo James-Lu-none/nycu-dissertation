@@ -20,6 +20,7 @@ import json
 import re
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -122,7 +123,7 @@ def locate_tagged_instructions(
     }
 
 
-def run_tool(args: list[str], *, max_output: int = 20_000_000) -> str:
+def run_tool(args: list[str], *, max_output: int = 2_000_000) -> str:
     completed = subprocess.run(
         args, check=False, capture_output=True, text=True,
         errors="replace", timeout=60
@@ -135,6 +136,38 @@ def run_tool(args: list[str], *, max_output: int = 20_000_000) -> str:
     if len(completed.stdout) > max_output:
         raise ValueError("Tool output exceeds inspection size limit")
     return completed.stdout
+
+
+def locate_tagged_instructions_file(
+    llvm_ir_file: Path, instruction_ids: list[str]
+) -> dict[str, Any]:
+    """Two streaming passes avoid loading a large linked LLVM module in RAM."""
+    wanted = set(instruction_ids)
+    selected_metadata: dict[str, str] = {}
+    with llvm_ir_file.open(encoding="utf-8", errors="replace") as source:
+        for line in source:
+            if not line.startswith("!"):
+                continue
+            match = _META_VALUE.match(line.strip())
+            if match and match.group(2) in wanted:
+                selected_metadata[match.group(1)] = match.group(2)
+
+    found = {inst_id: [] for inst_id in instruction_ids}
+    with llvm_ir_file.open(encoding="utf-8", errors="replace") as source:
+        for number, line in enumerate(source, 1):
+            for metadata_id in _META_ID.findall(line):
+                instruction_id = selected_metadata.get(metadata_id)
+                if instruction_id in wanted:
+                    found[instruction_id].append({
+                        "llvm_ir_line": number,
+                        "ir": line.strip(),
+                    })
+    return {
+        "requested_instructions": instruction_ids,
+        "instructions": found,
+        "all_requested_found_once": all(len(found[x]) == 1 for x in instruction_ids),
+    }
+
 
 
 def inspect(
@@ -157,8 +190,22 @@ def inspect(
         f"--stop-address={pc+pc_window:#x}",
         str(binary)
     ])
-    ir = run_tool([llvm_dis, "-o", "-", str(tagged_bc)])
-    original = locate_tagged_instructions(ir, instruction_ids)
+    # Linked LLVM IR may be hundreds of MB; do not pipe it through Python
+    # memory or capture_output. Stream the disassembly into a temp file.
+    with tempfile.TemporaryDirectory(prefix="target_graph_fault_") as work:
+        ir_file = Path(work) / "original_tagged.ll"
+        proc = subprocess.run(
+            [llvm_dis, "-o", str(ir_file), str(tagged_bc)],
+            check=False, stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE, text=True, timeout=120
+        )
+        if proc.returncode != 0:
+            raise RuntimeError(
+                "llvm-dis failed (exit={}) {}".format(
+                    proc.returncode, (proc.stderr or "")[-1000:]
+                )
+            )
+        original = locate_tagged_instructions_file(ir_file, instruction_ids)
     return {
         "schema_version": 1,
         "analysis": "ASAN_MACHINE_PC_AND_ORIGINAL_LLVM_IR_DIAGNOSTIC_ONLY",
