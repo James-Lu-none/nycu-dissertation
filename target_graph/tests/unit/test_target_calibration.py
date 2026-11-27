@@ -201,3 +201,39 @@ def test_native_probe_rejects_old_backend_without_candidate_counters(tmp_path, m
     ) is None
     assert details["status"] == "NATIVE_REPORT_INVALID"
     assert "rebuild" in details["error"]
+
+
+
+def test_review_prefers_faulting_memory_access_over_first_gep_seed():
+    """Bento4-336: both seeds exist, but a GEP is not itself a dereference."""
+    gep = "002d55dafb123847:5"
+    store = "002d55dafb123847:6"
+    report = calibration().review_memory_access_candidates([
+        {"instruction_id": gep, "fault_site_role": "ADDRESS_COMPUTATION"},
+        {"instruction_id": store, "fault_site_role": "DIRECT_MEMORY_ACCESS"},
+    ], {"svfg_compatible_candidates": [gep, store]})
+    assert report["memory_access_review_candidates"] == [store]
+    assert report["manual_review_order"] == [store, gep]
+    assert report["single_memory_access_hypothesis"] == store
+    assert report["requires_fault_pc_operand_verification"]
+    assert report["memory_access_priority_is_not_ground_truth"]
+
+
+def test_review_does_not_pick_arbitrary_memory_access_among_multiple():
+    load, store = "1111222233334444:1", "1111222233334444:2"
+    report = calibration().review_memory_access_candidates([
+        {"instruction_id": load, "fault_site_role": "DIRECT_MEMORY_ACCESS"},
+        {"instruction_id": store, "fault_site_role": "DIRECT_MEMORY_ACCESS"},
+    ], {"svfg_compatible_candidates": [load, store]})
+    assert report["memory_access_review_candidates"] == [load, store]
+    assert report["single_memory_access_hypothesis"] is None
+
+
+def test_review_excludes_memory_access_without_native_seed():
+    gep, store = "1111222233334444:3", "1111222233334444:4"
+    report = calibration().review_memory_access_candidates([
+        {"instruction_id": gep, "fault_site_role": "ADDRESS_COMPUTATION"},
+        {"instruction_id": store, "fault_site_role": "DIRECT_MEMORY_ACCESS"},
+    ], {"svfg_compatible_candidates": [gep]})
+    assert report["memory_access_review_candidates"] == []
+    assert report["single_memory_access_hypothesis"] is None
