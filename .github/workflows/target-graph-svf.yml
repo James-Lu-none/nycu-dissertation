@@ -15,6 +15,8 @@ on:
       - "target_graph/tests/unit/test_trace_audit.py"
       - "target_graph/tests/unit/test_target_calibration.py"
       - "target_graph/scripts/calibrate_targets.py"
+      - "target_graph/scripts/graph_v2.sh"
+      - "target_graph/docs/2026-11-27_target_audit_rerun.md"
       - "target_graph/src/target_graph/tracing/**"
       - "target_graph/src/target_graph/llvm/passes/**"
       - "target_graph/src/target_graph/llvm/trace_runtime/**"
@@ -31,6 +33,8 @@ on:
       - "target_graph/tests/unit/test_trace_audit.py"
       - "target_graph/tests/unit/test_target_calibration.py"
       - "target_graph/scripts/calibrate_targets.py"
+      - "target_graph/scripts/graph_v2.sh"
+      - "target_graph/docs/2026-11-27_target_audit_rerun.md"
       - "target_graph/src/target_graph/tracing/**"
       - "target_graph/src/target_graph/llvm/passes/**"
       - "target_graph/src/target_graph/llvm/trace_runtime/**"
@@ -55,7 +59,9 @@ jobs:
             target_graph/tests/unit/test_trace_audit.py \
             target_graph/tests/unit/test_target_calibration.py -q
       - name: Check bash syntax
-        run: bash -n target_graph/scripts/svf_slice.sh
+        run: |
+          bash -n target_graph/scripts/svf_slice.sh
+          bash -n target_graph/scripts/graph_v2.sh
 
 
   llvm14-direct-bb-trace:
