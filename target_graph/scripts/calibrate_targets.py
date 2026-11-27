@@ -58,28 +58,49 @@ TARGET_GRAPH_DG_EXPORT="$out/before.jsonl" opt -load-pass-plugin="$plugin" -pass
     subprocess.run(["chmod", "-R", "a+rw", str(out_dir)], stderr=subprocess.DEVNULL)
 
 
-def test_target_candidates(case_id: str, candidates: List[str], image: str = "target-graph:svf-llvm14", timeout: int = 120) -> Optional[str]:
+def test_target_candidates(
+    case_id: str,
+    candidates: List[str],
+    image: str = "target-graph:svf-llvm14",
+    timeout: int = 120,
+    probe_details: Optional[Dict[str, Any]] = None,
+) -> Optional[str]:
+    """Probe ONE SVFG for all candidates, fail closed on native errors.
+
+    The native backend chooses the first *value-flow-representable* seed,
+    NOT necessarily the faulting instruction. Save seed counts for ALL
+    candidates; the caller must independently review the faulting operand.
+    """
+    details = probe_details if probe_details is not None else {}
+    details.clear()
+    details["requested_candidates"] = list(candidates)
+    details["status"] = "NOT_RUN"
     if not candidates:
+        details["status"] = "NO_CANDIDATES"
         return None
-    # Join with comma
+    if not re.fullmatch(r"[a-zA-Z0-9_.-]+", case_id) or not all(
+        re.fullmatch(r"[0-9a-f]{16}:[0-9]+", cand) for cand in candidates
+    ):
+        details["status"] = "INVALID_CASE_OR_INSTRUCTION_ID"
+        return None
+
+    out_dir = ROOT_DIR / "cases" / case_id / "svf_backend"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    raw_path = out_dir / "test_svfg.json"
+    # Remove stale output BEFORE starting Docker, not just from inside it.
+    raw_path.unlink(missing_ok=True)
     cand_str = ",".join(candidates)
     c_script = f"""
-set -uo pipefail
+set -euo pipefail
 out="/workspace/cases/{case_id}/svf_backend"
 extapi="/opt/SVF/Release-build/svf-llvm/extapi.bc"
-rm -f "$out/test_svfg.json"
-
-targetgraph-svf \
-  --input "$out/tagged.bc" \
-  --extapi-bc "$extapi" \
-  --target-inst "{cand_str}" \
-  --max-nodes 100000 \
-  --max-edges 300000 \
-  --output "$out/test_svfg.json" 2> "$out/test.err" || true
-
-if [ -s "$out/test_svfg.json" ]; then
-  grep "Resolved target instruction:" "$out/test.err" || true
-fi
+targetgraph-svf \\
+  --input "$out/tagged.bc" \\
+  --extapi-bc "$extapi" \\
+  --target-inst "{cand_str}" \\
+  --max-nodes 100000 \\
+  --max-edges 300000 \\
+  --output "$out/test_svfg.json" 2> "$out/test.err"
 """
     cmd = [
         "docker", "run", "--rm",
@@ -87,20 +108,85 @@ fi
         image, "bash", "-c", c_script,
     ]
     try:
-        proc = subprocess.run(cmd, timeout=timeout, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        # Check stderr or stdout for Resolved target instruction
-        for line in proc.stdout.splitlines() + proc.stderr.splitlines():
-            if "Resolved target instruction:" in line:
-                return line.split("Resolved target instruction:", 1)[1].strip()
-        # Fallback: read test_svfg.json target field
-        test_json = ROOT_DIR / "cases" / case_id / "svf_backend" / "test_svfg.json"
-        if test_json.is_file() and test_json.stat().st_size > 0:
-            data = json.loads(test_json.read_text(encoding="utf-8"))
-            tgt = data.get("target")
-            if tgt:
-                return tgt
-        return None
+        proc = subprocess.run(
+            cmd, timeout=timeout, stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE, text=True, check=False
+        )
     except subprocess.TimeoutExpired:
+        details["status"] = "NATIVE_PROBE_TIMEOUT"
+        return None
+    except OSError as exc:
+        details["status"] = "DOCKER_INVOCATION_FAILED"
+        details["error"] = str(exc)
+        return None
+
+    details["native_exit_code"] = proc.returncode
+    if proc.returncode != 0:
+        details["status"] = "NATIVE_PROBE_FAILED"
+        # The native stderr may contain a precise traversal-budget reason.
+        native_err = out_dir / "test.err"
+        if native_err.is_file():
+            details["native_error_tail"] = native_err.read_text(
+                encoding="utf-8", errors="replace"
+            )[-1000:]
+        return None
+    if not raw_path.is_file():
+        details["status"] = "NATIVE_REPORT_MISSING"
+        return None
+
+    try:
+        data = json.loads(raw_path.read_text(encoding="utf-8"))
+        if (not isinstance(data, dict) or
+                data.get("backend") != "SVF-2.9/SVFG" or
+                data.get("analysis") != "BACKWARD_VALUE_FLOW_ONLY" or
+                data.get("status") != "EXPLORATORY_ONLY"):
+            raise ValueError("invalid SVFG report schema")
+        selected = data.get("target")
+        if not isinstance(selected, str) or selected not in candidates:
+            raise ValueError("resolved target is not among submitted candidates")
+
+        # A genuinely successful native analysis must carry complete
+        # candidate seed counts from the SAME SVFG construction.
+        counters = data.get("candidate_seed_counts")
+        if not isinstance(counters, list) or len(counters) != len(candidates):
+            raise ValueError(
+                "missing candidate_seed_counts; rebuild target-graph:svf-llvm14"
+            )
+        positive = []
+        for expected, row in zip(candidates, counters):
+            if (not isinstance(row, dict) or
+                    row.get("instruction_id") != expected or
+                    type(row.get("svfg_seed_count")) is not int or
+                    row["svfg_seed_count"] < 0):
+                raise ValueError("invalid or reordered candidate seed counts")
+            if row["svfg_seed_count"] > 0:
+                positive.append(expected)
+        if not positive or selected != positive[0]:
+            raise ValueError("selected target is not the first SVFG-compatible candidate")
+
+        seeds = data.get("target_seed_svfg_ids")
+        nodes = data.get("svfg_nodes")
+        if not isinstance(seeds, list) or not seeds or not isinstance(nodes, list):
+            raise ValueError("missing SVFG seed evidence")
+        by_node = {node.get("svfg_id"): node.get("instruction_id")
+                   for node in nodes if isinstance(node, dict)}
+        if any(type(seed) is not int or by_node.get(seed) != selected for seed in seeds):
+            raise ValueError("selected target seeds do not match mapped LLVM IDs")
+        if len(seeds) != counters[candidates.index(selected)]["svfg_seed_count"]:
+            raise ValueError("selected seed count differs from native SVFG evidence")
+
+        details["status"] = "SVFG_PROBE_COMPLETE_EXPLORATORY_ONLY"
+        details["selected_target"] = selected
+        details["candidate_seed_counts"] = counters
+        details["svfg_compatible_candidates"] = positive
+        details["warning"] = (
+            "Seed existence indicates value-flow representation only; "
+            "it does not verify the faulting memory operand."
+        )
+        return selected
+    except (OSError, UnicodeError, ValueError, TypeError, KeyError) as exc:
+        details["status"] = "NATIVE_REPORT_INVALID"
+        details["error"] = str(exc)
         return None
 
 
