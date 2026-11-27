@@ -287,3 +287,43 @@ Do not automatically approve either seed or label the remaining BBs negative.
 For next review, provide the fresh `target_calibration.json` and, if
 probe fails, `svf_backend/test.err` plus native exit code. Do not rerun
 all 30 cases solely to compare these two candidates.
+
+
+### Bento4-336: confirmation of both native SVFG seed counts
+
+The next user-run `target_calibration.json` confirms that BOTH executed,
+exact-DebugLoc candidates in `002d55dafb123847` map to one SVFG seed:
+
+| Instruction | LLVM opcode | Native SVFG seeds | Role |
+| --- | --- | ---: | --- |
+| `002d55dafb123847:5` | `getelementptr` | 1 | address calculation |
+| `002d55dafb123847:6` | `store` | 1 | memory write |
+
+The initial `svfg_compatible_proposal=:5` is an input-order selection:
+**the SVFG does not prefer :5 over :6**. New
+`faulting_access_review.memory_access_review_candidates` lists the
+seeded memory operations first and sets
+`single_memory_access_hypothesis=:6` for this case, while requiring
+fault-PC/operand verification. This is a REVIEW HYPOTHESIS only.
+
+A dereference at a `store` is consistent with
+`AP4_Atom::SetType()` / `m_Type = type` and a SEGV, but the ASan-instrumented
+faulting PC must still be correlated to the store's address operand.
+A matching BB-entry trace cannot prove the in-BB store completed.
+Furthermore, an SVFG seed at a store does not automatically certify
+that backward traversal follows the **destination pointer** rather than
+the stored value. Do not auto-apply the target or treat SVFG membership
+as vulnerability ground truth.
+
+After pulling the Python-only code changes (no Docker image rebuild needed):
+
+```bash
+cd target_graph
+python3 scripts/calibrate_targets.py \
+  --case bento4-1.5.0_mp42aac_ASARUBBO-336
+```
+
+Inspect `faulting_access_review` alongside the existing
+`svfg_candidate_probe`; if fault-pointer provenance is confirmed,
+apply a reviewed target via the existing `--approved-targets` protocol,
+then rerun SVF and Audit for this **one case**.
