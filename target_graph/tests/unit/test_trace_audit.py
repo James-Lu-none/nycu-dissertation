@@ -77,6 +77,13 @@ def specimen(tmp_path):
     (cdir / "trace_run.json").write_text(json.dumps(trace_run), encoding="utf-8")
     svf_dir = cdir / "svf_backend"
     svf_dir.mkdir()
+    (svf_dir / "before.jsonl").write_text(
+        json.dumps({"id": bbs[0] + ":0", "bb_id": bbs[0],
+                    "opcode": "store", "function": "fault"}) + "\n" +
+        json.dumps({"id": bbs[1] + ":0", "bb_id": bbs[1],
+                    "opcode": "call", "function": "main"}) + "\n",
+        encoding="utf-8",
+    )
     svf = {
         "backend": "SVF-2.9/SVFG",
         "analysis": "BACKWARD_VALUE_FLOW_ONLY",
@@ -132,7 +139,7 @@ def test_legacy_trace_and_wrong_target_rejected(specimen):
     payload["trace_mode"] = "direct_bb_id"
     (cdir / "trace_bbs.json").write_text(json.dumps(payload))
     meta["canonical_target_inst"] = "ffffaaaaffffaaaa:0"
-    assert audit(meta, root)["failure_reason"] == "TARGET_BB_NOT_HIT_IN_DIRECT_TRACE"
+    assert audit(meta, root)["failure_reason"] == "TARGET_NOT_IN_CURRENT_GRAPH"
 
 
 def test_source_mismatch_and_empty_intersection_rejected(specimen):
@@ -179,3 +186,84 @@ def test_direct_trace_refuses_unknown_bb_identity(specimen):
         _script("run_trace.py", "trace_module").write_trace_bbs_json(
             meta["case_id"], cdir, cdir / "prog_inst", trace
         )
+
+
+
+@pytest.mark.parametrize("filename,func,line", [
+    ("/tmp/build/libiberty/./cplus-dem.c", "register_Btype", 4319),
+    ("/tmp/build/bfd/foo/.././dwarf2.c", "scan_unit_for_symbols", 3189),
+])
+def test_asan_paths_normalize_but_oracle_remains_exact(filename, func, line):
+    oracle = {
+        "sanitizer": "SEGV",
+        "relative_source_file": (
+            "libiberty/cplus-dem.c" if "cplus-dem" in filename
+            else "bfd/dwarf2.c"
+        ),
+        "function": func,
+        "line": line,
+    }
+    stderr = (
+        "==8==ERROR: AddressSanitizer: SEGV on unknown address 0x0\n"
+        f"    #0 0x111 in {func} {filename}:{line}:25\n"
+    )
+    report = asan_evidence(stderr, oracle)
+    assert report["sanitizer_matches"]
+    assert report["oracle_top_frame_matches"]
+    assert report["crash_reproduced"]
+    assert not asan_evidence(stderr, {**oracle, "line": line + 1})[
+        "crash_reproduced"
+    ]
+    assert not asan_evidence(stderr, {**oracle, "function": "different"})[
+        "crash_reproduced"
+    ]
+
+
+def test_target_in_same_bb_but_missing_original_instruction_fails(specimen):
+    meta, root, cdir, bbs = specimen
+    meta["canonical_target_inst"] = bbs[0] + ":999"
+    record = audit(meta, root)
+    assert record["failure_reason"] == "TARGET_NOT_IN_CURRENT_IR"
+    assert record["target_in_graph"]
+    assert record["target_in_original_ir"] is False
+    assert not (cdir / "svf_weak_labels.json").exists()
+
+
+def test_failed_target_outputs_all_oracle_owners_without_retarget(specimen):
+    meta, root, cdir, bbs = specimen
+    extra_bb = "ffffeeeeaaaabbbb"
+    bb_map = cdir / "bb_map.jsonl"
+    bb_map.write_text(bb_map.read_text() + json.dumps({
+        "bb_id": extra_bb,
+        "function": "different_inline_owner",
+        "debug_locations": [{"file": "/build/src/vuln.c", "line": 12}],
+    }) + "\n")
+    # Keep all artifacts and pre-existing trace coherent after augmenting map.
+    trace = json.loads((cdir / "trace_bbs.json").read_text())
+    from target_graph.tracing.evidence import sha256 as file_sha
+    trace["bb_map_sha256"] = file_sha(bb_map)
+    (cdir / "trace_bbs.json").write_text(json.dumps(trace))
+    meta["canonical_target_inst"] = extra_bb + ":0"
+    with (cdir / "svf_backend/before.jsonl").open("a") as dst:
+        dst.write(json.dumps({
+            "id": extra_bb + ":0", "bb_id": extra_bb, "opcode": "load",
+            "function": "different_inline_owner",
+        }) + "\n")
+    record = audit(meta, root)
+    assert record["failure_reason"] == "TARGET_BB_NOT_HIT_IN_DIRECT_TRACE"
+    diagnostics = json.loads((cdir / "target_diagnostics.json").read_text())
+    assert diagnostics["status"] == "TARGET_NOT_EXECUTED"
+    assert diagnostics["safe_for_automatic_retarget"] is False
+    assert diagnostics["oracle_bb_count"] == 2
+    assert diagnostics["executed_oracle_bbs"] == [bbs[0]]
+    assert {x["llvm_owner_function"] for x in diagnostics["candidate_owner_bbs"]} == {
+        "fault", "different_inline_owner"
+    }
+    assert not (cdir / "svf_weak_labels.json").exists()
+
+
+def test_missing_before_map_is_not_inferred_from_bb_id(specimen):
+    meta, root, cdir, _ = specimen
+    (cdir / "svf_backend/before.jsonl").unlink()
+    record = audit(meta, root)
+    assert record["failure_reason"] == "MISSING_ORIGINAL_INST_MAP"
