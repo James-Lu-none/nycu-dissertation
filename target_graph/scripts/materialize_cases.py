@@ -9,6 +9,7 @@ Reads benchmark YAML and links/copies:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import os
 import shutil
 import sys
@@ -99,14 +100,20 @@ def materialize_single_case(
         s = art_dir / src_name
         d = cdir / dst_name
         if s.is_file() and (force or not d.is_file()):
-            shutil.copyfile(s, d)
+            shutil.copy2(s, d)
 
     # 3. Setup PoC
     poc_src = case_meta.get("poc_path")
+    poc_sha256 = case_meta.get("poc_sha256")
     poc_dst = cdir / "poc"
     if poc_src:
-        p_src = Path(poc_src)
+        p_src = Path(poc_src) if Path(poc_src).is_absolute() else (ROOT_DIR / poc_src)
         if p_src.is_file():
+            if poc_sha256:
+                actual_hash = hashlib.sha256(p_src.read_bytes()).hexdigest()
+                if actual_hash.lower() != poc_sha256.lower():
+                    print(f"[FAIL] {cid}: PoC SHA256 mismatch at {p_src} ({actual_hash} != {poc_sha256})", file=sys.stderr)
+                    return False
             if force or not poc_dst.exists():
                 shutil.copyfile(p_src, poc_dst)
             # Create extension symlinks if helpful (e.g. poc.tif, poc.json, dummy.jpg)
@@ -119,14 +126,7 @@ def materialize_single_case(
                     except Exception:
                         pass
         else:
-            # Fallback check in parent dissertation bench directory if relocated
-            rel_name = p_src.name
-            bench_candidates = list((ROOT_DIR.parent / "bench").rglob(f"*/{rel_name}"))
-            if bench_candidates and bench_candidates[0].is_file():
-                if force or not poc_dst.exists():
-                    shutil.copyfile(bench_candidates[0], poc_dst)
-            else:
-                print(f"[WARN] {cid}: PoC not found at {poc_src}")
+            print(f"[WARN] {cid}: PoC not found at {p_src}")
 
     return True
 

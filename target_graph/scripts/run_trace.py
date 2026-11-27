@@ -17,6 +17,33 @@ from typing import Any, Dict, List
 import yaml
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
+if str(ROOT_DIR / "src") not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR / "src"))
+
+import json
+from target_graph.llvm.mapping import BasicBlockMapper
+from target_graph.tracing.symbolizer import parse_trace_pcs, trace_to_basic_blocks
+
+
+def write_trace_bbs_json(cid: str, cdir: Path, inst_bin: Path, trace_file: Path) -> Path:
+    """Symbolize trace_crash.txt and persist trace_bbs.json."""
+    bb_map_path = cdir / "bb_map.jsonl"
+    mapper = BasicBlockMapper(bb_map_path)
+    pcs = parse_trace_pcs(trace_file)
+    ordered_bbs = trace_to_basic_blocks(trace_file, inst_bin, mapper)
+    unique_bbs = list(dict.fromkeys(ordered_bbs))
+    out_path = cdir / "trace_bbs.json"
+    payload = {
+        "case_id": cid,
+        "trace_file": str(trace_file.name),
+        "total_pc_events": len(pcs),
+        "unique_pcs": len(set(pcs)),
+        "num_executed_bbs": len(unique_bbs),
+        "executed_bbs_unique": unique_bbs,
+        "executed_bbs_ordered": ordered_bbs,
+    }
+    out_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    return out_path
 
 
 def run_single_trace(
@@ -46,6 +73,12 @@ def run_single_trace(
         res["trace_size"] = trace_file.stat().st_size
         if stderr_file.is_file():
             res["stderr_lines"] = sum(1 for _ in open(stderr_file, "r", errors="ignore"))
+        inst_bin = cdir / f"{target_bin}_inst"
+        if not (cdir / "trace_bbs.json").is_file() and inst_bin.is_file() and (cdir / "bb_map.jsonl").is_file():
+            try:
+                write_trace_bbs_json(cid, cdir, inst_bin, trace_file)
+            except Exception as e:
+                res["error"] = f"Failed to symbolize cached trace: {e}"
         return res
 
     inst_bin = cdir / f"{target_bin}_inst"
@@ -85,6 +118,7 @@ def run_single_trace(
     inner_script = f"""
 set -uo pipefail
 export TARGET_GRAPH_TRACE_FILE="{c_trace}"
+export ASAN_SYMBOLIZER_PATH="/usr/bin/llvm-symbolizer"
 export ASAN_OPTIONS="abort_on_error=0:symbolize=1:strip_path_prefix=/workspace/:handle_segv=1"
 rm -f "{c_trace}" "{c_stderr}"
 
@@ -107,6 +141,8 @@ rm -f "{c_trace}" "{c_stderr}"
         if trace_file.is_file() and trace_file.stat().st_size > 0:
             res["success"] = True
             res["trace_size"] = trace_file.stat().st_size
+            if (cdir / "bb_map.jsonl").is_file():
+                write_trace_bbs_json(cid, cdir, inst_bin, trace_file)
         if stderr_file.is_file():
             res["stderr_lines"] = sum(1 for _ in open(stderr_file, "r", errors="ignore"))
     except subprocess.TimeoutExpired:

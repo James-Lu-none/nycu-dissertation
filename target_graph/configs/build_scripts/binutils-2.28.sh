@@ -44,7 +44,7 @@ cd "${BUILD_TMP_INST}"
 cp -r "${SRC_DIR}/." .
 ./configure CC=clang \
     CFLAGS="-g -O1 -fsanitize=address -fsanitize-coverage=trace-pc-guard,no-prune -no-pie" \
-    LDFLAGS="-fsanitize=address -no-pie -Wl,--whole-archive /usr/local/lib/libtarget_graph_trace.a -Wl,--no-whole-archive" \
+    LDFLAGS="-fsanitize=address -no-pie -Wl,--whole-archive,/usr/local/lib/libtarget_graph_trace.a,--no-whole-archive" \
     ${CONFIG_OPTIONS}
 make -j"$(nproc)" all-binutils
 

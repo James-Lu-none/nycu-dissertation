@@ -31,9 +31,10 @@ rm -rf "${BUILD_TMP_BC}"
 BUILD_TMP_INST=$(mktemp -d /tmp/binutils226_inst_XXXXXX)
 cd "${BUILD_TMP_INST}"
 cp -r "${SRC_DIR}/." .
+export ASAN_OPTIONS="detect_leaks=0"
 ./configure CC=clang \
     CFLAGS="-g -O1 -fsanitize=address -fsanitize-coverage=trace-pc-guard,no-prune -no-pie" \
-    LDFLAGS="-fsanitize=address -no-pie -Wl,--whole-archive /usr/local/lib/libtarget_graph_trace.a -Wl,--no-whole-archive" \
+    LDFLAGS="-fsanitize=address -no-pie -Wl,--whole-archive,/usr/local/lib/libtarget_graph_trace.a,--no-whole-archive" \
     ${CONFIG_OPTIONS}
 make -j"$(nproc)" all-binutils
 cp binutils/cxxfilt "${TARGET_OUT}/cxxfilt_inst"

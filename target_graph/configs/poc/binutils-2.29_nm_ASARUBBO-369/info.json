@@ -1,0 +1,17 @@
+{
+  "case_id": "binutils-2.29_nm_ASARUBBO-369",
+  "cve": "ISSUE-ASARUBBO-369",
+  "source_type": "git_repo_file",
+  "source_url": "https://github.com/asarubbo/poc/blob/master/00369-binutils-NULLptr-scan_unit_for_symbols",
+  "original_filename": "00369-binutils-NULLptr-scan_unit_for_symbols",
+  "sha256": "23f583fa80de81523326cfff06136b84247a17171da77e1a613ff9a7bc621f4c",
+  "size_bytes": 31248,
+  "expected_oracle": {
+    "sanitizer": "SEGV",
+    "relative_source_file": "bfd/dwarf2.c",
+    "line": 3189,
+    "function": "scan_unit_for_symbols",
+    "oracle_line_text": "if (*attr.u.blk->data == DW_OP_addr)",
+    "source_file_sha256": "3d6a95f665fa44d4f73a87f531447f98b9664cbad16c72b39c3d5841df778633"
+  }
+}

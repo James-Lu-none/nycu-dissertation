@@ -17,7 +17,7 @@ cp -r "${SRC_DIR}/." .
 export LLVM_COMPILER=clang
 
 # 1. Compile bitcode using wllvm
-./configure CC=wllvm CFLAGS="-g -O1 -D_USE_MMAP" --disable-shared
+./configure CC="wllvm -g -O1 -D_USE_MMAP" CFLAGS="-g -O1 -D_USE_MMAP" --disable-shared
 BUILD_SUBDIR="$(ls -d Linux_*.d 2>/dev/null | head -n 1 || echo "")"
 if [[ -n "${BUILD_SUBDIR}" && -d "${BUILD_SUBDIR}" ]]; then
     make -j"$(nproc)" -C "${BUILD_SUBDIR}/zzip"
@@ -43,9 +43,9 @@ if [[ -n "${BUILD_SUBDIR}" && -d "${BUILD_SUBDIR}" ]]; then
     rm -rf "${BUILD_SUBDIR}"
 fi
 make clean || true
-./configure CC=clang \
+./configure CC="clang -g -O1 -fsanitize=address -fsanitize-coverage=trace-pc-guard,no-prune -no-pie -D_USE_MMAP" \
     CFLAGS="-g -O1 -fsanitize=address -fsanitize-coverage=trace-pc-guard,no-prune -no-pie -D_USE_MMAP" \
-    LDFLAGS="-fsanitize=address -no-pie -Wl,--whole-archive /usr/local/lib/libtarget_graph_trace.a -Wl,--no-whole-archive" \
+    LDFLAGS="-fsanitize=address -no-pie -Wl,--whole-archive,/usr/local/lib/libtarget_graph_trace.a,--no-whole-archive" \
     --disable-shared
 
 BUILD_SUBDIR="$(ls -d Linux_*.d 2>/dev/null | head -n 1 || echo "")"

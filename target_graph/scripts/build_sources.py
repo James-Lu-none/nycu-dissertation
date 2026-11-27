@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -62,6 +63,14 @@ def build_source(
             return False
 
     out_dir = artifacts_dir / source_id
+    if force and out_dir.exists():
+        try:
+            shutil.rmtree(out_dir)
+        except PermissionError:
+            subprocess.run(
+                ["docker", "run", "--rm", "-v", f"{ROOT_DIR}:/workspace", image, "rm", "-rf", f"/workspace/build_artifacts/{source_id}"],
+                check=True,
+            )
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # Check if already built

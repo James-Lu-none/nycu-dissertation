@@ -37,11 +37,11 @@ make clean || true
 if [[ -f autogen.sh ]]; then
     ./autogen.sh --disable-shared CC=clang \
         CFLAGS="-g -O1 -fsanitize=address -fsanitize-coverage=trace-pc-guard,no-prune -no-pie" \
-        LDFLAGS="-fsanitize=address -no-pie -Wl,--whole-archive /usr/local/lib/libtarget_graph_trace.a -Wl,--no-whole-archive"
+        LDFLAGS="-fsanitize=address -no-pie -Wl,--whole-archive,/usr/local/lib/libtarget_graph_trace.a,--no-whole-archive"
 elif [[ -f configure ]]; then
     ./configure --disable-shared CC=clang \
         CFLAGS="-g -O1 -fsanitize=address -fsanitize-coverage=trace-pc-guard,no-prune -no-pie" \
-        LDFLAGS="-fsanitize=address -no-pie -Wl,--whole-archive /usr/local/lib/libtarget_graph_trace.a -Wl,--no-whole-archive"
+        LDFLAGS="-fsanitize=address -no-pie -Wl,--whole-archive,/usr/local/lib/libtarget_graph_trace.a,--no-whole-archive"
 fi
 make -j"$(nproc)" xmllint
 cp xmllint "${TARGET_OUT}/xmllint_inst"

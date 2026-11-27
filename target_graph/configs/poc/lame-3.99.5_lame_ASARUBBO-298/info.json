@@ -1,0 +1,17 @@
+{
+  "case_id": "lame-3.99.5_lame_ASARUBBO-298",
+  "cve": "ISSUE-ASARUBBO-298",
+  "source_type": "git_repo_file",
+  "source_url": "https://github.com/asarubbo/poc/blob/master/00298-lame-signintoverflow-brhist.c",
+  "original_filename": "00298-lame-signintoverflow-brhist.c",
+  "sha256": "f3e9361b61ec2e78f5e23857dcc3fefeb387c7e6ce0dd329137c039359576165",
+  "size_bytes": 3692,
+  "expected_oracle": {
+    "sanitizer": "SEGV",
+    "relative_source_file": "libmp3lame/util.c",
+    "line": 606,
+    "function": "fill_buffer_resample",
+    "oracle_line_text": "y = (j2 < 0) ? inbuf_old[BLACKSIZE + j2] : inbuf[j2];",
+    "source_file_sha256": "4b7ab3ebcca8d47a6a017772453e0f68ff0e7983bafea558254eaa60d95e1ed9"
+  }
+}
