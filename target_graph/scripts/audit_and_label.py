@@ -70,6 +70,10 @@ def audit_and_label_case(case_meta: Dict[str, Any], cases_dir: Path) -> Dict[str
         "has_svf_slice": svf_path.is_file(),
         "trace_mode": None,
         "crash_reproduced": False,
+        "oracle_top_frame_matches": False,
+        "oracle_frame_depth": None,
+        "retention_over_trace": None,
+        "slice_locality_warning": None,
         "source_sha_verified": False,
         "bitcode_sha_verified": False,
         "status": "FAILED",
@@ -140,6 +144,11 @@ def audit_and_label_case(case_meta: Dict[str, Any], cases_dir: Path) -> Dict[str
         evidence = asan_evidence(stderr_text, oracle)
         record["crash_reproduced"] = evidence["crash_reproduced"]
         record["asan_evidence"] = evidence
+        record["oracle_top_frame_matches"] = evidence["oracle_top_frame_matches"]
+        record["oracle_frame_depth"] = (
+            min(evidence["oracle_frame_numbers"])
+            if evidence["oracle_frame_numbers"] else None
+        )
         # Record all exact DebugLoc owners before applying either ASan or
         # SVF gates. A stale target cannot hide behind an ASan frame mismatch.
         diagnostic = inspect_target(
@@ -216,6 +225,11 @@ def audit_and_label_case(case_meta: Dict[str, Any], cases_dir: Path) -> Dict[str
             return _fail("SVF_TARGET_BB_MISSING")
         positives = sorted(svf_bbs & trace_bbs)
         record["num_weak_positive_bbs"] = len(positives)
+        record["retention_over_trace"] = round(len(positives) / len(trace_bbs), 6)
+        record["slice_locality_warning"] = (
+            "MORE_THAN_HALF_OF_EXECUTED_BBS_INCLUDED"
+            if len(positives) > len(trace_bbs) / 2 else None
+        )
         if not positives:
             return _fail("EMPTY_SVF_TRACE_INTERSECTION")
 
@@ -240,6 +254,9 @@ def audit_and_label_case(case_meta: Dict[str, Any], cases_dir: Path) -> Dict[str
             "num_trace_bbs": len(trace_bbs),
             "num_svf_slice_bbs": len(svf_bbs),
             "num_weak_positive_bbs": len(positives),
+            "oracle_frame_depth": record["oracle_frame_depth"],
+            "oracle_top_frame_matches": record["oracle_top_frame_matches"],
+            "slice_locality_warning": record["slice_locality_warning"],
             "retention_over_trace": round(len(positives) / len(trace_bbs), 6),
             "retention_over_svf": round(len(positives) / len(svf_bbs), 6),
             "weak_positive_bbs": positives,
