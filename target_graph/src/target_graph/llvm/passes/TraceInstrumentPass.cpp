@@ -1,10 +1,14 @@
 /*
  * TraceInstrumentPass.cpp
  * LLVM New-PM Pass that instruments every BasicBlock with a direct call to
- * __target_graph_trace_bb(uint64_t bb_id) using the exact same deterministic
- * BB ID formula as TargetGraphPass, and adds Attribute::SanitizeAddress
- * so compiling <bin>_trace.bc with -fsanitize=address instruments the code.
+ * __target_graph_trace_bb(uint64_t bb_id) and adds Attribute::SanitizeAddress.
+ *
+ * Reads canonical BB IDs from LLVM metadata (target_graph.bb_id /
+ * target_graph.dg.inst_id) when present, falling back to the shared
+ * BBIdentity.h deterministic formula otherwise.
  */
+
+#include "BBIdentity.h"
 
 #include "llvm/Passes/PassPlugin.h"
 #include "llvm/Passes/PassBuilder.h"
@@ -15,8 +19,6 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Attributes.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/SHA256.h"
 
 #include <cstdint>
 #include <cstdlib>
@@ -27,55 +29,45 @@ using namespace llvm;
 
 namespace {
 
-// Must match TargetGraphPass::sha256_short identically.
-static std::string sha256_short(const std::string &input, size_t num_bytes = 8) {
-    SHA256 hasher;
-    hasher.update(ArrayRef<uint8_t>(reinterpret_cast<const uint8_t *>(input.data()), input.size()));
-    StringRef hash = hasher.final();
-    std::string hex;
-    hex.reserve(num_bytes * 2);
-    static const char hexChars[] = "0123456789abcdef";
-    for (size_t i = 0; i < num_bytes && i < hash.size(); ++i) {
-        uint8_t byte = static_cast<uint8_t>(hash[i]);
-        hex.push_back(hexChars[(byte >> 4) & 0x0f]);
-        hex.push_back(hexChars[byte & 0x0f]);
-    }
-    return hex;
-}
-
 class TraceInstrumentPass : public PassInfoMixin<TraceInstrumentPass> {
 public:
     PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM) {
         (void)MAM;
         const char *buildIdEnv = std::getenv("TARGET_GRAPH_BUILD_ID");
         std::string buildId = buildIdEnv ? buildIdEnv : "default_build";
-        std::string moduleName = M.getName().str();
+        const char *idModuleEnv = std::getenv("TARGET_GRAPH_ID_MODULE_NAME");
+        std::string moduleName =
+            (idModuleEnv && *idModuleEnv) ? std::string(idModuleEnv) : M.getName().str();
 
-        // Pass 1: Compute canonical BB IDs identically to TargetGraphPass.
+        // Pass 1: Resolve canonical BB IDs (prefer tagged metadata; fallback to shared formula).
         std::map<BasicBlock *, uint64_t> bbToIdVal;
-        std::map<std::string, const BasicBlock *> idToBB;
+        std::map<const BasicBlock *, std::string> computedIds;
+        bool needComputed = false;
 
         for (Function &F : M) {
             if (F.isDeclaration()) continue;
-            std::string funcName = F.getName().str();
-            size_t bbOrdinal = 0;
-
             for (BasicBlock &BB : F) {
-                std::string bbKey = buildId + ":" + moduleName + ":" + funcName + ":" + std::to_string(bbOrdinal);
-                std::string bbId = sha256_short(bbKey);
-
-                if (idToBB.count(bbId) && idToBB[bbId] != &BB) {
-                    int disambig = 1;
-                    std::string newId;
-                    do {
-                        newId = sha256_short(bbKey + "#disambig_" + std::to_string(disambig++));
-                    } while (idToBB.count(newId));
-                    bbId = newId;
+                std::string bbId = target_graph::readBBIdMetadata(BB);
+                if (bbId.empty()) {
+                    needComputed = true;
+                    break;
                 }
+            }
+            if (needComputed) break;
+        }
 
-                idToBB[bbId] = &BB;
+        if (needComputed) {
+            target_graph::computeCanonicalBBIds(M, buildId, moduleName, computedIds);
+        }
+
+        for (Function &F : M) {
+            if (F.isDeclaration()) continue;
+            for (BasicBlock &BB : F) {
+                std::string bbId = target_graph::readBBIdMetadata(BB);
+                if (bbId.empty()) {
+                    bbId = computedIds[&BB];
+                }
                 bbToIdVal[&BB] = std::stoull(bbId, nullptr, 16);
-                bbOrdinal++;
             }
         }
 
