@@ -25,7 +25,7 @@ def normalize_source_path(value: str) -> str:
     Resolves /./ and /../ syntactically. Does not depend on container paths
     existing on the machine doing the audit (so no Path.resolve()).
     """
-    normalized = posixpath.normpath(str(value).replace("\\\\", "/"))
+    normalized = posixpath.normpath(str(value).replace("\\", "/"))
     return "" if normalized == "." else normalized
 
 
