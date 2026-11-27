@@ -380,18 +380,30 @@ def main():
                 if b["executed_in_direct_trace"]
             })
 
-            # A candidate must be an instruction in an *exact* oracle-line BB
-            # actually executed by the PoC. Broad function-token, +/-3 line
-            # and arbitrary SVFG-first heuristics are no longer accepted.
+            # BB-level DebugLoc is a union of its instructions' locations.
+            # Require the *specific instruction's* V2 DebugLoc + identity
+            # to match, rather than every load/store within a matching BB.
+            # Never fall back to arbitrary BB membership or nearest line.
+            result["v2_metadata_status"] = diagnostic["inline_metadata_status"]
+            result["exact_oracle_instruction_debugloc_matches"] = (
+                diagnostic["exact_oracle_instruction_debugloc_matches"]
+            )
             eligible = [inst["instruction_id"] for inst in diagnostic["candidate_instructions"]
                         if isinstance(inst.get("instruction_id"), str) and
-                        inst["source_line_candidate"] and
+                        inst.get("v2_instruction_identity_verified") is True and
+                        inst.get("instruction_exact_oracle_source_line") is True and
                         inst["executed_in_direct_trace"] and
                         inst["value_flow_relevant_opcode"]]
             eligible = list(dict.fromkeys(eligible))
             result["executed_oracle_instruction_candidates"] = eligible
             if not eligible:
-                result["status"] = "NEEDS_ORACLE_TARGET_REVIEW"
+                result["status"] = (
+                    "NEEDS_V2_INSTRUCTION_DEBUGLOC"
+                    if diagnostic["inline_metadata_status"] in {
+                        "V2_NODES_NOT_AVAILABLE",
+                        "V2_IDS_NOT_ALIGNED_OR_STALE",
+                    } else "NEEDS_ORACLE_TARGET_REVIEW"
+                )
                 if cid in approvals:
                     rejected.append(cid + ": no exact executed oracle instruction candidates")
                 continue
