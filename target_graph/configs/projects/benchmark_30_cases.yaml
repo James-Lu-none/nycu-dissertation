@@ -152,7 +152,7 @@ cases:
   project: zziplib
   target_binary: unzzipcat-mem
   cve: ISSUE-ASARUBBO-152
-  canonical_target_inst: d3f58766e7a61bf8:0
+  canonical_target_inst: 3e808e267c40dcf4:2
   poc_path: configs/poc/zziplib-0.13.62_unzzipcat-mem_ASARUBBO-152/poc
   poc_cmd: *id002
   poc_stdin: null
@@ -169,7 +169,7 @@ cases:
   project: zziplib
   target_binary: unzzipcat-mem
   cve: ISSUE-ASARUBBO-153
-  canonical_target_inst: d3f58766e7a61bf8:0
+  canonical_target_inst: 3e808e267c40dcf4:2
   poc_path: configs/poc/zziplib-0.13.62_unzzipcat-mem_ASARUBBO-153/poc
   poc_cmd: *id002
   poc_stdin: null

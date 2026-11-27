@@ -7,6 +7,8 @@
  * Any new instructions created by DG remain untagged and are not inferred to
  * correspond to original instructions.
  */
+#include "BBIdentity.h"
+
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Function.h"
@@ -30,22 +32,7 @@
 using namespace llvm;
 
 namespace {
-constexpr const char *IdentityMetadata = "target_graph.dg.inst_id";
-
-std::string shortSHA256(const std::string &Input) {
-  SHA256 Hasher;
-  Hasher.update(ArrayRef<uint8_t>(
-      reinterpret_cast<const uint8_t *>(Input.data()), Input.size()));
-  StringRef Bytes = Hasher.final();
-  static const char Hex[] = "0123456789abcdef";
-  std::string Result;
-  for (unsigned I = 0; I < 8; ++I) {
-    const unsigned char Byte = static_cast<unsigned char>(Bytes[I]);
-    Result += Hex[Byte >> 4];
-    Result += Hex[Byte & 15];
-  }
-  return Result;
-}
+constexpr const char *IdentityMetadata = target_graph::kDGInstIdMetadata;
 
 class DGTagPass : public PassInfoMixin<DGTagPass> {
 public:
@@ -64,22 +51,15 @@ public:
     if (IdModule != M.getName().str())
       errs() << "[dg-identity] using canonical module identity: " << IdModule
              << " (bitcode module name: " << M.getName() << ")\n";
-    std::set<std::string> SeenBlocks;
+    std::map<const BasicBlock *, std::string> BBToId;
+    target_graph::computeCanonicalBBIds(M, BuildId, IdModule, BBToId);
     size_t Tagged = 0;
 
     for (Function &F : M) {
       if (F.isDeclaration())
         continue;
-      unsigned BlockOrdinal = 0;
       for (BasicBlock &BB : F) {
-        const std::string Key = BuildId + ":" + IdModule + ":" +
-                                F.getName().str() + ":" +
-                                std::to_string(BlockOrdinal++);
-        std::string BBId = shortSHA256(Key);
-        unsigned Disambiguator = 1;
-        while (!SeenBlocks.insert(BBId).second)
-          BBId = shortSHA256(Key + "#disambig_" +
-                             std::to_string(Disambiguator++));
+        const std::string &BBId = BBToId[&BB];
         unsigned InstOrdinal = 0;
         for (Instruction &Inst : BB) {
           if (Inst.getMetadata(IdentityMetadata))

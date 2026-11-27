@@ -58,13 +58,13 @@ llvm-link -o "${TARGET_OUT}/swftophp.bc" *.bc
 # 2. Run TargetGraphPass
 export TARGET_GRAPH_BUILD_ID="${BUILD_ID}"
 export TARGET_GRAPH_OUT_DIR="${TARGET_OUT}"
-opt -load-pass-plugin=/usr/local/lib/TargetGraphPass.so -passes="target-graph" -disable-output "${TARGET_OUT}/swftophp.bc"
+opt -load-pass-plugin=/usr/local/lib/BBIdentityPass.so -passes="bb-tag" -o "${TARGET_OUT}/swftophp.bc" "${TARGET_OUT}/swftophp.bc"
 
 # 3. Compile base binary
 clang -g -O1 ${INCS} -no-pie ${SRCS} -o "${TARGET_OUT}/swftophp_base" -lm -lz
 
 # 4. Instrument bitcode with TraceInstrumentPass and compile ASan binary
-opt -load-pass-plugin=/usr/local/lib/TraceInstrumentPass.so -passes="target-graph-trace" -o "${TARGET_OUT}/swftophp_trace.bc" "${TARGET_OUT}/swftophp.bc"
+opt -load-pass-plugin=/usr/local/lib/BBIdentityPass.so -passes="bb-trace" -o "${TARGET_OUT}/swftophp_trace.bc" "${TARGET_OUT}/swftophp.bc"
 clang -g -O1 -no-pie -fsanitize=address \
     "${TARGET_OUT}/swftophp_trace.bc" \
     -Wl,--whole-archive,/usr/local/lib/libtarget_graph_trace.a,--no-whole-archive \
