@@ -115,3 +115,89 @@ def test_calibration_requires_matching_direct_trace_and_sanitizer(tmp_path):
     bad, error = calibration()._execution_evidence(meta, cdir, bc)
     assert not bad
     assert error == "STALE_BITCODE_SHA256"
+
+
+
+def test_native_probe_reports_both_gep_and_store_from_one_svfg(tmp_path, monkeypatch):
+    """First compatible GEP is not proof of a faulting store."""
+    mod = calibration()
+    monkeypatch.setattr(mod, "ROOT_DIR", tmp_path)
+    case_id = "bento4_fixture"
+    out = tmp_path / "cases" / case_id / "svf_backend"
+    out.mkdir(parents=True)
+    gep = "002d55dafb123847:5"
+    store = "002d55dafb123847:6"
+
+    def run_native(*args, **kwargs):
+        (out / "test_svfg.json").write_text(json.dumps({
+            "backend": "SVF-2.9/SVFG",
+            "analysis": "BACKWARD_VALUE_FLOW_ONLY",
+            "status": "EXPLORATORY_ONLY",
+            "target": gep,
+            "target_seed_svfg_ids": [10],
+            "svfg_nodes": [{"svfg_id": 10, "instruction_id": gep}],
+            "candidate_seed_counts": [
+                {"instruction_id": gep, "svfg_seed_count": 1},
+                {"instruction_id": store, "svfg_seed_count": 2},
+            ],
+        }))
+        return subprocess.CompletedProcess([], 0, "", "")
+
+    monkeypatch.setattr(mod.subprocess, "run", run_native)
+    details = {}
+    chosen = mod.test_target_candidates(
+        case_id, [gep, store], probe_details=details
+    )
+    assert chosen == gep
+    assert details["status"] == "SVFG_PROBE_COMPLETE_EXPLORATORY_ONLY"
+    assert details["svfg_compatible_candidates"] == [gep, store]
+    assert [row["svfg_seed_count"] for row in
+            details["candidate_seed_counts"]] == [1, 2]
+    assert "not verify" in details["warning"]
+
+
+def test_native_probe_rejects_failed_process_even_with_old_report(tmp_path, monkeypatch):
+    mod = calibration()
+    monkeypatch.setattr(mod, "ROOT_DIR", tmp_path)
+    out = tmp_path / "cases" / "fixture" / "svf_backend"
+    out.mkdir(parents=True)
+    stale = out / "test_svfg.json"
+    stale.write_text('{"target":"0000000000000000:0"}')
+
+    def failed_run(*args, **kwargs):
+        return subprocess.CompletedProcess([], 134, "Resolved target instruction: old", "")
+
+    monkeypatch.setattr(mod.subprocess, "run", failed_run)
+    details = {}
+    assert mod.test_target_candidates(
+        "fixture", ["1111222233334444:0"], probe_details=details
+    ) is None
+    assert details["native_exit_code"] == 134
+    assert details["status"] == "NATIVE_PROBE_FAILED"
+    assert not stale.exists()
+
+
+def test_native_probe_rejects_old_backend_without_candidate_counters(tmp_path, monkeypatch):
+    mod = calibration()
+    monkeypatch.setattr(mod, "ROOT_DIR", tmp_path)
+    out = tmp_path / "cases" / "fixture" / "svf_backend"
+    out.mkdir(parents=True)
+
+    def old_backend(*args, **kwargs):
+        (out / "test_svfg.json").write_text(json.dumps({
+            "backend": "SVF-2.9/SVFG",
+            "analysis": "BACKWARD_VALUE_FLOW_ONLY",
+            "status": "EXPLORATORY_ONLY",
+            "target": "1111222233334444:0",
+            "target_seed_svfg_ids": [1],
+            "svfg_nodes": [{"svfg_id": 1, "instruction_id": "1111222233334444:0"}],
+        }))
+        return subprocess.CompletedProcess([], 0, "", "")
+
+    monkeypatch.setattr(mod.subprocess, "run", old_backend)
+    details = {}
+    assert mod.test_target_candidates(
+        "fixture", ["1111222233334444:0"], probe_details=details
+    ) is None
+    assert details["status"] == "NATIVE_REPORT_INVALID"
+    assert "rebuild" in details["error"]
