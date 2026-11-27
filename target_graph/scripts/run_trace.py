@@ -79,6 +79,7 @@ def run_single_trace(
 
     trace_file = cdir / "trace_crash.txt"
     stderr_file = cdir / "crash_stderr.txt"
+    trace_bbs_file = cdir / "trace_bbs.json"
 
     res = {
         "case_id": cid,
@@ -88,18 +89,10 @@ def run_single_trace(
         "error": None,
     }
 
-    if not force and trace_file.is_file() and trace_file.stat().st_size > 0:
-        res["success"] = True
-        res["trace_size"] = trace_file.stat().st_size
-        if stderr_file.is_file():
-            res["stderr_lines"] = sum(1 for _ in open(stderr_file, "r", errors="ignore"))
-        inst_bin = cdir / f"{target_bin}_inst"
-        if not (cdir / "trace_bbs.json").is_file() and inst_bin.is_file() and (cdir / "bb_map.jsonl").is_file():
-            try:
-                write_trace_bbs_json(cid, cdir, inst_bin, trace_file)
-            except Exception as e:
-                res["error"] = f"Failed to symbolize cached trace: {e}"
-        return res
+    # Always clean stale trace outputs before re-running (no cache reuse)
+    for stale in (trace_file, stderr_file, trace_bbs_file):
+        if stale.exists():
+            stale.unlink()
 
     inst_bin = cdir / f"{target_bin}_inst"
     if not inst_bin.is_file():

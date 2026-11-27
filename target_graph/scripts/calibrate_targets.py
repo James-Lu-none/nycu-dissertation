@@ -35,8 +35,9 @@ def ensure_tagged_bc(case_id: str, case_dir: Path, bc_name: str, build_id: str, 
     out_dir.mkdir(parents=True, exist_ok=True)
     tagged_bc = out_dir / "tagged.bc"
     before_jsonl = out_dir / "before.jsonl"
-    if tagged_bc.is_file() and before_jsonl.is_file() and before_jsonl.stat().st_size > 0:
-        return
+    for stale in (tagged_bc, before_jsonl):
+        if stale.exists():
+            stale.unlink()
 
     c_script = f"""
 set -euo pipefail

@@ -60,14 +60,13 @@ def materialize_single_case(
         return False
 
     if src_link.is_symlink() or src_link.exists():
-        if force or not src_link.resolve().samefile(target_source.resolve()):
-            if src_link.is_symlink():
-                src_link.unlink()
-            elif src_link.is_dir():
-                shutil.rmtree(src_link)
-            src_link.symlink_to(Path("../../sources") / sid)
-    else:
-        src_link.symlink_to(Path("../../sources") / sid)
+        if src_link.is_symlink():
+            src_link.unlink()
+        elif src_link.is_dir():
+            shutil.rmtree(src_link)
+        else:
+            src_link.unlink()
+    src_link.symlink_to(Path("../../sources") / sid)
 
     # 2. Link/Copy compiled artifacts
     art_dir = find_artifact_dir(artifacts_dir, sid, target_bin)
@@ -93,14 +92,15 @@ def materialize_single_case(
         if not s.is_file():
             print(f"[FAIL] {cid}: Required artifact {src_name} not found in {art_dir}", file=sys.stderr)
             return False
-        if force or not d.is_file():
-            shutil.copyfile(s, d)
+        shutil.copyfile(s, d)
 
     for src_name, dst_name in opt_files:
         s = art_dir / src_name
         d = cdir / dst_name
-        if s.is_file() and (force or not d.is_file()):
+        if s.is_file():
             shutil.copy2(s, d)
+        elif d.exists():
+            d.unlink()
 
     # 3. Setup PoC
     poc_src = case_meta.get("poc_path")
@@ -114,17 +114,17 @@ def materialize_single_case(
                 if actual_hash.lower() != poc_sha256.lower():
                     print(f"[FAIL] {cid}: PoC SHA256 mismatch at {p_src} ({actual_hash} != {poc_sha256})", file=sys.stderr)
                     return False
-            if force or not poc_dst.exists():
-                shutil.copyfile(p_src, poc_dst)
+            shutil.copyfile(p_src, poc_dst)
             # Create extension symlinks if helpful (e.g. poc.tif, poc.json, dummy.jpg)
             ext = p_src.suffix
             if ext and ext != ".poc":
                 ext_dst = cdir / f"poc{ext}"
-                if not ext_dst.exists():
-                    try:
-                        ext_dst.symlink_to("poc")
-                    except Exception:
-                        pass
+                if ext_dst.is_symlink() or ext_dst.exists():
+                    ext_dst.unlink()
+                try:
+                    ext_dst.symlink_to("poc")
+                except Exception:
+                    pass
         else:
             print(f"[WARN] {cid}: PoC not found at {p_src}")
 
