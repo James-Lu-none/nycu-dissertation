@@ -170,8 +170,9 @@ jobs:
             /tmp/svf-fixture/direct_trace.bc \
             target_graph/src/target_graph/llvm/trace_runtime/trace_runtime.c \
             -o /tmp/svf-fixture/direct_inst
+          # Fixture returns 7 intentionally; its trace must still be persisted.
           TARGET_GRAPH_TRACE_FILE=/tmp/svf-fixture/direct_events.txt \
-            /tmp/svf-fixture/direct_inst
+            /tmp/svf-fixture/direct_inst || test "$?" -eq 7
           PYTHONPATH=target_graph/src python - <<'PY'
           import json
           from pathlib import Path
