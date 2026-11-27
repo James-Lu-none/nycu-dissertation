@@ -168,6 +168,10 @@ def audit_and_label_case(case_meta: Dict[str, Any], cases_dir: Path) -> Dict[str
         if not isinstance(run.get("poc_exit_code"), int) or run["poc_exit_code"] == 0:
             return _fail("POC_DID_NOT_FAIL")
         if not evidence["crash_reproduced"]:
+            if not evidence["sanitizer_matches"]:
+                return _fail("ASAN_TYPE_MISMATCH")
+            if not evidence["oracle_frame_matches"]:
+                return _fail("ASAN_FRAME_MISMATCH")
             return _fail("ASAN_ORACLE_NOT_REPRODUCED")
 
         source_rel = str(oracle.get("relative_source_file") or "")
@@ -303,6 +307,10 @@ def main() -> None:
         "total_cases": len(records),
         "passed_cases": passed,
         "failed_cases": len(records) - passed,
+        "failure_counts": {
+            reason: sum(r["failure_reason"] == reason for r in records)
+            for reason in sorted({r["failure_reason"] for r in records if r["failure_reason"]})
+        },
         "records": records,
     }
     (args.output_dir / "audit_summary.json").write_text(
