@@ -83,6 +83,10 @@ public:
     const char *BuildEnv = std::getenv("TARGET_GRAPH_BUILD_ID");
     const char *DirEnv = std::getenv("TARGET_GRAPH_OUT_DIR");
     const std::string BuildId = BuildEnv ? BuildEnv : "default_build";
+    const char *OriginalModuleEnv = std::getenv("TARGET_GRAPH_ID_MODULE_NAME");
+    const std::string CanonicalModuleName =
+        (OriginalModuleEnv && *OriginalModuleEnv) ? OriginalModuleEnv
+                                               : M.getName().str();
     const std::string Dir = DirEnv ? DirEnv : ".";
 
     std::error_code EC;
@@ -158,7 +162,7 @@ public:
         continue;
       unsigned BBOrdinal = 0;
       for (BasicBlock &BB : F) {
-        const std::string Key = BuildId + ":" + M.getName().str() + ":" +
+        const std::string Key = BuildId + ":" + CanonicalModuleName + ":" +
                                 F.getName().str() + ":" +
                                 std::to_string(BBOrdinal++);
         std::string BBId = sha256short(Key);
@@ -351,7 +355,7 @@ public:
       json::Object S;
       S["schema_version"] = 1;
       S["build_id"] = BuildId;
-      S["module"] = M.getName().str();
+      S["module"] = CanonicalModuleName;
       S["node_count"] = static_cast<int64_t>(NodeCount);
       S["edge_count"] = static_cast<int64_t>(EdgeCount);
       S["direct_calls"] = static_cast<int64_t>(DirectCalls);
