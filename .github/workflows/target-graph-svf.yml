@@ -231,9 +231,10 @@ jobs:
           candidates = [r["id"] for r in records if r["function"]=="main" and r["opcode"]=="store"]
           assert candidates, "Expected at least one LLVM store"
           target = candidates[-1]
-          (root/"target.txt").write_text(target)
-          preflight(root/"before.jsonl", target)
-          print("Selected tagged instruction:", target)
+          requested = target + ",ffffffffffffffff:0"
+          (root/"target.txt").write_text(requested)
+          preflight(root/"before.jsonl", requested)
+          print("Submitted tagged candidates:", requested)
           PY
           TARGET="$(cat /tmp/svf-fixture/target.txt)"
           timeout 180 /tmp/svf-build/bin/targetgraph-svf \
@@ -247,6 +248,15 @@ jobs:
           target = (root/"target.txt").read_text()
           report = validate_svf(root/"before.jsonl", root/"svfg_raw.json", target,
                                 root/"original.bc")
+          import json
+          raw = json.loads((root/"svfg_raw.json").read_text())
+          selected, missing = target.split(",")
+          counts = raw["candidate_seed_counts"]
+          assert [row["instruction_id"] for row in counts] == [selected, missing]
+          assert counts[0]["svfg_seed_count"] == len(raw["target_seed_svfg_ids"])
+          assert counts[0]["svfg_seed_count"] > 0
+          assert counts[1]["svfg_seed_count"] == 0
+          assert report["target"] == selected
           assert report["instruction_ids"]
           assert report["target_seed_svfg_ids"]
           assert not report["validated_for_supervision"]
