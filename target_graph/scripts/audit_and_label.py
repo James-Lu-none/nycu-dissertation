@@ -24,22 +24,32 @@ if str(ROOT_DIR / "src") not in sys.path:
     sys.path.insert(0, str(ROOT_DIR / "src"))
 
 from target_graph.llvm.mapping import BasicBlockMapper
+from target_graph.tracing.evidence import asan_evidence, sha256
 
 
 def audit_and_label_case(case_meta: Dict[str, Any], cases_dir: Path) -> Dict[str, Any]:
+    """Fail-closed audit of real crash, direct BB execution and SVF provenance.
+
+    PASSED means an *eligible weak-label candidate*, NOT verified root-cause
+    localization. Nonpositive BBs are UNKNOWN, never verified negatives.
+    """
     cid = case_meta["case_id"]
     cdir = cases_dir / cid
     oracle = case_meta.get("expected_oracle", {})
     target_inst = case_meta.get("canonical_target_inst", "")
     target_bb = target_inst.split(":")[0] if ":" in target_inst else ""
 
-    trace_bbs_path = cdir / "trace_bbs.json"
+    trace_path = cdir / "trace_bbs.json"
+    trace_run_path = cdir / "trace_run.json"
+    stderr_path = cdir / "crash_stderr.txt"
     bb_map_path = cdir / "bb_map.jsonl"
-    svf_slice_path = cdir / "svf_backend" / "svf_slice.json"
+    svf_path = cdir / "svf_backend" / "svf_slice.json"
     audit_path = cdir / "audit.json"
     labels_path = cdir / "svf_weak_labels.json"
 
-    audit_record: Dict[str, Any] = {
+    # A failed rerun must never leave the previous label in place.
+    labels_path.unlink(missing_ok=True)
+    record: Dict[str, Any] = {
         "case_id": cid,
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "expected_oracle": oracle,
@@ -49,90 +59,175 @@ def audit_and_label_case(case_meta: Dict[str, Any], cases_dir: Path) -> Dict[str
         "oracle_hit_bbs": [],
         "oracle_hit": False,
         "target_bb_hit": False,
-        "has_trace_bbs": trace_bbs_path.is_file(),
-        "has_svf_slice": svf_slice_path.is_file(),
+        "has_trace_bbs": trace_path.is_file(),
+        "has_svf_slice": svf_path.is_file(),
+        "trace_mode": None,
+        "crash_reproduced": False,
+        "source_sha_verified": False,
+        "bitcode_sha_verified": False,
         "status": "FAILED",
         "failure_reason": None,
         "num_trace_bbs": 0,
         "num_svf_slice_bbs": 0,
         "num_weak_positive_bbs": 0,
+        "label_quality": "UNVERIFIED",
     }
 
     def _fail(reason: str) -> Dict[str, Any]:
-        audit_record["status"] = "FAILED"
-        audit_record["failure_reason"] = reason
-        audit_path.write_text(json.dumps(audit_record, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-        if labels_path.exists():
-            labels_path.unlink()
-        return audit_record
+        record["status"] = "FAILED"
+        record["failure_reason"] = reason
+        audit_path.write_text(json.dumps(record, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        return record
 
-    if not trace_bbs_path.is_file():
+    if not trace_path.is_file():
         return _fail("MISSING_TRACE_BBS")
+    if not trace_run_path.is_file() or not stderr_path.is_file():
+        return _fail("MISSING_CRASH_EVIDENCE")
     if not bb_map_path.is_file():
         return _fail("MISSING_BB_MAP")
+    if not target_bb:
+        return _fail("MISSING_CANONICAL_TARGET")
 
-    trace_data = json.loads(trace_bbs_path.read_text(encoding="utf-8"))
-    trace_bbs_list: List[str] = trace_data.get("executed_bbs_unique", [])
-    trace_bbs_set: Set[str] = set(trace_bbs_list)
-    audit_record["num_trace_bbs"] = len(trace_bbs_set)
+    try:
+        trace = json.loads(trace_path.read_text(encoding="utf-8"))
+        run = json.loads(trace_run_path.read_text(encoding="utf-8"))
+        if trace.get("case_id") != cid or run.get("case_id") != cid:
+            return _fail("TRACE_CASE_ID_MISMATCH")
+        record["trace_mode"] = trace.get("trace_mode")
+        if trace.get("trace_mode") != "direct_bb_id" or trace.get("schema_version") != 2:
+            return _fail("TRACE_NOT_DIRECT_BB_ID")
+        trace_list = trace.get("executed_bbs_unique")
+        if not isinstance(trace_list, list) or not trace_list:
+            return _fail("EMPTY_DIRECT_TRACE")
+        trace_bbs = set(trace_list)
+        if len(trace_bbs) != len(trace_list):
+            return _fail("DUPLICATE_UNIQUE_TRACE_BBS")
+        mapper = BasicBlockMapper(bb_map_path)
+        if not trace_bbs.issubset(mapper.bb_records):
+            return _fail("TRACE_BBS_NOT_IN_GRAPH")
+        record["num_trace_bbs"] = len(trace_bbs)
 
-    mapper = BasicBlockMapper(bb_map_path)
-    oracle_file = oracle.get("relative_source_file", "")
-    oracle_line = int(oracle.get("line", 0) or 0)
-    oracle_func = oracle.get("function") or None
+        target_bin = case_meta["target_binary"]
+        bc_path = cdir / (target_bin + ".bc")
+        bin_path = cdir / (target_bin + "_inst")
+        poc_path = cdir / "poc"
+        trace_raw_path = cdir / "trace_crash.txt"
+        required = {
+            "instrumented_binary_sha256": bin_path,
+            "poc_sha256": poc_path,
+            "bitcode_sha256": bc_path,
+            "trace_file_sha256": trace_raw_path,
+        }
+        for key, path in required.items():
+            if not path.is_file():
+                return _fail("MISSING_ARTIFACT_" + key.upper())
+            digest = sha256(path)
+            if trace.get(key) != digest or run.get(key) != digest:
+                return _fail("TRACE_ARTIFACT_HASH_MISMATCH_" + key.upper())
+        if trace.get("bb_map_sha256") != sha256(bb_map_path):
+            return _fail("TRACE_BB_MAP_HASH_MISMATCH")
 
-    oracle_bbs_func = mapper.map_source_location(oracle_file, oracle_line, function_name=oracle_func)
-    oracle_bbs_all = mapper.map_source_location(oracle_file, oracle_line)
-    # Include both exact-function BBs and inlined copies at the same source file/line
-    oracle_bbs = list(dict.fromkeys([*oracle_bbs_func, *oracle_bbs_all]))
+        stderr_text = stderr_path.read_text(encoding="utf-8", errors="replace")
+        if run.get("stderr_sha256") != sha256(stderr_path):
+            return _fail("TRACE_STDERR_HASH_MISMATCH")
+        evidence = asan_evidence(stderr_text, oracle)
+        record["crash_reproduced"] = evidence["crash_reproduced"]
+        record["asan_evidence"] = evidence
+        if not isinstance(run.get("poc_exit_code"), int) or run["poc_exit_code"] == 0:
+            return _fail("POC_DID_NOT_FAIL")
+        if not evidence["crash_reproduced"]:
+            return _fail("ASAN_ORACLE_NOT_REPRODUCED")
 
-    audit_record["oracle_bbs"] = oracle_bbs
-    oracle_hit_bbs = [b for b in oracle_bbs if b in trace_bbs_set]
-    audit_record["oracle_hit_bbs"] = oracle_hit_bbs
-    audit_record["oracle_hit"] = len(oracle_hit_bbs) > 0
-    audit_record["target_bb_hit"] = bool(target_bb and target_bb in trace_bbs_set)
+        source_rel = str(oracle.get("relative_source_file") or "")
+        source_sha = str(oracle.get("source_file_sha256") or "")
+        if not source_rel or source_rel.startswith("/") or ".." in Path(source_rel).parts:
+            return _fail("INVALID_ORACLE_SOURCE_PATH")
+        source_path = cdir / "src" / source_rel
+        if not source_path.is_file() or not source_sha:
+            return _fail("MISSING_ORACLE_SOURCE")
+        if sha256(source_path).lower() != source_sha.lower():
+            return _fail("SOURCE_PROVENANCE_HASH_MISMATCH")
+        record["source_sha_verified"] = True
 
-    if not audit_record["oracle_hit"]:
+        # Source-location mapping only supports exact lines. No +/-4 line
+        # fallback or all-basename inferences are accepted as an oracle.
+        line_no = int(oracle.get("line") or 0)
+        oracle_bbs = []
+        for bb_id, info in mapper.bb_records.items():
+            for loc in info.get("debug_locations", []):
+                loc_file = str(loc.get("file") or "").replace("\\", "/")
+                try:
+                    loc_line = int(loc.get("line") or 0)
+                except (TypeError, ValueError):
+                    continue
+                if loc_line == line_no and (
+                    loc_file == source_rel or loc_file.endswith("/" + source_rel)
+                ):
+                    oracle_bbs.append(bb_id)
+                    break
+        record["oracle_bbs"] = oracle_bbs
+        record["oracle_hit_bbs"] = [b for b in oracle_bbs if b in trace_bbs]
+        record["oracle_hit"] = bool(record["oracle_hit_bbs"])
+        record["target_bb_hit"] = target_bb in trace_bbs
         if not oracle_bbs:
-            return _fail("ORACLE_LOCATION_UNMAPPED_IN_BB_MAP")
-        return _fail("ORACLE_NOT_HIT_IN_TRACE")
+            return _fail("ORACLE_NOT_EXACTLY_MAPPED_IN_BB_MAP")
+        if not record["oracle_hit"]:
+            return _fail("ORACLE_NOT_HIT_IN_DIRECT_TRACE")
+        if not record["target_bb_hit"]:
+            return _fail("TARGET_BB_NOT_HIT_IN_DIRECT_TRACE")
+        if not svf_path.is_file():
+            return _fail("MISSING_SVF_SLICE")
+        svf = json.loads(svf_path.read_text(encoding="utf-8"))
+        if (svf.get("backend") != "SVF-2.9/SVFG" or
+                svf.get("analysis") != "BACKWARD_VALUE_FLOW_ONLY" or
+                svf.get("status") != "EXPLORATORY_ONLY" or
+                svf.get("validated_for_supervision") is not False):
+            return _fail("INVALID_SVF_EVIDENCE_SCHEMA")
+        if svf.get("original_bitcode_sha256") != sha256(bc_path):
+            return _fail("SVF_BITCODE_HASH_MISMATCH")
+        record["bitcode_sha_verified"] = True
+        if svf.get("target") != target_inst or target_inst not in svf.get("instruction_ids", []):
+            return _fail("SVF_TARGET_MISMATCH")
+        svf_bbs = set(svf.get("basic_blocks", []))
+        record["num_svf_slice_bbs"] = len(svf_bbs)
+        if not svf_bbs.issubset(mapper.bb_records):
+            return _fail("SVF_BBS_NOT_IN_GRAPH")
+        if target_bb not in svf_bbs:
+            return _fail("SVF_TARGET_BB_MISSING")
+        positives = sorted(svf_bbs & trace_bbs)
+        record["num_weak_positive_bbs"] = len(positives)
+        if not positives:
+            return _fail("EMPTY_SVF_TRACE_INTERSECTION")
 
-    if not svf_slice_path.is_file():
-        return _fail("MISSING_SVF_SLICE")
-
-    svf_data = json.loads(svf_slice_path.read_text(encoding="utf-8"))
-    svf_bbs_list: List[str] = svf_data.get("basic_blocks", [])
-    svf_bbs_set: Set[str] = set(svf_bbs_list)
-    audit_record["num_svf_slice_bbs"] = len(svf_bbs_set)
-
-    # Pure intersection: S_SVF(t) & E_t
-    weak_positive_bbs = sorted(svf_bbs_set & trace_bbs_set)
-    audit_record["num_weak_positive_bbs"] = len(weak_positive_bbs)
-    audit_record["status"] = "PASSED"
-    audit_record["failure_reason"] = None
-
-    audit_path.write_text(json.dumps(audit_record, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-
-    retention_trace = round(len(weak_positive_bbs) / len(trace_bbs_set), 6) if trace_bbs_set else 0.0
-    retention_svf = round(len(weak_positive_bbs) / len(svf_bbs_set), 6) if svf_bbs_set else 0.0
-
-    labels_payload = {
-        "schema_version": 1,
-        "case_id": cid,
-        "label_method": "SVF_BACKWARD_SLICE_INTERSECT_POC_TRACE",
-        "target_inst": target_inst,
-        "target_bb": target_bb,
-        "oracle_bbs": oracle_bbs,
-        "oracle_hit_bbs": oracle_hit_bbs,
-        "num_trace_bbs": len(trace_bbs_set),
-        "num_svf_slice_bbs": len(svf_bbs_set),
-        "num_weak_positive_bbs": len(weak_positive_bbs),
-        "retention_over_trace": retention_trace,
-        "retention_over_svf": retention_svf,
-        "weak_positive_bbs": weak_positive_bbs,
-    }
-    labels_path.write_text(json.dumps(labels_payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    return audit_record
+        # This is STILL candidate weak supervision. SVF may-alias edges and
+        # absent CDG/call context do not constitute verified vulnerability labels.
+        record["status"] = "PASSED"
+        record["label_quality"] = "CANDIDATE_WEAK_POSITIVES_ONLY"
+        audit_path.write_text(json.dumps(record, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        labels = {
+            "schema_version": 2,
+            "case_id": cid,
+            "label_method": "SVF_BACKWARD_VALUE_FLOW_INTERSECT_DIRECT_POC_BB_TRACE",
+            "supervision_validated": False,
+            "verified_negative_bbs": [],
+            "unlisted_bbs_are": "UNKNOWN",
+            "target_inst": target_inst,
+            "target_bb": target_bb,
+            "oracle_bbs": oracle_bbs,
+            "oracle_hit_bbs": record["oracle_hit_bbs"],
+            "original_bitcode_sha256": sha256(bc_path),
+            "trace_file_sha256": sha256(trace_raw_path),
+            "num_trace_bbs": len(trace_bbs),
+            "num_svf_slice_bbs": len(svf_bbs),
+            "num_weak_positive_bbs": len(positives),
+            "retention_over_trace": round(len(positives) / len(trace_bbs), 6),
+            "retention_over_svf": round(len(positives) / len(svf_bbs), 6),
+            "weak_positive_bbs": positives,
+        }
+        labels_path.write_text(json.dumps(labels, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        return record
+    except (OSError, ValueError, TypeError, KeyError, json.JSONDecodeError) as exc:
+        return _fail("AUDIT_INPUT_INVALID: " + str(exc)[:240])
 
 
 def main() -> None:
