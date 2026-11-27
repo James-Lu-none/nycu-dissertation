@@ -156,3 +156,64 @@ Inline callsite metadata narrows ambiguous LLVM owners but cannot alone
 prove causality. No automatic benchmark success-rate optimization, line
 fuzzing, context-insensitive SVFG cutoff or verified negative BB labels
 are introduced.
+
+
+## 2026-11-27 21:51+08 audit follow-up: per-instruction candidate safety
+
+The newly uploaded 30-case audit remains **11 PASSED / 19 FAILED**:
+8 `ASAN_FRAME_MISMATCH` (imageworsener 4, jhead 3, zziplib-151 1),
+7 `TARGET_BB_NOT_HIT_IN_DIRECT_TRACE`, and
+4 `TARGET_NOT_IN_CURRENT_GRAPH`. ASan path normalization did work:
+binutils cxxfilt/nm now match the ASan frame, but their previously
+configured target IDs are not in the current LLVM graph.
+
+A significant calibration pitfall has been fixed:
+`bb_map.debug_locations` is the *union of instruction locations within
+a BB*. A BB with source line 42 and 99 must **not** make every `load`
+or `store` in that BB a line-42 fault-site candidate.
+
+`inspect_target` now verifies each instruction against
+`analysis_v2_nodes.jsonl` using its exact instruction ID, BB ID,
+opcode, owning LLVM function, full source path, and source line.
+`calibrate_targets.py` accepts only candidates with
+`v2_instruction_identity_verified=true` and
+`instruction_exact_oracle_source_line=true`, plus trusted direct BB
+execution and a value-flow-relevant opcode. Missing/mismatched V2
+metadata is a diagnostic blocker, not permission to guess.
+
+This remains only *source-location filtering*, **not** an ASan
+fault-PC/LLVM operand proof. A manual approval is still required.
+
+Rebuild Analysis V2 metadata **only** for the 11 target-failing cases
+after rebuilding the LLVM14 image with the current commit. For the
+8 ASan frame mismatch cases, first investigate version/DWARF/stack
+rather than rerunning SVF.
+
+The audit also records non-top ASan frame depth and high
+weak-positive/trace retention as warnings without changing PASSED.
+Non-top matching frames are useful oracle evidence but are not
+a verified faulting instruction location.
+
+### Suggested minimal commands
+
+```bash
+cd target_graph
+git pull --ff-only origin refactor/target-graph-svf-backend
+
+# No Docker or SVF rebuild necessary for updated audit diagnostics:
+python3 scripts/audit_and_label.py
+
+# After rebuilding target-graph:llvm14, refresh a problematic case's V2:
+bash scripts/graph_v2.sh --case bento4-1.5.0_mp42aac_ASARUBBO-336
+python3 scripts/audit_and_label.py \
+  --case bento4-1.5.0_mp42aac_ASARUBBO-336 \
+  --output-dir reports/spotcheck_bento4_336
+
+# Native SVFG proposals are optional and expensive. If ready:
+python3 scripts/calibrate_targets.py \
+  --case bento4-1.5.0_mp42aac_ASARUBBO-336
+```
+
+Compare `target_diagnostics.json` and `target_calibration.json`.
+Do NOT use `--apply` without reviewed independent crash-PC/operand
+evidence. No automatic target changes were made by this code review.
