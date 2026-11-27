@@ -20,25 +20,37 @@ def find_llvm_symbolizer() -> Optional[str]:
 
 
 def parse_trace_bb_ids(trace_file: Path) -> Optional[List[str]]:
-    """Parse direct canonical BB IDs from trace file if emitted in BB-ID mode.
+    """Parse strict canonical BB trace or return None for a wholly legacy PC trace.
 
-    Direct BB-ID lines have format: "<seq>: <16-lowercase-hex-chars>" (no 0x prefix).
-    Returns None if the trace file uses legacy "0x..." PC format or is empty.
+    Mixed formats, skipped sequence numbers, malformed entries and truncated
+    files are errors; an incomplete file must never silently become coverage.
     """
     if not trace_file.exists():
         return None
     bb_ids: List[str] = []
-    with open(trace_file, "r", encoding="utf-8") as f:
-        for line in f:
-            parts = line.strip().split()
-            if len(parts) < 2:
-                continue
-            val = parts[1].lower()
-            if val.startswith("0x"):
-                return None
-            if len(val) == 16 and all(c in "0123456789abcdef" for c in val):
-                bb_ids.append(val)
-    return bb_ids if bb_ids else None
+    mode: str | None = None
+    import re
+    direct = re.compile(r"^([0-9]+): ([0-9a-f]{16})$")
+    legacy = re.compile(r"^([0-9]+): (0x[0-9a-fA-F]+)$")
+    with trace_file.open(encoding="utf-8") as src:
+        for expected_index, line in enumerate(src):
+            item = line.rstrip("\n")
+            is_direct = direct.fullmatch(item)
+            is_pc = legacy.fullmatch(item)
+            if not is_direct and not is_pc:
+                raise ValueError(f"Invalid or mixed trace format at event {expected_index}")
+            current = "direct_bb_id" if is_direct else "pc"
+            if mode is not None and mode != current:
+                raise ValueError("Mixed direct BB and legacy PC trace formats")
+            mode = current
+            match = is_direct or is_pc
+            if int(match.group(1)) != expected_index:
+                raise ValueError(f"Discontinuous trace sequence at event {expected_index}")
+            if is_direct:
+                bb_ids.append(is_direct.group(2))
+    if mode == "direct_bb_id":
+        return bb_ids
+    return None
 
 
 def parse_trace_pcs(trace_file: Path) -> List[int]:
