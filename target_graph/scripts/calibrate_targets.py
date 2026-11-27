@@ -476,14 +476,33 @@ def main():
             result["exact_oracle_instruction_debugloc_matches"] = (
                 diagnostic["exact_oracle_instruction_debugloc_matches"]
             )
-            eligible = [inst["instruction_id"] for inst in diagnostic["candidate_instructions"]
-                        if isinstance(inst.get("instruction_id"), str) and
-                        inst.get("v2_instruction_identity_verified") is True and
-                        inst.get("instruction_exact_oracle_source_line") is True and
-                        inst["executed_in_direct_trace"] and
-                        inst["value_flow_relevant_opcode"]]
-            eligible = list(dict.fromkeys(eligible))
+            eligible_rows = [inst for inst in diagnostic["candidate_instructions"]
+                             if isinstance(inst.get("instruction_id"), str) and
+                             inst.get("v2_instruction_identity_verified") is True and
+                             inst.get("instruction_exact_oracle_source_line") is True and
+                             inst["executed_in_direct_trace"] and
+                             inst["value_flow_relevant_opcode"]]
+            eligible = list(dict.fromkeys(
+                inst["instruction_id"] for inst in eligible_rows
+            ))
             result["executed_oracle_instruction_candidates"] = eligible
+            memory_ops = {"load", "store", "atomicrmw", "cmpxchg"}
+            result["candidate_instruction_evidence"] = [
+                {
+                    "instruction_id": inst["instruction_id"],
+                    "opcode": inst["opcode"],
+                    "fault_site_role": (
+                        "DIRECT_MEMORY_ACCESS" if inst["opcode"] in memory_ops
+                        else "ADDRESS_COMPUTATION" if inst["opcode"] == "getelementptr"
+                        else "OTHER_VALUE_FLOW"
+                    ),
+                    "inline_callsite_chain": inst.get("inline_callsite_chain"),
+                    "llvm_owner_function": inst.get("llvm_owner_function"),
+                    "instruction_source_file": inst.get("instruction_source_file"),
+                    "instruction_line": inst.get("instruction_line"),
+                }
+                for inst in eligible_rows
+            ]
             if not eligible:
                 result["status"] = (
                     "NEEDS_V2_INSTRUCTION_DEBUGLOC"
@@ -496,10 +515,36 @@ def main():
                     rejected.append(cid + ": no exact executed oracle instruction candidates")
                 continue
 
-            proposed = test_target_candidates(cid, eligible[:64])
-            if proposed not in eligible:
+            probe_details: Dict[str, Any] = {}
+            proposed = test_target_candidates(
+                cid, eligible[:64], probe_details=probe_details
+            )
+            result["svfg_candidate_probe"] = probe_details
+            result["candidate_probe_truncated"] = len(eligible) > 64
+            if proposed not in eligible or (
+                probe_details.get("status") != "SVFG_PROBE_COMPLETE_EXPLORATORY_ONLY"
+            ):
                 proposed = None
             result["svfg_compatible_proposal"] = proposed
+            if proposed is None:
+                result["status"] = "SVFG_PROBE_INCOMPLETE"
+                if cid in approvals:
+                    rejected.append(cid + ": " + probe_details.get("status", "UNKNOWN"))
+                continue
+            by_id = {row["instruction_id"]: row
+                     for row in result["candidate_instruction_evidence"]}
+            chosen_role = by_id[proposed]["fault_site_role"]
+            result["selected_proposal_role"] = chosen_role
+            direct_memory_alternatives = [
+                inst for inst in eligible if
+                by_id[inst]["fault_site_role"] == "DIRECT_MEMORY_ACCESS"
+                and inst != proposed
+            ]
+            result["direct_memory_access_alternatives"] = direct_memory_alternatives
+            if chosen_role == "ADDRESS_COMPUTATION" and direct_memory_alternatives:
+                result["candidate_review_warning"] = (
+                    "FIRST_SVFG_SEED_IS_GEP_BUT_POC_EXECUTED_DIRECT_MEMORY_ACCESS"
+                )
             result["status"] = "PROPOSAL_ONLY_REQUIRES_REVIEW"
             if cid not in approvals:
                 continue
@@ -508,8 +553,18 @@ def main():
             if manually_approved not in eligible:
                 rejected.append(cid + ": approved target not in exact executed oracle candidates")
                 continue
-            if test_target_candidates(cid, [manually_approved]) != manually_approved:
-                rejected.append(cid + ": approved target did not pass native SVFG mapping")
+            approved_probe: Dict[str, Any] = {}
+            approved_match = test_target_candidates(
+                cid, [manually_approved], probe_details=approved_probe
+            )
+            result["approved_target_probe"] = approved_probe
+            if (approved_match != manually_approved or
+                    approved_probe.get("status") !=
+                    "SVFG_PROBE_COMPLETE_EXPLORATORY_ONLY"):
+                rejected.append(
+                    cid + ": approved target native SVFG probe failed: " +
+                    approved_probe.get("status", "UNKNOWN")
+                )
                 continue
             updates[cid] = manually_approved
             result["status"] = "REVIEWED_TARGET_ACCEPTED"
