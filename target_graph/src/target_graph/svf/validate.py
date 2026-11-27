@@ -158,12 +158,13 @@ def validate_svf(
         elif bb is not None:
             raise ValueError("Unmapped SVFG node has an asserted BB identity")
 
-    if target not in mapped_instruction_ids:
-        raise ValueError("Selected target is absent from SVF value-flow evidence")
+    resolved_target = raw["target"]
+    if resolved_target not in mapped_instruction_ids:
+        raise ValueError("Resolved target is absent from SVF value-flow evidence")
     seeds = raw.get("target_seed_svfg_ids")
     if not isinstance(seeds, list) or not seeds or any(
         type(i) is not int or i not in by_svfg_id or
-        by_svfg_id[i].get("instruction_id") != target for i in seeds
+        by_svfg_id[i].get("instruction_id") != resolved_target for i in seeds
     ):
         raise ValueError("Target seeds do not map to requested original instruction")
     for edge in edges:
@@ -201,7 +202,8 @@ def validate_svf(
         "target_site_verified": False,
         "context_sensitive": False,
         "control_dependencies_included": False,
-        "target": target,
+        "target": resolved_target,
+        "requested_target_candidates": requested_targets,
         "original_bitcode_sha256": sha256_file(source_bc),
         "original_instruction_count": len(original),
         "original_basic_block_count": len({r["bb_id"] for r in original.values()}),
