@@ -8,7 +8,6 @@ sources:
     git_commit: 08103f048e5f54c8f60aaefda16761faf37114f2
     build_dir_prefix: /build
     build_script: configs/build_scripts/cjson.sh
-    build_script: configs/build_scripts/cjson.sh
   imageworsener-1.3.1:
     project: imageworsener
     version: 1.3.1
@@ -17,7 +16,6 @@ sources:
     upstream_url: https://github.com/jsummers/imageworsener.git
     git_commit: e2f74906e9cca95ee48e7f019436b9635eab30ba
     build_dir_prefix: /build
-    build_script: configs/build_scripts/imageworsener.sh
     build_script: configs/build_scripts/imageworsener.sh
   zziplib-0.13.62:
     project: zziplib
@@ -28,7 +26,6 @@ sources:
     git_commit: 0283ed8eeb494d7fc30d019b53e49490b3e8a6d7
     build_dir_prefix: /build
     build_script: configs/build_scripts/zziplib.sh
-    build_script: configs/build_scripts/zziplib.sh
   bento4-1.5.0:
     project: bento4
     version: 1.5.0
@@ -37,7 +34,6 @@ sources:
     upstream_url: https://github.com/axiomatic-systems/Bento4.git
     git_commit: 3f2ad0b82d59aa5995d027df64b2964ebcf59e10
     build_dir_prefix: /build
-    build_script: configs/build_scripts/bento4.sh
     build_script: configs/build_scripts/bento4.sh
   binutils-2.26:
     project: binutils
@@ -48,7 +44,6 @@ sources:
     archive_sha256: 9615feddaeedc214d1a1ecd77b6697449c952eab69d79ab2125ea050e944bcc1
     build_dir_prefix: /build
     build_script: configs/build_scripts/binutils-2.26.sh
-    build_script: configs/build_scripts/binutils-2.26.sh
   binutils-2.28:
     project: binutils
     version: '2.28'
@@ -57,7 +52,6 @@ sources:
     upstream_url: https://ftp.gnu.org/gnu/binutils/binutils-2.28.tar.gz
     archive_sha256: cd717966fc761d840d451dbd58d44e1e5b92949d2073d75b73fccb476d772fcf
     build_dir_prefix: /build
-    build_script: configs/build_scripts/binutils-2.28.sh
     build_script: configs/build_scripts/binutils-2.28.sh
   binutils-2.29:
     project: binutils
@@ -68,7 +62,6 @@ sources:
     archive_sha256: 172e8c89472cf52712fd23a9f14e9bca6182727fb45b0f8f482652a83d5a11b4
     build_dir_prefix: /build
     build_script: configs/build_scripts/binutils-2.29.sh
-    build_script: configs/build_scripts/binutils-2.29.sh
   jasper-1.900.1:
     project: jasper
     version: 1.900.1
@@ -77,7 +70,6 @@ sources:
     upstream_url: https://github.com/jasper-software/jasper.git
     git_commit: b13b8c86be870107f83b0a9a4b77557cb2b65d69
     build_dir_prefix: /build
-    build_script: configs/build_scripts/jasper.sh
     build_script: configs/build_scripts/jasper.sh
   jhead-3.04:
     project: jhead
@@ -88,15 +80,14 @@ sources:
     git_commit: ba1da7dce9e8f3269159b57b88ff9688624426d2
     build_dir_prefix: /build
     build_script: configs/build_scripts/jhead.sh
-    build_script: configs/build_scripts/jhead.sh
   lame-3.99.5:
     project: lame
     version: 3.99.5
     local_path: sources_pool/lame-3.99.5
     upstream_type: archive
     upstream_url: https://sourceforge.net/projects/lame/files/lame/3.99/lame-3.99.5.tar.gz/download
+    archive_sha256: 24346b4158e4af3bd9f2e194bb23eb473c75fb7377011523353196b19b9a23ff
     build_dir_prefix: /build
-    build_script: configs/build_scripts/lame.sh
     build_script: configs/build_scripts/lame.sh
   libming-4.7:
     project: libming
@@ -107,7 +98,6 @@ sources:
     git_commit: 6f91d1aa8f2351c2226020df015d3f05e453f3ee
     build_dir_prefix: /build
     build_script: configs/build_scripts/libming-4.7.sh
-    build_script: configs/build_scripts/libming-4.7.sh
   libming-4.7.1:
     project: libming
     version: 4.7.1
@@ -116,7 +106,6 @@ sources:
     upstream_url: https://github.com/libming/libming.git
     git_commit: 6dff24bc2543c55f277662144d0cec97e4a6d0c1
     build_dir_prefix: /build
-    build_script: configs/build_scripts/libming-4.7.1.sh
     build_script: configs/build_scripts/libming-4.7.1.sh
   libming-4.8:
     project: libming
@@ -127,7 +116,6 @@ sources:
     git_commit: b72cc2fda0e8b3792b7b3f7361fc3f917f269433
     build_dir_prefix: /build
     build_script: configs/build_scripts/libming-4.8.sh
-    build_script: configs/build_scripts/libming-4.8.sh
   libtiff-4.0.6:
     project: libtiff
     version: 4.0.6
@@ -137,7 +125,6 @@ sources:
     git_commit: 5612707c086cda76319552a0a2afeddcfa67d1b3
     build_dir_prefix: /build
     build_script: configs/build_scripts/libtiff.sh
-    build_script: configs/build_scripts/libtiff.sh
   libxml2-2.9.4:
     project: libxml2
     version: 2.9.4
@@ -146,5 +133,4 @@ sources:
     upstream_url: https://gitlab.gnome.org/GNOME/libxml2/-/archive/v2.9.4/libxml2-v2.9.4.tar.gz
     archive_sha256: 7a2037650a3b47f56f677c76272136c4b5d50dc3f2166dd2e498f60aef1742c9
     build_dir_prefix: /build
-    build_script: configs/build_scripts/libxml2.sh
     build_script: configs/build_scripts/libxml2.sh
