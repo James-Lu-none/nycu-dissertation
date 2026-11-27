@@ -262,8 +262,9 @@ def _execution_evidence(case: dict, case_dir: Path, bc_path: Path) -> tuple[set[
         stderr = stderr_path.read_text(encoding="utf-8", errors="replace")
         if run.get("stderr_sha256") != sha256(stderr_path):
             return set(), "STALE_ASAN_STDERR"
-        if run.get("poc_exit_code") == 0:
-            return set(), "POC_DID_NOT_CRASH"
+        if (type(run.get("poc_exit_code")) is not int or
+                run["poc_exit_code"] == 0):
+            return set(), "POC_EXIT_CODE_UNVERIFIED"
         if not asan_evidence(stderr, case.get("expected_oracle", {}))["crash_reproduced"]:
             return set(), "ASAN_ORACLE_FRAME_NOT_VERIFIED"
         source = case.get("expected_oracle", {})
@@ -383,7 +384,8 @@ def main():
             # actually executed by the PoC. Broad function-token, +/-3 line
             # and arbitrary SVFG-first heuristics are no longer accepted.
             eligible = [inst["instruction_id"] for inst in diagnostic["candidate_instructions"]
-                        if inst["source_line_candidate"] and
+                        if isinstance(inst.get("instruction_id"), str) and
+                        inst["source_line_candidate"] and
                         inst["executed_in_direct_trace"] and
                         inst["value_flow_relevant_opcode"]]
             eligible = list(dict.fromkeys(eligible))
@@ -411,7 +413,9 @@ def main():
                 continue
             updates[cid] = manually_approved
             result["status"] = "REVIEWED_TARGET_ACCEPTED"
-            result["applied"] = bool(args.apply)
+            # Record approval separately; YAML is committed atomically only
+            # after ALL reviewed candidates are accepted.
+            result["applied"] = False
             print(f"[{index:02d}/{len(cases):02d}] {cid}: reviewed {manually_approved}")
         except Exception as exc:
             result["status"] = "ANALYSIS_FAILED"
@@ -446,6 +450,15 @@ def main():
                 encoding="utf-8",
             )
             tmp.replace(args.config)
+            for approved_case in updates:
+                report_path = ROOT_DIR / "cases" / approved_case / "target_calibration.json"
+                report = json.loads(report_path.read_text(encoding="utf-8"))
+                report["applied"] = True
+                report["status"] = "REVIEWED_TARGET_APPLIED"
+                report_path.write_text(
+                    json.dumps(report, indent=2, ensure_ascii=False) + "\n",
+                    encoding="utf-8",
+                )
             print(f"Applied {len(updates)} explicitly reviewed targets to {args.config}")
 
     print(f"Target audit completed: {len(results)} cases. "
