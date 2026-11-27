@@ -368,6 +368,7 @@ def main():
             diagnostic = inspect_target(
                 mapper.bb_records, direct_bbs, case.get("expected_oracle", {}),
                 old_target, cdir / "svf_backend" / "before.jsonl",
+                v2_nodes_path=cdir / "analysis_v2_nodes.jsonl",
                 max_reported_instructions=8192,
             )
             result["identity_status"] = diagnostic["status"]
