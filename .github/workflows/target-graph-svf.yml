@@ -12,6 +12,13 @@ on:
       - "target_graph/scripts/svf_slice.sh"
       - "target_graph/docker/svf-llvm14/**"
       - "target_graph/tests/unit/test_svf_validate.py"
+      - "target_graph/tests/unit/test_trace_audit.py"
+      - "target_graph/src/target_graph/tracing/**"
+      - "target_graph/src/target_graph/llvm/passes/**"
+      - "target_graph/src/target_graph/llvm/trace_runtime/**"
+      - "target_graph/scripts/run_trace.py"
+      - "target_graph/scripts/audit_and_label.py"
+      - "target_graph/scripts/build_sources.py"
   push:
     paths:
       - ".github/workflows/target-graph-svf.yml"
@@ -19,6 +26,13 @@ on:
       - "target_graph/scripts/svf_slice.sh"
       - "target_graph/docker/svf-llvm14/**"
       - "target_graph/tests/unit/test_svf_validate.py"
+      - "target_graph/tests/unit/test_trace_audit.py"
+      - "target_graph/src/target_graph/tracing/**"
+      - "target_graph/src/target_graph/llvm/passes/**"
+      - "target_graph/src/target_graph/llvm/trace_runtime/**"
+      - "target_graph/scripts/run_trace.py"
+      - "target_graph/scripts/audit_and_label.py"
+      - "target_graph/scripts/build_sources.py"
 
 jobs:
   python-unit:
@@ -28,12 +42,13 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: python -m pip install pytest
+      - run: python -m pip install pytest pyyaml
       - name: Fail-closed SVFG validation tests
         run: |
           PYTHONPATH=target_graph/src python -m pytest \
             target_graph/tests/unit/test_svf_validate.py \
-            target_graph/tests/unit/test_dg_validate.py -q
+            target_graph/tests/unit/test_dg_validate.py \
+            target_graph/tests/unit/test_trace_audit.py -q
       - name: Check bash syntax
         run: bash -n target_graph/scripts/svf_slice.sh
 
@@ -75,7 +90,7 @@ jobs:
           cmake -S target_graph/src/target_graph/llvm/passes \
             -B /tmp/identity-build -G Ninja \
             -DLLVM_DIR=/usr/lib/llvm-14/lib/cmake/llvm
-          cmake --build /tmp/identity-build --target DGIdentityPass -j 2
+          cmake --build /tmp/identity-build --target DGIdentityPass TraceInstrumentPass -j 2
       - name: Native SVFG smoke test with LLVM instruction identities
         run: |
           mkdir -p /tmp/svf-fixture
@@ -135,4 +150,39 @@ jobs:
           assert not report["validated_for_supervision"]
           print("Native SVFG smoke test:", report["visited_svfg_nodes"], "nodes;",
                 len(report["basic_blocks"]), "original BBs")
+          PY
+
+
+      - name: Native LLVM14 direct BB-ID trace matches original IR graph
+        run: |
+          TARGET_GRAPH_BUILD_ID=direct_bb_ci \
+            opt-14 -load-pass-plugin=/tmp/identity-build/libDGIdentityPass.so \
+            -passes=dg-tag -o /tmp/svf-fixture/direct_tagged.bc \
+            /tmp/svf-fixture/original.bc
+          TARGET_GRAPH_DG_EXPORT=/tmp/svf-fixture/direct_before.jsonl \
+            opt-14 -load-pass-plugin=/tmp/identity-build/libDGIdentityPass.so \
+            -passes=dg-export -disable-output /tmp/svf-fixture/direct_tagged.bc
+          TARGET_GRAPH_BUILD_ID=direct_bb_ci \
+            opt-14 -load-pass-plugin=/tmp/identity-build/libTraceInstrumentPass.so \
+            -passes=target-graph-trace -o /tmp/svf-fixture/direct_trace.bc \
+            /tmp/svf-fixture/original.bc
+          clang-14 -g -O0 -no-pie -fsanitize=address \
+            /tmp/svf-fixture/direct_trace.bc \
+            target_graph/src/target_graph/llvm/trace_runtime/trace_runtime.c \
+            -o /tmp/svf-fixture/direct_inst
+          TARGET_GRAPH_TRACE_FILE=/tmp/svf-fixture/direct_events.txt \
+            /tmp/svf-fixture/direct_inst
+          PYTHONPATH=target_graph/src python - <<'PY'
+          import json
+          from pathlib import Path
+          from target_graph.tracing.symbolizer import parse_trace_bb_ids
+          root = Path("/tmp/svf-fixture")
+          recorded = parse_trace_bb_ids(root / "direct_events.txt")
+          original = {
+            json.loads(line)["bb_id"] for line in
+            (root / "direct_before.jsonl").read_text().splitlines()
+          }
+          assert recorded, "Expected at least one direct LLVM BB trace"
+          assert set(recorded).issubset(original), "BB instrumentation/graph IDs disagree"
+          print("Direct native BB trace:", len(recorded), "events;", len(set(recorded)), "BBs")
           PY
