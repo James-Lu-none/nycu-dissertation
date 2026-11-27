@@ -89,6 +89,7 @@ def test_target_candidates(
     raw_path = out_dir / "test_svfg.json"
     # Remove stale output BEFORE starting Docker, not just from inside it.
     raw_path.unlink(missing_ok=True)
+    (out_dir / "test.err").unlink(missing_ok=True)
     cand_str = ",".join(candidates)
     c_script = f"""
 set -euo pipefail
