@@ -186,3 +186,19 @@ def test_matching_id_but_wrong_opcode_is_not_accepted(example):
     v2.write_text("".join(json.dumps(row) + "\n" for row in rows))
     with pytest.raises(ValueError, match="function/opcode mismatch"):
         preflight(before, "bb1:0", bb_map=bb_map, v2_nodes=v2)
+
+
+
+def test_multi_candidate_resolves_single_target_and_checks_seeds(example):
+    before, output, bc, bb_map, v2, raw = example
+    requested = "bb0:0,bb1:0,bb1:1"
+    result = validate_svf(before, output, requested, bc,
+                          bb_map=bb_map, v2_nodes=v2)
+    assert result["target"] == "bb1:0"
+    assert result["requested_target_candidates"] == requested.split(",")
+    tampered = copy.deepcopy(raw)
+    tampered["target_seed_svfg_ids"] = [5]  # other candidate, not resolved target
+    output.write_text(json.dumps(tampered), encoding="utf-8")
+    with pytest.raises(ValueError, match="Target seeds"):
+        validate_svf(before, output, requested, bc,
+                     bb_map=bb_map, v2_nodes=v2)
