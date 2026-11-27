@@ -34,6 +34,7 @@ def inspect_target(
     canonical_target_inst: str,
     before_path: Path,
     *,
+    v2_nodes_path: Path | None = None,
     max_reported_bbs: int = 128,
     max_reported_instructions: int = 256,
 ) -> dict[str, Any]:
@@ -98,6 +99,31 @@ def inspect_target(
                         "value_flow_relevant_opcode": rec.get("opcode") in _VALUE_OPCODES,
                         "is_current_target": inst_id == canonical_target_inst,
                     })
+    inline_metadata_status = "V2_NODES_NOT_AVAILABLE"
+    if v2_nodes_path is not None and v2_nodes_path.is_file():
+        by_inst_id = {row["instruction_id"]: row for row in instructions
+                      if isinstance(row.get("instruction_id"), str)}
+        remaining = set(by_inst_id)
+        with v2_nodes_path.open(encoding="utf-8") as handle:
+            for raw in handle:
+                if not remaining:
+                    break
+                if not raw.strip():
+                    continue
+                node = json.loads(raw)
+                inst_id = node.get("id")
+                if inst_id not in remaining:
+                    continue
+                chain = node.get("inline_callsite_chain")
+                if isinstance(chain, list):
+                    by_inst_id[inst_id]["inline_callsite_chain"] = chain
+                remaining.remove(inst_id)
+        with_chains = sum("inline_callsite_chain" in row for row in instructions)
+        inline_metadata_status = (
+            "LLVM_V2_INLINED_AT_AVAILABLE"
+            if with_chains else "V2_MISSING_INLINE_CHAIN_FIELD_REBUILD_ANALYSIS_V2"
+        )
+
     target_in_graph = target_bb in bb_records
     target_executed = target_bb in executed_bbs
     if not target_in_graph:
@@ -135,6 +161,7 @@ def inspect_target(
         "candidate_owner_bbs_truncated": len(matches) > max_reported_bbs,
         "instruction_count_in_matching_and_target_bbs": matching_instruction_count,
         "candidate_instructions": instructions,
+        "inline_metadata_status": inline_metadata_status,
         "candidate_instructions_truncated": matching_instruction_count > max_reported_instructions,
         "notes": [
             "Direct BB hit is exact BB-entry coverage, not proof of faulting operand",
