@@ -13,14 +13,15 @@
 
 #define TRACE_CAPACITY (16 * 1024 * 1024) // 1M entries
 
-static uintptr_t trace_buffer[TRACE_CAPACITY];
+static uint64_t trace_buffer[TRACE_CAPACITY];
 static size_t trace_count = 0;
 static int trace_initialized = 0;
+static int trace_mode_bb = 0;
 static volatile int in_trace = 0;
 
 // Minimal fast integer-to-hex formatting (no libc printf/malloc)
-static int format_entry(char *buf, size_t seq, uintptr_t pc) {
-    // Format: "123: 0x7fff1234\n"
+static int format_entry(char *buf, size_t seq, uint64_t val, int is_bb_id) {
+    // Format: "123: 0x7fff1234\n" (PC mode) or "123: 0123456789abcdef\n" (BB ID mode)
     char num_buf[32];
     int nlen = 0;
     if (seq == 0) {
@@ -40,24 +41,29 @@ static int format_entry(char *buf, size_t seq, uintptr_t pc) {
     }
     buf[pos++] = ':';
     buf[pos++] = ' ';
-    buf[pos++] = '0';
-    buf[pos++] = 'x';
 
-    // Format PC in hex
-    char hex_digits[] = "0123456789abcdef";
-    char hex_buf[32];
-    int hlen = 0;
-    if (pc == 0) {
-        hex_buf[hlen++] = '0';
-    } else {
-        uintptr_t temp = pc;
-        while (temp > 0) {
-            hex_buf[hlen++] = hex_digits[temp & 0xf];
-            temp >>= 4;
+    static const char hex_digits[] = "0123456789abcdef";
+    if (is_bb_id) {
+        for (int shift = 60; shift >= 0; shift -= 4) {
+            buf[pos++] = hex_digits[(val >> shift) & 0xf];
         }
-    }
-    for (int i = hlen - 1; i >= 0; --i) {
-        buf[pos++] = hex_buf[i];
+    } else {
+        buf[pos++] = '0';
+        buf[pos++] = 'x';
+        char hex_buf[32];
+        int hlen = 0;
+        if (val == 0) {
+            hex_buf[hlen++] = '0';
+        } else {
+            uint64_t temp = val;
+            while (temp > 0) {
+                hex_buf[hlen++] = hex_digits[temp & 0xf];
+                temp >>= 4;
+            }
+        }
+        for (int i = hlen - 1; i >= 0; --i) {
+            buf[pos++] = hex_buf[i];
+        }
     }
     buf[pos++] = '\n';
     return pos;
@@ -80,7 +86,7 @@ static void trace_flush(void) {
 
         for (size_t i = 0; i < trace_count; ++i) {
             char entry_str[64];
-            int elen = format_entry(entry_str, i, trace_buffer[i]);
+            int elen = format_entry(entry_str, i, trace_buffer[i], trace_mode_bb);
 
             if (chunk_pos + elen >= (int)sizeof(chunk)) {
                 write(fd, chunk, (size_t)chunk_pos);
@@ -111,6 +117,7 @@ static void crash_signal_handler(int sig, siginfo_t *info, void *ucontext) {
     raise(sig);
 }
 
+__attribute__((no_sanitize("all")))
 static void install_crash_handlers(void) {
     if (__sanitizer_set_death_callback) {
         __sanitizer_set_death_callback(trace_flush);
@@ -128,11 +135,17 @@ static void install_crash_handlers(void) {
 }
 
 __attribute__((constructor))
+__attribute__((no_sanitize("all")))
 static void trace_ctor(void) {
-    install_crash_handlers();
+    if (!trace_initialized) {
+        trace_initialized = 1;
+        atexit(trace_flush);
+        install_crash_handlers();
+    }
 }
 
 __attribute__((destructor))
+__attribute__((no_sanitize("all")))
 static void trace_dtor(void) {
     trace_flush();
 }
@@ -153,12 +166,29 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
 
 __attribute__((no_sanitize("all")))
 void __sanitizer_cov_trace_pc_guard(uint32_t *guard) {
+    (void)guard;
     if (!trace_initialized || in_trace) return;
     in_trace = 1;
 
     uintptr_t pc = (uintptr_t)__builtin_return_address(0);
     if (trace_count < TRACE_CAPACITY) {
-        trace_buffer[trace_count++] = pc;
+        trace_buffer[trace_count++] = (uint64_t)pc;
+    }
+
+    in_trace = 0;
+}
+
+__attribute__((no_sanitize("all")))
+void __target_graph_trace_bb(uint64_t bb_id) {
+    if (!trace_initialized) {
+        trace_ctor();
+    }
+    if (!trace_initialized || in_trace) return;
+    in_trace = 1;
+
+    trace_mode_bb = 1;
+    if (trace_count < TRACE_CAPACITY) {
+        trace_buffer[trace_count++] = bb_id;
     }
 
     in_trace = 0;

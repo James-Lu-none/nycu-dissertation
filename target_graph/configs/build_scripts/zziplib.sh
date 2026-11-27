@@ -38,25 +38,11 @@ export TARGET_GRAPH_BUILD_ID="${BUILD_ID}"
 export TARGET_GRAPH_OUT_DIR="${TARGET_OUT}"
 opt -load-pass-plugin=/usr/local/lib/TargetGraphPass.so -passes="target-graph" -disable-output "${TARGET_OUT}/unzzipcat-mem.bc"
 
-# 3. Compile instrumented binary with ASan and trace
-if [[ -n "${BUILD_SUBDIR}" && -d "${BUILD_SUBDIR}" ]]; then
-    rm -rf "${BUILD_SUBDIR}"
-fi
-make clean || true
-./configure CC="clang -g -O1 -fsanitize=address -fsanitize-coverage=trace-pc-guard,no-prune -no-pie -D_USE_MMAP" \
-    CFLAGS="-g -O1 -fsanitize=address -fsanitize-coverage=trace-pc-guard,no-prune -no-pie -D_USE_MMAP" \
-    LDFLAGS="-fsanitize=address -no-pie -Wl,--whole-archive,/usr/local/lib/libtarget_graph_trace.a,--no-whole-archive" \
-    --disable-shared
-
-BUILD_SUBDIR="$(ls -d Linux_*.d 2>/dev/null | head -n 1 || echo "")"
-if [[ -n "${BUILD_SUBDIR}" && -d "${BUILD_SUBDIR}" ]]; then
-    make -j"$(nproc)" -C "${BUILD_SUBDIR}/zzip"
-    make -j"$(nproc)" -C "${BUILD_SUBDIR}/bins"
-    cp "${BUILD_SUBDIR}/bins/unzzipcat-mem" "${TARGET_OUT}/unzzipcat-mem_inst"
-else
-    make -j"$(nproc)" -C zzip
-    make -j"$(nproc)" -C bins
-    cp bins/unzzipcat-mem "${TARGET_OUT}/unzzipcat-mem_inst"
-fi
+# 3. Instrument bitcode with TraceInstrumentPass and compile ASan binary
+opt -load-pass-plugin=/usr/local/lib/TraceInstrumentPass.so -passes="target-graph-trace" -o "${TARGET_OUT}/unzzipcat-mem_trace.bc" "${TARGET_OUT}/unzzipcat-mem.bc"
+clang -g -O1 -fsanitize=address -no-pie \
+    "${TARGET_OUT}/unzzipcat-mem_trace.bc" \
+    -Wl,--whole-archive,/usr/local/lib/libtarget_graph_trace.a,--no-whole-archive \
+    -lm -lz -o "${TARGET_OUT}/unzzipcat-mem_inst"
 
 echo "[BUILD][zziplib] Finished building unzzipcat-mem in ${TARGET_OUT}"

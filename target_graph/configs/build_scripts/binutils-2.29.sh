@@ -44,18 +44,17 @@ export TARGET_GRAPH_OUT_DIR="${READELF_OUT}"
 opt -load-pass-plugin=/usr/local/lib/TargetGraphPass.so -passes="target-graph" -disable-output "${READELF_OUT}/readelf.bc"
 rm -rf "${BUILD_TMP_BC}"
 
-# 2. Compile instrumented binaries in fresh build dir
-BUILD_TMP_INST=$(mktemp -d /tmp/binutils229_inst_XXXXXX)
-cd "${BUILD_TMP_INST}"
-cp -r "${SRC_DIR}/." .
-./configure CC=clang \
-    CFLAGS="-g -O1 -fsanitize=address -fsanitize-coverage=trace-pc-guard,no-prune -no-pie" \
-    LDFLAGS="-fsanitize=address -no-pie -Wl,--whole-archive,/usr/local/lib/libtarget_graph_trace.a,--no-whole-archive" \
-    ${CONFIG_OPTIONS}
-make -j"$(nproc)" all-binutils
+# 2. Instrument bitcode with TraceInstrumentPass and compile ASan binaries
+opt -load-pass-plugin=/usr/local/lib/TraceInstrumentPass.so -passes="target-graph-trace" -o "${NM_OUT}/nm_trace.bc" "${NM_OUT}/nm.bc"
+clang -g -O1 -fsanitize=address -no-pie \
+    "${NM_OUT}/nm_trace.bc" \
+    -Wl,--whole-archive,/usr/local/lib/libtarget_graph_trace.a,--no-whole-archive \
+    -ldl -lm -o "${NM_OUT}/nm_inst"
 
-cp "binutils/nm-new" "${NM_OUT}/nm_inst"
-cp "binutils/readelf" "${READELF_OUT}/readelf_inst"
-rm -rf "${BUILD_TMP_INST}"
+opt -load-pass-plugin=/usr/local/lib/TraceInstrumentPass.so -passes="target-graph-trace" -o "${READELF_OUT}/readelf_trace.bc" "${READELF_OUT}/readelf.bc"
+clang -g -O1 -fsanitize=address -no-pie \
+    "${READELF_OUT}/readelf_trace.bc" \
+    -Wl,--whole-archive,/usr/local/lib/libtarget_graph_trace.a,--no-whole-archive \
+    -ldl -lm -o "${READELF_OUT}/readelf_inst"
 
 echo "[BUILD][binutils-2.29] Finished targets in ${OUT_DIR}"

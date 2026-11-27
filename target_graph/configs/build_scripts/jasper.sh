@@ -27,16 +27,11 @@ export TARGET_GRAPH_BUILD_ID="${BUILD_ID}"
 export TARGET_GRAPH_OUT_DIR="${TARGET_OUT}"
 opt -load-pass-plugin=/usr/local/lib/TargetGraphPass.so -passes="target-graph" -disable-output "${TARGET_OUT}/imginfo.bc"
 
-# 3. Compile instrumented binary with ASan and trace
-make clean || true
-./configure CC=clang \
-    CFLAGS="-g -O1 -fsanitize=address -fsanitize-coverage=trace-pc-guard,no-prune -no-pie" \
-    --disable-shared
-make -j"$(nproc)" -C src/libjasper
-make -j"$(nproc)" -C src/appl imginfo.o
+# 3. Instrument bitcode with TraceInstrumentPass and compile ASan binary
+opt -load-pass-plugin=/usr/local/lib/TraceInstrumentPass.so -passes="target-graph-trace" -o "${TARGET_OUT}/imginfo_trace.bc" "${TARGET_OUT}/imginfo.bc"
 clang -g -O1 -fsanitize=address -no-pie \
-    src/appl/imginfo.o src/libjasper/.libs/libjasper.a -lm \
-    -Wl,--whole-archive /usr/local/lib/libtarget_graph_trace.a -Wl,--no-whole-archive \
+    "${TARGET_OUT}/imginfo_trace.bc" -lm \
+    -Wl,--whole-archive,/usr/local/lib/libtarget_graph_trace.a,--no-whole-archive \
     -o "${TARGET_OUT}/imginfo_inst"
 
 echo "[BUILD][jasper] Finished building imginfo in ${TARGET_OUT}"

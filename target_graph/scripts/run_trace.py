@@ -22,22 +22,42 @@ if str(ROOT_DIR / "src") not in sys.path:
 
 import json
 from target_graph.llvm.mapping import BasicBlockMapper
-from target_graph.tracing.symbolizer import parse_trace_pcs, trace_to_basic_blocks
+from target_graph.tracing.symbolizer import (
+    parse_trace_bb_ids,
+    parse_trace_pcs,
+    trace_to_basic_blocks,
+)
 
 
 def write_trace_bbs_json(cid: str, cdir: Path, inst_bin: Path, trace_file: Path) -> Path:
-    """Symbolize trace_crash.txt and persist trace_bbs.json."""
-    bb_map_path = cdir / "bb_map.jsonl"
-    mapper = BasicBlockMapper(bb_map_path)
-    pcs = parse_trace_pcs(trace_file)
-    ordered_bbs = trace_to_basic_blocks(trace_file, inst_bin, mapper)
-    unique_bbs = list(dict.fromkeys(ordered_bbs))
+    """Parse direct BB-ID trace (or symbolize legacy PC trace) and persist trace_bbs.json."""
+    direct_bbs = parse_trace_bb_ids(trace_file)
+    if direct_bbs is not None:
+        trace_mode = "direct_bb_id"
+        ordered_bbs: List[str] = []
+        for bb in direct_bbs:
+            if not ordered_bbs or ordered_bbs[-1] != bb:
+                ordered_bbs.append(bb)
+        unique_bbs = list(dict.fromkeys(ordered_bbs))
+        total_events = len(direct_bbs)
+        unique_events = len(unique_bbs)
+    else:
+        trace_mode = "pc_symbolize"
+        bb_map_path = cdir / "bb_map.jsonl"
+        mapper = BasicBlockMapper(bb_map_path)
+        pcs = parse_trace_pcs(trace_file)
+        ordered_bbs = trace_to_basic_blocks(trace_file, inst_bin, mapper)
+        unique_bbs = list(dict.fromkeys(ordered_bbs))
+        total_events = len(pcs)
+        unique_events = len(set(pcs))
+
     out_path = cdir / "trace_bbs.json"
     payload = {
         "case_id": cid,
         "trace_file": str(trace_file.name),
-        "total_pc_events": len(pcs),
-        "unique_pcs": len(set(pcs)),
+        "trace_mode": trace_mode,
+        "total_pc_events": total_events,
+        "unique_pcs": unique_events,
         "num_executed_bbs": len(unique_bbs),
         "executed_bbs_unique": unique_bbs,
         "executed_bbs_ordered": ordered_bbs,

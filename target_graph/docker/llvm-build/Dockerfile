@@ -78,3 +78,6 @@ RUN cp /opt/target_graph/build/passes/libAnalysisV2Pass.so /usr/local/lib/Analys
 
 # LLVM identity metadata survives (when supported by DG) for exact BB/trace mapping.
 RUN cp /opt/target_graph/build/passes/libDGIdentityPass.so /usr/local/lib/DGIdentityPass.so
+
+# Direct BB-ID trace instrumentation pass.
+RUN cp /opt/target_graph/build/passes/libTraceInstrumentPass.so /usr/local/lib/TraceInstrumentPass.so

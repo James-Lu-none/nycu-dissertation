@@ -27,13 +27,11 @@ export TARGET_GRAPH_BUILD_ID="${BUILD_ID}"
 export TARGET_GRAPH_OUT_DIR="${TARGET_OUT}"
 opt -load-pass-plugin=/usr/local/lib/TargetGraphPass.so -passes="target-graph" -disable-output "${TARGET_OUT}/lame.bc"
 
-# 3. Compile instrumented binary with ASan and trace
-make clean || true
-./configure CC=clang \
-    CFLAGS="-g -O1 -fsanitize=address -fsanitize-coverage=trace-pc-guard,no-prune -no-pie" \
-    LDFLAGS="-fsanitize=address -no-pie -Wl,--whole-archive,/usr/local/lib/libtarget_graph_trace.a,--no-whole-archive" \
-    --disable-shared --disable-decoder
-make -j"$(nproc)"
-cp frontend/lame "${TARGET_OUT}/lame_inst"
+# 3. Instrument bitcode with TraceInstrumentPass and compile ASan binary
+opt -load-pass-plugin=/usr/local/lib/TraceInstrumentPass.so -passes="target-graph-trace" -o "${TARGET_OUT}/lame_trace.bc" "${TARGET_OUT}/lame.bc"
+clang -g -O1 -fsanitize=address -no-pie \
+    "${TARGET_OUT}/lame_trace.bc" \
+    -Wl,--whole-archive,/usr/local/lib/libtarget_graph_trace.a,--no-whole-archive \
+    -lncurses -ltinfo -lm -o "${TARGET_OUT}/lame_inst"
 
 echo "[BUILD][lame] Finished building lame in ${TARGET_OUT}"

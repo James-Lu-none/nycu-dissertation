@@ -81,10 +81,10 @@ def audit_and_label_case(case_meta: Dict[str, Any], cases_dir: Path) -> Dict[str
     oracle_line = int(oracle.get("line", 0) or 0)
     oracle_func = oracle.get("function") or None
 
-    oracle_bbs = mapper.map_source_location(oracle_file, oracle_line, function_name=oracle_func)
-    if not oracle_bbs and oracle_func:
-        # Fallback without function filter in case of inlining
-        oracle_bbs = mapper.map_source_location(oracle_file, oracle_line)
+    oracle_bbs_func = mapper.map_source_location(oracle_file, oracle_line, function_name=oracle_func)
+    oracle_bbs_all = mapper.map_source_location(oracle_file, oracle_line)
+    # Include both exact-function BBs and inlined copies at the same source file/line
+    oracle_bbs = list(dict.fromkeys([*oracle_bbs_func, *oracle_bbs_all]))
 
     audit_record["oracle_bbs"] = oracle_bbs
     oracle_hit_bbs = [b for b in oracle_bbs if b in trace_bbs_set]

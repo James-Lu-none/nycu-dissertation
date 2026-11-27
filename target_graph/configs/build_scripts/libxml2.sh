@@ -32,18 +32,11 @@ export TARGET_GRAPH_BUILD_ID="${BUILD_ID}"
 export TARGET_GRAPH_OUT_DIR="${TARGET_OUT}"
 opt -load-pass-plugin=/usr/local/lib/TargetGraphPass.so -passes="target-graph" -disable-output "${TARGET_OUT}/xmllint.bc"
 
-# 3. Compile instrumented binary with ASan and trace
-make clean || true
-if [[ -f autogen.sh ]]; then
-    ./autogen.sh --disable-shared CC=clang \
-        CFLAGS="-g -O1 -fsanitize=address -fsanitize-coverage=trace-pc-guard,no-prune -no-pie" \
-        LDFLAGS="-fsanitize=address -no-pie -Wl,--whole-archive,/usr/local/lib/libtarget_graph_trace.a,--no-whole-archive"
-elif [[ -f configure ]]; then
-    ./configure --disable-shared CC=clang \
-        CFLAGS="-g -O1 -fsanitize=address -fsanitize-coverage=trace-pc-guard,no-prune -no-pie" \
-        LDFLAGS="-fsanitize=address -no-pie -Wl,--whole-archive,/usr/local/lib/libtarget_graph_trace.a,--no-whole-archive"
-fi
-make -j"$(nproc)" xmllint
-cp xmllint "${TARGET_OUT}/xmllint_inst"
+# 3. Instrument bitcode with TraceInstrumentPass and compile ASan binary
+opt -load-pass-plugin=/usr/local/lib/TraceInstrumentPass.so -passes="target-graph-trace" -o "${TARGET_OUT}/xmllint_trace.bc" "${TARGET_OUT}/xmllint.bc"
+clang -g -O1 -fsanitize=address -no-pie \
+    "${TARGET_OUT}/xmllint_trace.bc" \
+    -Wl,--whole-archive,/usr/local/lib/libtarget_graph_trace.a,--no-whole-archive \
+    -lm -lz -ldl -o "${TARGET_OUT}/xmllint_inst"
 
 echo "[BUILD][libxml2] Finished building xmllint in ${TARGET_OUT}"

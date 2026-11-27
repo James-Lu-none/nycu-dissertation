@@ -57,12 +57,11 @@ opt -load-pass-plugin=/usr/local/lib/TargetGraphPass.so -passes="target-graph" -
 # 3. Compile base binary
 clang -g -O1 -no-pie cJSON.c cjson_test.c -o "${TARGET_OUT}/cjson_test_base" -lm
 
-# 4. Compile instrumented binary for ASan crash trace
-clang -g -O1 -no-pie \
-    -fsanitize=address \
-    -fsanitize-coverage=trace-pc-guard,no-prune \
-    cJSON.c cjson_test.c \
-    -Wl,--whole-archive /usr/local/lib/libtarget_graph_trace.a -Wl,--no-whole-archive \
+# 4. Instrument bitcode with TraceInstrumentPass and compile ASan binary
+opt -load-pass-plugin=/usr/local/lib/TraceInstrumentPass.so -passes="target-graph-trace" -o "${TARGET_OUT}/cjson_test_trace.bc" "${TARGET_OUT}/cjson_test.bc"
+clang -g -O1 -no-pie -fsanitize=address \
+    "${TARGET_OUT}/cjson_test_trace.bc" \
+    -Wl,--whole-archive,/usr/local/lib/libtarget_graph_trace.a,--no-whole-archive \
     -o "${TARGET_OUT}/cjson_test_inst" -lm
 
 echo "[BUILD][cJSON] Finished building cjson_test in ${TARGET_OUT}"

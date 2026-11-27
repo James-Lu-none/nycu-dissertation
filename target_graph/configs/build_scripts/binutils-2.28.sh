@@ -35,22 +35,11 @@ for tgt in objdump objcopy; do
     export TARGET_GRAPH_BUILD_ID="${BUILD_ID}"
     export TARGET_GRAPH_OUT_DIR="${TARGET_OUT}"
     opt -load-pass-plugin=/usr/local/lib/TargetGraphPass.so -passes="target-graph" -disable-output "${TARGET_OUT}/${tgt}.bc"
-done
-rm -rf "${BUILD_TMP_BC}"
-
-# 2. Compile instrumented binaries in fresh build dir
-BUILD_TMP_INST=$(mktemp -d /tmp/binutils228_inst_XXXXXX)
-cd "${BUILD_TMP_INST}"
-cp -r "${SRC_DIR}/." .
-./configure CC=clang \
-    CFLAGS="-g -O1 -fsanitize=address -fsanitize-coverage=trace-pc-guard,no-prune -no-pie" \
-    LDFLAGS="-fsanitize=address -no-pie -Wl,--whole-archive,/usr/local/lib/libtarget_graph_trace.a,--no-whole-archive" \
-    ${CONFIG_OPTIONS}
-make -j"$(nproc)" all-binutils
-
-for tgt in objdump objcopy; do
-    TARGET_OUT="${OUT_DIR}/${tgt}"
-    cp "binutils/${tgt}" "${TARGET_OUT}/${tgt}_inst"
+    opt -load-pass-plugin=/usr/local/lib/TraceInstrumentPass.so -passes="target-graph-trace" -o "${TARGET_OUT}/${tgt}_trace.bc" "${TARGET_OUT}/${tgt}.bc"
+    clang -g -O1 -fsanitize=address -no-pie \
+        "${TARGET_OUT}/${tgt}_trace.bc" \
+        -Wl,--whole-archive,/usr/local/lib/libtarget_graph_trace.a,--no-whole-archive \
+        -ldl -lm -o "${TARGET_OUT}/${tgt}_inst"
     echo "[BUILD][binutils-2.28] Finished target ${tgt} in ${TARGET_OUT}"
 done
-rm -rf "${BUILD_TMP_INST}"
+rm -rf "${BUILD_TMP_BC}"

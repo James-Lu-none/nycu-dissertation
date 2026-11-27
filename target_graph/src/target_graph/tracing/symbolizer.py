@@ -19,6 +19,28 @@ def find_llvm_symbolizer() -> Optional[str]:
     return None
 
 
+def parse_trace_bb_ids(trace_file: Path) -> Optional[List[str]]:
+    """Parse direct canonical BB IDs from trace file if emitted in BB-ID mode.
+
+    Direct BB-ID lines have format: "<seq>: <16-lowercase-hex-chars>" (no 0x prefix).
+    Returns None if the trace file uses legacy "0x..." PC format or is empty.
+    """
+    if not trace_file.exists():
+        return None
+    bb_ids: List[str] = []
+    with open(trace_file, "r", encoding="utf-8") as f:
+        for line in f:
+            parts = line.strip().split()
+            if len(parts) < 2:
+                continue
+            val = parts[1].lower()
+            if val.startswith("0x"):
+                return None
+            if len(val) == 16 and all(c in "0123456789abcdef" for c in val):
+                bb_ids.append(val)
+    return bb_ids if bb_ids else None
+
+
 def parse_trace_pcs(trace_file: Path) -> List[int]:
     """Parse sequential PCs from trace file."""
     if not trace_file.exists():
@@ -155,6 +177,14 @@ def trace_to_basic_blocks(
     symbolizer_path: Optional[str] = None,
 ) -> List[str]:
     """Map ordered trace events to an ordered list of basic block IDs."""
+    direct_bbs = parse_trace_bb_ids(trace_file)
+    if direct_bbs is not None:
+        ordered_bbs: List[str] = []
+        for bb in direct_bbs:
+            if not ordered_bbs or ordered_bbs[-1] != bb:
+                ordered_bbs.append(bb)
+        return ordered_bbs
+
     pcs = parse_trace_pcs(trace_file)
     if not pcs:
         return []

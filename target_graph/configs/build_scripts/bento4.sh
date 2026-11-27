@@ -33,17 +33,11 @@ export TARGET_GRAPH_BUILD_ID="${BUILD_ID}"
 export TARGET_GRAPH_OUT_DIR="${TARGET_OUT}"
 opt -load-pass-plugin=/usr/local/lib/TargetGraphPass.so -passes="target-graph" -disable-output "${TARGET_OUT}/mp42aac.bc"
 
-# 3. Compile instrumented binary with ASan and trace
-cd "${BUILD_TMP}"
-mkdir -p build_inst && cd build_inst
-cmake .. \
-    -DCMAKE_C_COMPILER=clang \
-    -DCMAKE_CXX_COMPILER=clang++ \
-    -DCMAKE_C_FLAGS="-g -O1 -fsanitize=address -fsanitize-coverage=trace-pc-guard,no-prune -no-pie" \
-    -DCMAKE_CXX_FLAGS="-g -O1 -fsanitize=address -fsanitize-coverage=trace-pc-guard,no-prune -no-pie" \
-    -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address -no-pie -Wl,--whole-archive /usr/local/lib/libtarget_graph_trace.a -Wl,--no-whole-archive" \
-    -DCMAKE_BUILD_TYPE=Debug
-make -j"$(nproc)" mp42aac
-cp mp42aac "${TARGET_OUT}/mp42aac_inst"
+# 3. Instrument bitcode with TraceInstrumentPass and compile ASan binary
+opt -load-pass-plugin=/usr/local/lib/TraceInstrumentPass.so -passes="target-graph-trace" -o "${TARGET_OUT}/mp42aac_trace.bc" "${TARGET_OUT}/mp42aac.bc"
+clang++ -g -O1 -fsanitize=address -no-pie \
+    "${TARGET_OUT}/mp42aac_trace.bc" \
+    -Wl,--whole-archive,/usr/local/lib/libtarget_graph_trace.a,--no-whole-archive \
+    -lm -o "${TARGET_OUT}/mp42aac_inst"
 
 echo "[BUILD][bento4] Finished building mp42aac in ${TARGET_OUT}"

@@ -40,18 +40,12 @@ export TARGET_GRAPH_BUILD_ID="${BUILD_ID}"
 export TARGET_GRAPH_OUT_DIR="${TARGET_OUT}"
 opt -load-pass-plugin=/usr/local/lib/TargetGraphPass.so -passes="target-graph" -disable-output "${TARGET_OUT}/imagew.bc"
 
-# 3. Compile instrumented binary with ASan and trace (link libjpeg statically for container portability)
-make clean || true
-./configure CC=clang \
-    CFLAGS="-g -O1 -fsanitize=address -fsanitize-coverage=trace-pc-guard,no-prune -no-pie" \
-    LDFLAGS="-fsanitize=address -no-pie -Wl,--whole-archive /usr/local/lib/libtarget_graph_trace.a -Wl,--no-whole-archive" \
-    --disable-shared
-make -j"$(nproc)"
-rm -f imagew
-clang -g -O1 -fsanitize=address -fsanitize-coverage=trace-pc-guard,no-prune -no-pie \
-    src/imagew-cmd.o ./.libs/libimageworsener.a \
+# 3. Instrument bitcode with TraceInstrumentPass and compile ASan binary (link libjpeg statically for container portability)
+opt -load-pass-plugin=/usr/local/lib/TraceInstrumentPass.so -passes="target-graph-trace" -o "${TARGET_OUT}/imagew_trace.bc" "${TARGET_OUT}/imagew.bc"
+clang -g -O1 -fsanitize=address -no-pie \
+    "${TARGET_OUT}/imagew_trace.bc" \
     /usr/lib/x86_64-linux-gnu/libjpeg.a -lz -lm \
-    -Wl,--whole-archive /usr/local/lib/libtarget_graph_trace.a -Wl,--no-whole-archive \
+    -Wl,--whole-archive,/usr/local/lib/libtarget_graph_trace.a,--no-whole-archive \
     -o "${TARGET_OUT}/imagew_inst"
 
 echo "[BUILD][imageworsener] Finished building imagew in ${TARGET_OUT}"

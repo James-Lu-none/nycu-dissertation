@@ -28,12 +28,11 @@ opt -load-pass-plugin=/usr/local/lib/TargetGraphPass.so -passes="target-graph" -
 # 3. Compile base binary
 clang -g -O1 -no-pie ${SRCS} -o "${TARGET_OUT}/jhead_base" -lm
 
-# 4. Compile instrumented binary
-clang -g -O1 -no-pie \
-    -fsanitize=address \
-    -fsanitize-coverage=trace-pc-guard,no-prune \
-    ${SRCS} \
-    -Wl,--whole-archive /usr/local/lib/libtarget_graph_trace.a -Wl,--no-whole-archive \
+# 4. Instrument bitcode with TraceInstrumentPass and compile ASan binary
+opt -load-pass-plugin=/usr/local/lib/TraceInstrumentPass.so -passes="target-graph-trace" -o "${TARGET_OUT}/jhead_trace.bc" "${TARGET_OUT}/jhead.bc"
+clang -g -O1 -no-pie -fsanitize=address \
+    "${TARGET_OUT}/jhead_trace.bc" \
+    -Wl,--whole-archive,/usr/local/lib/libtarget_graph_trace.a,--no-whole-archive \
     -o "${TARGET_OUT}/jhead_inst" -lm
 
 echo "[BUILD][jhead] Finished building jhead in ${TARGET_OUT}"

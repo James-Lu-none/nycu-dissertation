@@ -27,17 +27,11 @@ export TARGET_GRAPH_OUT_DIR="${TARGET_OUT}"
 opt -load-pass-plugin=/usr/local/lib/TargetGraphPass.so -passes="target-graph" -disable-output "${TARGET_OUT}/cxxfilt.bc"
 rm -rf "${BUILD_TMP_BC}"
 
-# 3. Compile instrumented binary in fresh build dir
-BUILD_TMP_INST=$(mktemp -d /tmp/binutils226_inst_XXXXXX)
-cd "${BUILD_TMP_INST}"
-cp -r "${SRC_DIR}/." .
-export ASAN_OPTIONS="detect_leaks=0"
-./configure CC=clang \
-    CFLAGS="-g -O1 -fsanitize=address -fsanitize-coverage=trace-pc-guard,no-prune -no-pie" \
-    LDFLAGS="-fsanitize=address -no-pie -Wl,--whole-archive,/usr/local/lib/libtarget_graph_trace.a,--no-whole-archive" \
-    ${CONFIG_OPTIONS}
-make -j"$(nproc)" all-binutils
-cp binutils/cxxfilt "${TARGET_OUT}/cxxfilt_inst"
-rm -rf "${BUILD_TMP_INST}"
+# 3. Instrument bitcode with TraceInstrumentPass and compile ASan binary
+opt -load-pass-plugin=/usr/local/lib/TraceInstrumentPass.so -passes="target-graph-trace" -o "${TARGET_OUT}/cxxfilt_trace.bc" "${TARGET_OUT}/cxxfilt.bc"
+clang -g -O1 -fsanitize=address -no-pie \
+    "${TARGET_OUT}/cxxfilt_trace.bc" \
+    -Wl,--whole-archive,/usr/local/lib/libtarget_graph_trace.a,--no-whole-archive \
+    -ldl -lm -o "${TARGET_OUT}/cxxfilt_inst"
 
 echo "[BUILD][binutils-2.26] Finished building cxxfilt in ${TARGET_OUT}"

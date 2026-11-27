@@ -59,8 +59,6 @@ def run_svf_for_case(
     timeout_sec: int = 120,
     max_nodes: int = 100000,
     max_edges: int = 300000,
-    force: bool = False,
-    cached_times: Optional[Dict[str, float]] = None,
 ) -> Dict[str, Any]:
     cid = case_meta["case_id"]
     cdir = cases_dir / cid
@@ -80,7 +78,7 @@ def run_svf_for_case(
         "target_inst": target_inst or "",
         "resolved_target_inst": "",
         "status": "NOT_RUN",
-        "execution_time_sec": cached_times.get(cid, 0.0) if cached_times else 0.0,
+        "execution_time_sec": 0.0,
         "original_instructions": None,
         "svf_instructions": None,
         "reduction_ratio_pct": None,
@@ -103,18 +101,10 @@ def run_svf_for_case(
         return record
 
     out_dir = cdir / "svf_backend"
-    if force and out_dir.exists():
+    if out_dir.exists():
         shutil.rmtree(out_dir)
 
     slice_json = out_dir / "svf_slice.json"
-    if not force and slice_json.is_file():
-        try:
-            slice_data = json.loads(slice_json.read_text(encoding="utf-8"))
-            record["status"] = "SUCCESS"
-            populate_slice_stats(slice_data, record)
-            return record
-        except Exception:
-            pass
 
     cmd = [
         "bash",
@@ -269,7 +259,7 @@ def main() -> None:
     parser.add_argument(
         "--force",
         action="store_true",
-        help="Force re-run even if outputs exist",
+        help="Deprecated no-op: svf_backend is always rebuilt cleanly",
     )
     args = parser.parse_args()
 
@@ -291,17 +281,6 @@ def main() -> None:
     results_map: Dict[str, Dict[str, Any]] = {}
     status_counts: Dict[str, int] = {}
 
-    cached_times: Dict[str, float] = {}
-    prev_json = output_dir / "svf_summary.json"
-    if prev_json.is_file():
-        try:
-            prev_data = json.loads(prev_json.read_text(encoding="utf-8"))
-            for rec in prev_data.get("records", []):
-                if "case_id" in rec and "execution_time_sec" in rec:
-                    cached_times[rec["case_id"]] = rec["execution_time_sec"]
-        except Exception:
-            pass
-
     def _worker(item: tuple[int, Dict[str, Any]]) -> tuple[int, Dict[str, Any]]:
         idx, c = item
         rec = run_svf_for_case(
@@ -310,8 +289,6 @@ def main() -> None:
             timeout_sec=args.timeout_sec,
             max_nodes=args.max_nodes,
             max_edges=args.max_edges,
-            force=args.force,
-            cached_times=cached_times,
         )
         return idx, rec
 
@@ -328,8 +305,6 @@ def main() -> None:
                 timeout_sec=args.timeout_sec,
                 max_nodes=args.max_nodes,
                 max_edges=args.max_edges,
-                force=args.force,
-                cached_times=cached_times,
             )
             results_map[cid] = rec
             st = rec["status"]
