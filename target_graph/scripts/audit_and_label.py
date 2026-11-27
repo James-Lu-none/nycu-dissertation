@@ -25,6 +25,7 @@ if str(ROOT_DIR / "src") not in sys.path:
 
 from target_graph.llvm.mapping import BasicBlockMapper
 from target_graph.tracing.evidence import asan_evidence, sha256
+from target_graph.tracing.target_resolution import inspect_target
 
 
 def audit_and_label_case(case_meta: Dict[str, Any], cases_dir: Path) -> Dict[str, Any]:
@@ -46,9 +47,11 @@ def audit_and_label_case(case_meta: Dict[str, Any], cases_dir: Path) -> Dict[str
     svf_path = cdir / "svf_backend" / "svf_slice.json"
     audit_path = cdir / "audit.json"
     labels_path = cdir / "svf_weak_labels.json"
+    target_diagnostics_path = cdir / "target_diagnostics.json"
 
     # A failed rerun must never leave the previous label in place.
     labels_path.unlink(missing_ok=True)
+    target_diagnostics_path.unlink(missing_ok=True)
     record: Dict[str, Any] = {
         "case_id": cid,
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -59,6 +62,10 @@ def audit_and_label_case(case_meta: Dict[str, Any], cases_dir: Path) -> Dict[str
         "oracle_hit_bbs": [],
         "oracle_hit": False,
         "target_bb_hit": False,
+        "target_in_graph": False,
+        "target_in_original_ir": None,
+        "target_resolution_status": None,
+        "executed_oracle_bb_count": 0,
         "has_trace_bbs": trace_path.is_file(),
         "has_svf_slice": svf_path.is_file(),
         "trace_mode": None,
@@ -133,6 +140,31 @@ def audit_and_label_case(case_meta: Dict[str, Any], cases_dir: Path) -> Dict[str
         evidence = asan_evidence(stderr_text, oracle)
         record["crash_reproduced"] = evidence["crash_reproduced"]
         record["asan_evidence"] = evidence
+        # Record all exact DebugLoc owners before applying either ASan or
+        # SVF gates. A stale target cannot hide behind an ASan frame mismatch.
+        diagnostic = inspect_target(
+            mapper.bb_records, trace_bbs, oracle, target_inst,
+            cdir / "svf_backend" / "before.jsonl",
+        )
+        target_diagnostics_path.write_text(
+            json.dumps(diagnostic, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+        record["target_in_graph"] = diagnostic["target_in_graph"]
+        record["target_in_original_ir"] = diagnostic["target_in_original_ir"]
+        record["target_resolution_status"] = diagnostic["status"]
+        record["target_bb_hit"] = diagnostic["target_executed"]
+        record["oracle_bbs"] = diagnostic["oracle_bbs"]
+        record["oracle_hit_bbs"] = diagnostic["executed_oracle_bbs"]
+        record["oracle_hit"] = bool(diagnostic["executed_oracle_bbs"])
+        record["executed_oracle_bb_count"] = diagnostic["executed_oracle_bb_count"]
+        if diagnostic["status"] in {
+            "TARGET_NOT_IN_CURRENT_GRAPH",
+            "TARGET_NOT_IN_CURRENT_IR",
+            "MISSING_ORIGINAL_INST_MAP",
+        }:
+            return _fail(diagnostic["status"])
+
         if not isinstance(run.get("poc_exit_code"), int) or run["poc_exit_code"] == 0:
             return _fail("POC_DID_NOT_FAIL")
         if not evidence["crash_reproduced"]:
@@ -149,26 +181,9 @@ def audit_and_label_case(case_meta: Dict[str, Any], cases_dir: Path) -> Dict[str
             return _fail("SOURCE_PROVENANCE_HASH_MISMATCH")
         record["source_sha_verified"] = True
 
-        # Source-location mapping only supports exact lines. No +/-4 line
-        # fallback or all-basename inferences are accepted as an oracle.
-        line_no = int(oracle.get("line") or 0)
-        oracle_bbs = []
-        for bb_id, info in mapper.bb_records.items():
-            for loc in info.get("debug_locations", []):
-                loc_file = str(loc.get("file") or "").replace("\\", "/")
-                try:
-                    loc_line = int(loc.get("line") or 0)
-                except (TypeError, ValueError):
-                    continue
-                if loc_line == line_no and (
-                    loc_file == source_rel or loc_file.endswith("/" + source_rel)
-                ):
-                    oracle_bbs.append(bb_id)
-                    break
-        record["oracle_bbs"] = oracle_bbs
-        record["oracle_hit_bbs"] = [b for b in oracle_bbs if b in trace_bbs]
-        record["oracle_hit"] = bool(record["oracle_hit_bbs"])
-        record["target_bb_hit"] = target_bb in trace_bbs
+        # Mapping was computed from exact, normalized DebugLoc paths and
+        # recorded in target_diagnostics.json, without any line fallback.
+        oracle_bbs = record["oracle_bbs"]
         if not oracle_bbs:
             return _fail("ORACLE_NOT_EXACTLY_MAPPED_IN_BB_MAP")
         if not record["oracle_hit"]:
