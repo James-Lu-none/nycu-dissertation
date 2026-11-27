@@ -63,23 +63,20 @@ def build_source(
             return False
 
     out_dir = artifacts_dir / source_id
-    if force and out_dir.exists():
+
+    # Do not reuse an old BC + pass_summary as proof that the newer
+    # TraceInstrumentPass generated a matching <binary>_inst.
+    # Always rebuild and remove outputs from prior toolchain revisions.
+    if out_dir.exists():
         try:
             shutil.rmtree(out_dir)
         except PermissionError:
             subprocess.run(
-                ["docker", "run", "--rm", "-v", f"{ROOT_DIR}:/workspace", image, "rm", "-rf", f"/workspace/build_artifacts/{source_id}"],
+                ["docker", "run", "--rm", "-v", f"{ROOT_DIR}:/workspace",
+                 image, "rm", "-rf", f"/workspace/build_artifacts/{source_id}"],
                 check=True,
             )
     out_dir.mkdir(parents=True, exist_ok=True)
-
-    # Check if already built
-    if not force:
-        bc_files = list(out_dir.rglob("*.bc"))
-        pass_summaries = list(out_dir.rglob("pass_summary.json"))
-        if bc_files and pass_summaries:
-            print(f"[CACHE] {source_id}: Already built ({len(bc_files)} bc files). Use --force to rebuild.")
-            return True
 
     print(f"\n========================================================")
     print(f"[BUILD] Building source: {source_id}")
