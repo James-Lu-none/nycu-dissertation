@@ -111,7 +111,8 @@ public:
                     const std::string &Func, const std::string &BB,
                     const std::string &Text, unsigned Line = 0,
                     const std::string &File = "",
-                    const std::string &CalleeName = "") {
+                    const std::string &CalleeName = "",
+                    const DILocation *InstructionLoc = nullptr) {
       json::Object O;
       O["id"] = Id;
       O["kind"] = Kind;
@@ -121,6 +122,26 @@ public:
       O["line"] = static_cast<int64_t>(Line);
       O["source_file"] = File;
       O["called_function"] = CalleeName;
+      if (InstructionLoc) {
+        json::Array CallsiteChain;
+        // The source location can belong to an inlined callee. Each
+        // inlinedAt parent represents a callsite in the LLVM owner (or
+        // the next inlining ancestor), not another execution event.
+        for (const DILocation *Callsite = InstructionLoc->getInlinedAt();
+             Callsite; Callsite = Callsite->getInlinedAt()) {
+          json::Object Frame;
+          const std::string ParentDir = Callsite->getDirectory().str();
+          const std::string ParentFile = Callsite->getFilename().str();
+          Frame["file"] = ParentDir.empty() ? ParentFile
+                                             : ParentDir + "/" + ParentFile;
+          Frame["line"] = static_cast<int64_t>(Callsite->getLine());
+          Frame["column"] = static_cast<int64_t>(Callsite->getColumn());
+          Frame["discriminator"] =
+              static_cast<int64_t>(Callsite->getDiscriminator());
+          CallsiteChain.push_back(std::move(Frame));
+        }
+        O["inline_callsite_chain"] = std::move(CallsiteChain);
+      }
       emitJSON(Nodes, std::move(O));
       ++NodeCount;
     };
@@ -180,7 +201,8 @@ public:
             if (Function *Target = CB->getCalledFunction())
               CalleeName = Target->getName().str();
           Node(InstIds.at(&Inst), "instruction", F.getName().str(), BBId,
-               Inst.getOpcodeName(), Line, File, CalleeName);
+               Inst.getOpcodeName(), Line, File, CalleeName,
+               Inst.getDebugLoc().get());
           if (auto *CB = dyn_cast<CallBase>(&Inst))
             if (!CB->getType()->isVoidTy())
               Node(InstIds.at(&Inst) + ":result", "call_result",
