@@ -186,7 +186,7 @@ cases:
   project: bento4
   target_binary: mp42aac
   cve: ISSUE-ASARUBBO-336
-  canonical_target_inst: b06991cc1ff4d469:1
+  canonical_target_inst: 002d55dafb123847:6
   poc_path: configs/poc/bento4-1.5.0_mp42aac_ASARUBBO-336/poc
   poc_cmd: &id003
   - '{binary}'
