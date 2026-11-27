@@ -35,6 +35,7 @@
 #include <fstream>
 #include <queue>
 #include <set>
+#include <sstream>
 #include <system_error>
 #include <string>
 #include <unordered_map>
@@ -159,27 +160,59 @@ int main(int argc, char **argv) {
         return 3;
     }
 
-    // The target instruction can expand into multiple SVFG nodes.
-    // Never silently choose only the first matching node.
-    std::queue<const VFGNode *> todo;
-    std::set<NodeID> visited;
-    llvm::json::Array seed_ids;
-    for (const auto &entry : *svfg) {
-        const VFGNode *node = entry.second;
-        if (originalInstructionId(node) == args.target) {
-            if (visited.insert(node->getId()).second) {
-                todo.push(node);
-                seed_ids.push_back(static_cast<int64_t>(node->getId()));
+    // The target instruction can be specified as a single ID or comma-separated candidates.
+    // Evaluate candidates in the order given and select the first candidate with SVFG nodes.
+    std::vector<std::string> target_candidates;
+    {
+        std::stringstream ss(args.target);
+        std::string item;
+        while (std::getline(ss, item, ',')) {
+            size_t first = item.find_first_not_of(" \t\r\n");
+            size_t last = item.find_last_not_of(" \t\r\n");
+            if (first != std::string::npos && last != std::string::npos) {
+                target_candidates.push_back(item.substr(first, last - first + 1));
             }
         }
     }
+
+    std::unordered_map<std::string, std::vector<const VFGNode *>> nodes_by_inst;
+    for (const auto &entry : *svfg) {
+        const VFGNode *node = entry.second;
+        const std::string orig_id = originalInstructionId(node);
+        if (!orig_id.empty()) {
+            nodes_by_inst[orig_id].push_back(node);
+        }
+    }
+
+    std::string selected_target;
+    std::queue<const VFGNode *> todo;
+    std::set<NodeID> visited;
+    llvm::json::Array seed_ids;
+
+    for (const auto &cand : target_candidates) {
+        auto it = nodes_by_inst.find(cand);
+        if (it != nodes_by_inst.end() && !it->second.empty()) {
+            selected_target = cand;
+            for (const VFGNode *node : it->second) {
+                if (visited.insert(node->getId()).second) {
+                    todo.push(node);
+                    seed_ids.push_back(static_cast<int64_t>(node->getId()));
+                }
+            }
+            break;
+        }
+    }
+
     if (todo.empty()) {
         llvm::errs()
             << "[svf] No SVFG node resolves to the requested original LLVM "
-            << "instruction; no slice exported. Check whether the target "
+            << "instruction(s); no slice exported. Check whether the target "
             << "has a value-flow node and was mapped from the same bitcode.\n";
         return 4;
     }
+
+    llvm::errs() << "[svf] Resolved target instruction: " << selected_target << "\n";
+    args.target = selected_target;
 
     llvm::json::Array nodes, edges;
     std::set<std::string> instruction_ids, basic_blocks;

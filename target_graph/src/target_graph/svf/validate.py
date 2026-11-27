@@ -99,7 +99,8 @@ def preflight(
                 f"{len(set(wrong_semantics))} identities; "
                 "same IDs do not prove same IR instructions"
             )
-    if target not in original:
+    requested_targets = [t.strip() for t in target.split(",") if t.strip()]
+    if not any(t in original for t in requested_targets):
         raise ValueError(
             "Selected target instruction was not tagged in the original bitcode; "
             "check whether the target ID came from a relocated/alias build. "
@@ -121,8 +122,9 @@ def validate_svf(
     raw = json.loads(raw_path.read_text(encoding="utf-8"))
     if not isinstance(raw, dict) or raw.get("backend") != "SVF-2.9/SVFG":
         raise ValueError("Unexpected SVF backend / invalid raw output")
-    if raw.get("target") != target:
-        raise ValueError("SVF target instruction mismatch")
+    requested_targets = [t.strip() for t in target.split(",") if t.strip()]
+    if raw.get("target") not in requested_targets:
+        raise ValueError(f"SVF target instruction mismatch: {raw.get('target')} not in {requested_targets}")
     if raw.get("analysis") != "BACKWARD_VALUE_FLOW_ONLY":
         raise ValueError("Unexpected SVF analysis semantics")
     if any(raw.get(k) is not False for k in (
