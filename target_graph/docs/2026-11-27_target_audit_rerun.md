@@ -327,3 +327,40 @@ Inspect `faulting_access_review` alongside the existing
 `svfg_candidate_probe`; if fault-pointer provenance is confirmed,
 apply a reviewed target via the existing `--approved-targets` protocol,
 then rerun SVF and Audit for this **one case**.
+
+
+### Read-only ASan PC + original LLVM-IR evidence collection
+
+For Bento4-336, the ASan report now provides an exact faulting
+PC `0x552da2`, WRITE access and address `0x8`. Native SVFG reports
+one seed for `002d55dafb123847:5` (`getelementptr`) and
+`002d55dafb123847:6` (`store`).
+
+The canonical inspector is **`scripts/review_fault_pc.py`**. It
+checks instrumented-binary, original-bitcode and crash-stderr SHA-256
+against the saved run before collecting evidence. It does not
+change the benchmark target, graph, or weak labels.
+
+```bash
+cd target_graph
+python3 scripts/review_fault_pc.py \
+  --case bento4-1.5.0_mp42aac_ASARUBBO-336
+```
+
+Output:
+`cases/bento4-1.5.0_mp42aac_ASARUBBO-336/fault_pc_review.json`.
+
+Check `machine_instruction_at_fault_pc` for exact x86-64 instruction
+at `0x552da2`, `candidate_original_llvm_ir` for the original tagged
+GEP/store IR, and provenance hashes. `objdump` and `llvm-dis-14` are
+required to collect both parts (if missing, the output explicitly
+states the incomplete extraction).
+
+**Do not equate the instrumented binary PC with an original LLVM
+instruction ID automatically:** ASan adds checks, and code generation
+can change instruction boundaries and register allocation. Even a
+machine WRITE to address `0x8` is only evidence of a near-null
+dereference, not proof of the exact source operand's provenance.
+After inspecting this output, review the store pointer operand
+and decide whether `:6` is sufficiently corroborated for an
+explicit, recorded manual approval.
