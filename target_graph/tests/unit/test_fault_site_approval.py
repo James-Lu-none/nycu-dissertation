@@ -27,7 +27,9 @@ def test_bento4_336_approved_faulting_store_matches_benchmark():
     # fresh disassembly/hash verification of a locally rebuilt binary.
     assert approval["memory_access"] == "WRITE"
     assert approval["elf_type"] == "ET_EXEC"
-    assert approval["fault_pc"] in approval["faulting_machine_instruction"]
+    assert approval["faulting_machine_instruction"].startswith(
+        f"{int(approval['fault_pc'], 16):x}:"
+    )
     assert approval["immediate_hex"] in approval["faulting_machine_instruction"]
     assert approval["immediate_decimal"] == int(approval["immediate_hex"], 16)
     assert f"store i32 {approval['immediate_decimal']}" in approval["llvm_store"]
