@@ -52,6 +52,61 @@ jobs:
       - name: Check bash syntax
         run: bash -n target_graph/scripts/svf_slice.sh
 
+
+  llvm14-direct-bb-trace:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build LLVM14 direct trace plugin
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build llvm-14-dev llvm-14-tools clang-14
+          cmake -S target_graph/src/target_graph/llvm/passes \
+            -B /tmp/trace-llvm14 -G Ninja \
+            -DLLVM_DIR=/usr/lib/llvm-14/lib/cmake/llvm
+          cmake --build /tmp/trace-llvm14 \
+            --target TraceInstrumentPass DGIdentityPass -j 2
+      - name: Compile original BC and compare native executed IDs
+        run: |
+          mkdir -p /tmp/native-trace
+          cat >/tmp/native-trace/test.c <<'EOF'
+          int main(void) {
+            volatile int x = 7;
+            return (x == 7) ? 0 : 1;
+          }
+          EOF
+          clang-14 -g -O0 -emit-llvm -c /tmp/native-trace/test.c \
+            -o /tmp/native-trace/original.bc
+          TARGET_GRAPH_BUILD_ID=native_ci \
+            opt-14 -load-pass-plugin=/tmp/trace-llvm14/libDGIdentityPass.so \
+            -passes=dg-tag -o /tmp/native-trace/tagged.bc \
+            /tmp/native-trace/original.bc
+          TARGET_GRAPH_DG_EXPORT=/tmp/native-trace/before.jsonl \
+            opt-14 -load-pass-plugin=/tmp/trace-llvm14/libDGIdentityPass.so \
+            -passes=dg-export -disable-output /tmp/native-trace/tagged.bc
+          TARGET_GRAPH_BUILD_ID=native_ci \
+            opt-14 -load-pass-plugin=/tmp/trace-llvm14/libTraceInstrumentPass.so \
+            -passes=target-graph-trace -o /tmp/native-trace/instrumented.bc \
+            /tmp/native-trace/original.bc
+          clang-14 -g -O0 -fsanitize=address -no-pie \
+            /tmp/native-trace/instrumented.bc \
+            target_graph/src/target_graph/llvm/trace_runtime/trace_runtime.c \
+            -o /tmp/native-trace/test_inst
+          TARGET_GRAPH_TRACE_FILE=/tmp/native-trace/bbs.txt \
+            /tmp/native-trace/test_inst
+          PYTHONPATH=target_graph/src python - <<'PY'
+          import json
+          from pathlib import Path
+          from target_graph.tracing.symbolizer import parse_trace_bb_ids
+          p = Path("/tmp/native-trace")
+          recorded = parse_trace_bb_ids(p/"bbs.txt")
+          original = {json.loads(x)["bb_id"] for x in (p/"before.jsonl").read_text().splitlines()}
+          assert recorded
+          assert set(recorded).issubset(original), "Direct runtime IDs do not match original LLVM graph"
+          print("Validated", len(recorded), "native events against", len(original), "original BB IDs")
+          PY
+
   svf-llvm14-build:
     runs-on: ubuntu-22.04
     timeout-minutes: 25
