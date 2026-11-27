@@ -100,29 +100,55 @@ def inspect_target(
                         "is_current_target": inst_id == canonical_target_inst,
                     })
     inline_metadata_status = "V2_NODES_NOT_AVAILABLE"
+    instruction_debugloc_matches = 0
+    v2_instruction_metadata_matched = 0
     if v2_nodes_path is not None and v2_nodes_path.is_file():
         by_inst_id = {row["instruction_id"]: row for row in instructions
                       if isinstance(row.get("instruction_id"), str)}
         remaining = set(by_inst_id)
         with v2_nodes_path.open(encoding="utf-8") as handle:
-            for raw in handle:
+            for line_no, raw in enumerate(handle, 1):
                 if not remaining:
                     break
                 if not raw.strip():
                     continue
                 node = json.loads(raw)
                 inst_id = node.get("id")
-                if inst_id not in remaining:
+                if inst_id not in remaining or node.get("kind") != "instruction":
                     continue
+                row = by_inst_id[inst_id]
+                # Same opaque ID is not sufficient if two compiled versions
+                # accidentally share a stale/forged identity. Check BB/opcode/
+                # owning LLVM function before treating V2 DebugLoc as evidence.
+                if (node.get("bb_id") != row["bb_id"] or
+                        node.get("text") != row["opcode"] or
+                        node.get("function") != row["llvm_owner_function"]):
+                    row["v2_identity_mismatch"] = True
+                    remaining.remove(inst_id)
+                    continue
+                v2_instruction_metadata_matched += 1
+                row["v2_instruction_identity_verified"] = True
+                row["instruction_source_file"] = node.get("source_file")
+                row["instruction_line"] = node.get("line")
+                row["instruction_exact_oracle_source_line"] = _match_loc(
+                    {"file": node.get("source_file"), "line": node.get("line")},
+                    source, line
+                )
+                if (row["instruction_exact_oracle_source_line"] and
+                        row["source_line_candidate"]):
+                    instruction_debugloc_matches += 1
                 chain = node.get("inline_callsite_chain")
                 if isinstance(chain, list):
-                    by_inst_id[inst_id]["inline_callsite_chain"] = chain
+                    row["inline_callsite_chain"] = chain
                 remaining.remove(inst_id)
         with_chains = sum("inline_callsite_chain" in row for row in instructions)
-        inline_metadata_status = (
-            "LLVM_V2_INLINED_AT_AVAILABLE"
-            if with_chains else "V2_MISSING_INLINE_CHAIN_FIELD_REBUILD_ANALYSIS_V2"
-        )
+        if not v2_instruction_metadata_matched:
+            inline_metadata_status = "V2_IDS_NOT_ALIGNED_OR_STALE"
+        else:
+            inline_metadata_status = (
+                "LLVM_V2_INLINED_AT_AVAILABLE"
+                if with_chains else "V2_MISSING_INLINE_CHAIN_FIELD_REBUILD_ANALYSIS_V2"
+            )
 
     target_in_graph = target_bb in bb_records
     target_executed = target_bb in executed_bbs
@@ -162,10 +188,13 @@ def inspect_target(
         "instruction_count_in_matching_and_target_bbs": matching_instruction_count,
         "candidate_instructions": instructions,
         "inline_metadata_status": inline_metadata_status,
+        "v2_instruction_metadata_matched": v2_instruction_metadata_matched,
+        "exact_oracle_instruction_debugloc_matches": instruction_debugloc_matches,
         "candidate_instructions_truncated": matching_instruction_count > max_reported_instructions,
         "notes": [
             "Direct BB hit is exact BB-entry coverage, not proof of faulting operand",
             "Matching debug source line may refer to different inlined LLVM owners",
+            "An instruction in an oracle-line BB does NOT necessarily have the oracle DebugLoc",
             "No candidate is automatically promoted to canonical_target_inst",
             "Use ASan stack/PC and LLVM DILocation inlinedAt before retargeting",
         ],
