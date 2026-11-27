@@ -22,6 +22,7 @@ if str(ROOT_DIR / "src") not in sys.path:
 
 import json
 from target_graph.llvm.mapping import BasicBlockMapper
+from target_graph.tracing.evidence import asan_evidence, sha256
 from target_graph.tracing.symbolizer import (
     parse_trace_bb_ids,
     parse_trace_pcs,
@@ -30,37 +31,37 @@ from target_graph.tracing.symbolizer import (
 
 
 def write_trace_bbs_json(cid: str, cdir: Path, inst_bin: Path, trace_file: Path) -> Path:
-    """Parse direct BB-ID trace (or symbolize legacy PC trace) and persist trace_bbs.json."""
+    """Only emit verified, canonical BB IDs from the LLVM instrumented binary."""
     direct_bbs = parse_trace_bb_ids(trace_file)
-    if direct_bbs is not None:
-        trace_mode = "direct_bb_id"
-        ordered_bbs: List[str] = []
-        for bb in direct_bbs:
-            if not ordered_bbs or ordered_bbs[-1] != bb:
-                ordered_bbs.append(bb)
-        unique_bbs = list(dict.fromkeys(ordered_bbs))
-        total_events = len(direct_bbs)
-        unique_events = len(unique_bbs)
-    else:
-        trace_mode = "pc_symbolize"
-        bb_map_path = cdir / "bb_map.jsonl"
-        mapper = BasicBlockMapper(bb_map_path)
-        pcs = parse_trace_pcs(trace_file)
-        ordered_bbs = trace_to_basic_blocks(trace_file, inst_bin, mapper)
-        unique_bbs = list(dict.fromkeys(ordered_bbs))
-        total_events = len(pcs)
-        unique_events = len(set(pcs))
-
+    if direct_bbs is None or not direct_bbs:
+        raise ValueError(
+            "Expected direct 16-hex-digit LLVM BB trace; legacy PC symbolization "
+            "is not permitted as execution ground truth"
+        )
+    mapper = BasicBlockMapper(cdir / "bb_map.jsonl")
+    unknown = set(direct_bbs) - set(mapper.bb_records)
+    if unknown:
+        raise ValueError(
+            f"Direct trace contains {len(unknown)} BB IDs missing from bb_map "
+            "(instrumented binary / bitcode / build identity mismatch)"
+        )
+    unique_bbs = list(dict.fromkeys(direct_bbs))
     out_path = cdir / "trace_bbs.json"
     payload = {
+        "schema_version": 2,
         "case_id": cid,
-        "trace_file": str(trace_file.name),
-        "trace_mode": trace_mode,
-        "total_pc_events": total_events,
-        "unique_pcs": unique_events,
+        "trace_file": trace_file.name,
+        "trace_mode": "direct_bb_id",
+        "mapping_method": "LLVM_IR_BASIC_BLOCK_ENTRY",
+        "total_bb_events": len(direct_bbs),
         "num_executed_bbs": len(unique_bbs),
         "executed_bbs_unique": unique_bbs,
-        "executed_bbs_ordered": ordered_bbs,
+        "executed_bbs_ordered": direct_bbs,
+        "instrumented_binary_sha256": sha256(inst_bin),
+        "bitcode_sha256": sha256(cdir / f"{inst_bin.name[:-5]}.bc"),
+        "poc_sha256": sha256(cdir / "poc"),
+        "bb_map_sha256": sha256(cdir / "bb_map.jsonl"),
+        "trace_file_sha256": sha256(trace_file),
     }
     out_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     return out_path
@@ -80,6 +81,8 @@ def run_single_trace(
     trace_file = cdir / "trace_crash.txt"
     stderr_file = cdir / "crash_stderr.txt"
     trace_bbs_file = cdir / "trace_bbs.json"
+    exit_file = cdir / "trace_exit_code.txt"
+    run_meta_file = cdir / "trace_run.json"
 
     res = {
         "case_id": cid,
@@ -90,7 +93,7 @@ def run_single_trace(
     }
 
     # Always clean stale trace outputs before re-running (no cache reuse)
-    for stale in (trace_file, stderr_file, trace_bbs_file):
+    for stale in (trace_file, stderr_file, trace_bbs_file, exit_file, run_meta_file):
         if stale.exists():
             stale.unlink()
 
@@ -135,7 +138,11 @@ export ASAN_SYMBOLIZER_PATH="/usr/bin/llvm-symbolizer"
 export ASAN_OPTIONS="abort_on_error=0:symbolize=1:strip_path_prefix=/workspace/:handle_segv=1"
 rm -f "{c_trace}" "{c_stderr}"
 
-{quoted_cmd} {stdin_redirect} > /dev/null 2> "{c_stderr}" || true
+set +e
+{quoted_cmd} {stdin_redirect} > /dev/null 2> "{c_stderr}"
+status=$?
+printf '%s\n' "$status" > "/workspace/cases/{cid}/trace_exit_code.txt"
+exit 0
 """
 
     docker_cmd = [
@@ -146,18 +153,38 @@ rm -f "{c_trace}" "{c_stderr}"
     ]
 
     try:
-        subprocess.run(docker_cmd, timeout=timeout_sec, check=False)
-        # Ensure permissions
-        subprocess.run(["chmod", "a+rw", str(trace_file)], stderr=subprocess.DEVNULL)
-        subprocess.run(["chmod", "a+rw", str(stderr_file)], stderr=subprocess.DEVNULL)
-
-        if trace_file.is_file() and trace_file.stat().st_size > 0:
-            res["success"] = True
-            res["trace_size"] = trace_file.stat().st_size
-            if (cdir / "bb_map.jsonl").is_file():
-                write_trace_bbs_json(cid, cdir, inst_bin, trace_file)
-        if stderr_file.is_file():
-            res["stderr_lines"] = sum(1 for _ in open(stderr_file, "r", errors="ignore"))
+        proc = subprocess.run(docker_cmd, timeout=timeout_sec, check=False)
+        if proc.returncode != 0:
+            raise RuntimeError(f"Docker trace runner failed: exit={proc.returncode}")
+        if not exit_file.is_file():
+            raise RuntimeError("Trace runner missing real PoC exit-code record")
+        exit_code = int(exit_file.read_text(encoding="ascii").strip())
+        stderr_text = stderr_file.read_text(encoding="utf-8", errors="replace") if stderr_file.is_file() else ""
+        oracle_evidence = asan_evidence(stderr_text, case_meta.get("expected_oracle", {}))
+        run_meta = {
+            "schema_version": 1,
+            "case_id": cid,
+            "poc_exit_code": exit_code,
+            "instrumented_binary_sha256": sha256(inst_bin),
+            "poc_sha256": sha256(cdir / "poc") if (cdir / "poc").is_file() else None,
+            "bitcode_sha256": sha256(cdir / f"{target_bin}.bc") if (cdir / f"{target_bin}.bc").is_file() else None,
+            "stderr_sha256": sha256(stderr_file) if stderr_file.is_file() else None,
+            "trace_file_sha256": sha256(trace_file) if trace_file.is_file() else None,
+            **oracle_evidence,
+        }
+        run_meta_file.write_text(json.dumps(run_meta, indent=2) + "\n", encoding="utf-8")
+        res["poc_exit_code"] = exit_code
+        res["crash_reproduced"] = oracle_evidence["crash_reproduced"]
+        res["stderr_lines"] = len(stderr_text.splitlines())
+        if not trace_file.is_file() or trace_file.stat().st_size == 0:
+            raise RuntimeError("No dynamic trace recorded")
+        res["trace_size"] = trace_file.stat().st_size
+        write_trace_bbs_json(cid, cdir, inst_bin, trace_file)
+        # A trace exists independently of whether the PoC reproduced its oracle.
+        # The audit must additionally verify source provenance and SVF evidence.
+        res["success"] = bool(exit_code != 0 and oracle_evidence["crash_reproduced"])
+        if not res["success"]:
+            res["error"] = "Oracle ASan fault was not reproduced (check trace_run.json)"
     except subprocess.TimeoutExpired:
         res["error"] = f"Execution timed out ({timeout_sec}s)"
     except Exception as e:
