@@ -25,9 +25,22 @@ if [[ -z "$BC_PATH" ]]; then
 fi
 BC_NAME="$(basename "$BC_PATH")"
 
+# An alias case must reuse the canonical BuildID and ModuleName of the graph.
+CANONICAL_RECORD="$(PYTHONPATH="$ROOT_DIR/src:${PYTHONPATH:-}" python3 \
+  -m target_graph.svf.provenance \
+  --pass-summary "$CASE_DIR/pass_summary.json" \
+  --bitcode-name "$BC_NAME")"
+mapfile -t ID_FIELDS <<< "$CANONICAL_RECORD"
+if [[ ${#ID_FIELDS[@]} -ne 2 || -z "${ID_FIELDS[0]}" || -z "${ID_FIELDS[1]}" ]]; then
+  echo "Missing canonical graph identity provenance" >&2
+  exit 1
+fi
+
 docker run --rm \
   -v "$ROOT_DIR:/workspace" \
-  -e "TARGET_GRAPH_BUILD_ID=$CASE_ID" \
+  -e "TARGET_GRAPH_BUILD_ID=${ID_FIELDS[0]}" \
+  -e "TARGET_GRAPH_ID_MODULE_NAME=${ID_FIELDS[1]}" \
+  -e "CASE_ID=$CASE_ID" \
   -e "TARGET_GRAPH_OUT_DIR=/workspace/cases/$CASE_ID" \
   -e "ANALYSIS_V2_BC_NAME=$BC_NAME" \
   target-graph:llvm14 bash -c '
@@ -36,7 +49,7 @@ PLUGIN=/usr/local/lib/AnalysisV2Pass.so
 test -f "$PLUGIN"
 sha256sum "$PLUGIN"
 opt -load-pass-plugin="$PLUGIN" -passes=analysis-v2 -disable-output \
-  "/workspace/cases/$TARGET_GRAPH_BUILD_ID/$ANALYSIS_V2_BC_NAME"
+  "/workspace/cases/$CASE_ID/$ANALYSIS_V2_BC_NAME"
 '
 echo "[analysis-v2] Artifacts for $CASE_ID:"
 ls -lh "$CASE_DIR"/analysis_v2_*
