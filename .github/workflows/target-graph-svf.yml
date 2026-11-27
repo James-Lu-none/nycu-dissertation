@@ -71,7 +71,7 @@ jobs:
             -B /tmp/trace-llvm14 -G Ninja \
             -DLLVM_DIR=/usr/lib/llvm-14/lib/cmake/llvm
           cmake --build /tmp/trace-llvm14 \
-            --target TraceInstrumentPass DGIdentityPass -j 2
+            --target TraceInstrumentPass DGIdentityPass AnalysisV2Pass -j 2
       - name: Compile original BC and compare native executed IDs
         run: |
           mkdir -p /tmp/native-trace
@@ -110,6 +110,39 @@ jobs:
           assert recorded
           assert set(recorded).issubset(original), "Direct runtime IDs do not match original LLVM graph"
           print("Validated", len(recorded), "native events against", len(original), "original BB IDs")
+          PY
+      - name: Confirm inline callsite chain from real LLVM14 optimized bitcode
+        run: |
+          cat >/tmp/native-trace/inline.c <<'EOF'
+          __attribute__((always_inline)) static inline int inline_read(volatile int *p) {
+            return *p + 7;
+          }
+          int main(int argc, char **argv) {
+            volatile int input = argc;
+            return inline_read(&input) - 8;
+          }
+          EOF
+          clang-14 -g -O1 -emit-llvm -c /tmp/native-trace/inline.c \
+            -o /tmp/native-trace/inline.bc
+          TARGET_GRAPH_BUILD_ID=inline_ci \
+          TARGET_GRAPH_OUT_DIR=/tmp/native-trace \
+            opt-14 -load-pass-plugin=/tmp/trace-llvm14/libAnalysisV2Pass.so \
+            -passes=analysis-v2 -disable-output /tmp/native-trace/inline.bc
+          PYTHONPATH=target_graph/src python - <<'PY'
+          import json
+          from pathlib import Path
+          nodes = [
+              json.loads(line) for line in
+              Path("/tmp/native-trace/analysis_v2_nodes.jsonl").read_text().splitlines()
+          ]
+          inline = [
+              row for row in nodes if row.get("kind") == "instruction"
+              and row.get("inline_callsite_chain")
+          ]
+          assert inline, "Expected real LLVM DILocation inlinedAt chain"
+          assert all("line" in frame and "file" in frame
+                     for row in inline for frame in row["inline_callsite_chain"])
+          print("Inline DebugLoc chain:", len(inline), "LLVM instructions")
           PY
 
   svf-llvm14-build:
