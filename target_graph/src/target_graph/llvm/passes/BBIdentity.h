@@ -18,7 +18,7 @@
 namespace target_graph {
 
 constexpr const char *kBBIdMetadata = "target_graph.bb_id";
-constexpr const char *kDGInstIdMetadata = "target_graph.dg.inst_id";
+constexpr const char *kInstIdMetadata = "target_graph.inst_id";
 
 /// Format SHA-256 hash cleanly into 16 lowercase hex characters (8 bytes).
 inline std::string sha256Short(const std::string &input, size_t numBytes = 8) {
@@ -82,7 +82,7 @@ inline std::string readBBIdMetadata(const llvm::BasicBlock &BB) {
                 }
             }
         }
-        if (auto *MD = I.getMetadata(kDGInstIdMetadata)) {
+        if (auto *MD = I.getMetadata(kInstIdMetadata)) {
             if (MD->getNumOperands() >= 1) {
                 if (auto *S = llvm::dyn_cast<llvm::MDString>(MD->getOperand(0))) {
                     llvm::StringRef val = S->getString();

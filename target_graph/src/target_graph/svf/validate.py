@@ -12,9 +12,51 @@ import os
 from pathlib import Path
 from typing import Any
 
-from target_graph.dg.validate import _legacy_bbs, _records
-
 SVF_COMMIT = "0e56bc038bf207a1ca320b5f5ad241e13ab33e14"
+
+
+def _records(path: Path) -> dict[str, dict]:
+    if not path.is_file():
+        raise ValueError(f"Required identity file does not exist: {path}")
+    rows: dict[str, dict] = {}
+    with path.open(encoding="utf-8") as stream:
+        for line_no, text in enumerate(stream, 1):
+            if not text.strip():
+                continue
+            try:
+                row = json.loads(text)
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"{path}:{line_no}: invalid JSON") from exc
+            if not isinstance(row, dict):
+                raise ValueError(f"{path}:{line_no}: expected object")
+            identity = row.get("inst_id") or row.get("id")
+            bb_id = row.get("bb_id")
+            if not isinstance(identity, str) or not identity:
+                raise ValueError(f"{path}:{line_no}: missing instruction ID")
+            if not isinstance(bb_id, str) or not bb_id:
+                raise ValueError(f"{path}:{line_no}: missing BB ID")
+            if identity.rsplit(":", 1)[0] != bb_id:
+                raise ValueError(f"{path}:{line_no}: inconsistent BB identity")
+            if identity in rows:
+                raise ValueError(f"{path}:{line_no}: duplicate instruction ID {identity}")
+            rows[identity] = row
+    return rows
+
+
+def _legacy_bbs(path: Path) -> set[str]:
+    blocks: set[str] = set()
+    with path.open(encoding="utf-8") as stream:
+        for line_no, line in enumerate(stream, 1):
+            if not line.strip():
+                continue
+            row = json.loads(line)
+            bb_id = row.get("bb_id")
+            if not isinstance(bb_id, str) or not bb_id:
+                raise ValueError(f"{path}:{line_no}: invalid BB ID")
+            if bb_id in blocks:
+                raise ValueError(f"{path}:{line_no}: duplicate BB ID")
+            blocks.add(bb_id)
+    return blocks
 EDGE_KINDS = frozenset({
     "CALL_DIRECT_VALUE_FLOW",
     "RETURN_DIRECT_VALUE_FLOW",
@@ -71,7 +113,7 @@ def preflight(
                 row = json.loads(line)
                 if row.get("kind") != "instruction":
                     continue
-                identity = row.get("id")
+                identity = row.get("inst_id") or row.get("id")
                 if not isinstance(identity, str) or identity in v2_ids:
                     raise ValueError(
                         f"Invalid/duplicate v2 instruction at line {line_no}"

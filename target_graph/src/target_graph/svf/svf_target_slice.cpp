@@ -5,9 +5,9 @@
  * and native value-flow edges. It does NOT claim to implement a complete
  * interprocedural SDG or context-sensitive program slicer.
  *
- * The input bitcode MUST be pre-tagged by DGIdentityPass's dg-tag pass:
- * metadata key "target_graph.dg.inst_id" holds the identity of an ORIGINAL
- * LLVM instruction. This bridge is shared by DG and SVF.
+ * The input bitcode MUST be pre-tagged by BBIdentityPass's bb-tag pass:
+ * metadata key "target_graph.inst_id" holds the identity of an ORIGINAL
+ * LLVM instruction.
  *
  * Important limitations:
  *  - Backward traversal is context-insensitive over SVFG nodes.
@@ -45,7 +45,7 @@
 using namespace SVF;
 
 namespace {
-const char *const MetadataKey = "target_graph.dg.inst_id";
+const char *const MetadataKey = "target_graph.inst_id";
 
 struct Args {
     std::string input, output, target, extapi;

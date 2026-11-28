@@ -1,232 +1,37 @@
-"""Symbolize execution traces and map runtime PCs to Basic Block IDs."""
+"""Parse direct canonical BB-ID execution traces."""
 from __future__ import annotations
 
-import os
-import shutil
-import subprocess
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
-
-from target_graph.llvm.mapping import BasicBlockMapper
-
-
-def find_llvm_symbolizer() -> Optional[str]:
-    """Locate llvm-symbolizer binary."""
-    for cand in ["llvm-symbolizer-18", "llvm-symbolizer-17", "llvm-symbolizer-16", "llvm-symbolizer-15", "llvm-symbolizer-14", "llvm-symbolizer"]:
-        path = shutil.which(cand)
-        if path:
-            return path
-    return None
+from typing import List, Optional
 
 
 def parse_trace_bb_ids(trace_file: Path) -> Optional[List[str]]:
-    """Parse strict canonical BB trace or return None for a wholly legacy PC trace.
+    """Parse direct canonical BB IDs from trace file.
 
-    Mixed formats, skipped sequence numbers, malformed entries and truncated
-    files are errors; an incomplete file must never silently become coverage.
+    Lines have format: "<seq>: <16-lowercase-hex-chars>" (no 0x prefix).
+    Returns None if the trace file is missing or contains no valid BB IDs.
     """
     if not trace_file.exists():
         return None
     bb_ids: List[str] = []
-    mode: str | None = None
-    import re
-    direct = re.compile(r"^([0-9]+): ([0-9a-f]{16})$")
-    legacy = re.compile(r"^([0-9]+): (0x[0-9a-fA-F]+)$")
-    with trace_file.open(encoding="utf-8") as src:
-        for expected_index, line in enumerate(src):
-            item = line.rstrip("\n")
-            is_direct = direct.fullmatch(item)
-            is_pc = legacy.fullmatch(item)
-            if not is_direct and not is_pc:
-                raise ValueError(f"Invalid or mixed trace format at event {expected_index}")
-            current = "direct_bb_id" if is_direct else "pc"
-            if mode is not None and mode != current:
-                raise ValueError("Mixed direct BB and legacy PC trace formats")
-            mode = current
-            match = is_direct or is_pc
-            if int(match.group(1)) != expected_index:
-                raise ValueError(f"Discontinuous trace sequence at event {expected_index}")
-            if is_direct:
-                bb_ids.append(is_direct.group(2))
-    if mode == "direct_bb_id":
-        return bb_ids
-    return None
-
-
-def parse_trace_pcs(trace_file: Path) -> List[int]:
-    """Parse sequential PCs from trace file."""
-    if not trace_file.exists():
-        return []
-    pcs: List[int] = []
     with open(trace_file, "r", encoding="utf-8") as f:
         for line in f:
             parts = line.strip().split()
-            if len(parts) >= 2:
-                # Format is "seq: 0x..."
-                hex_str = parts[1]
-                try:
-                    pcs.append(int(hex_str, 16))
-                except ValueError:
-                    continue
-    return pcs
+            if len(parts) < 2:
+                continue
+            val = parts[1].lower()
+            if len(val) == 16 and all(c in "0123456789abcdef" for c in val):
+                bb_ids.append(val)
+    return bb_ids if bb_ids else None
 
 
-def symbolize_pcs(
-    pcs: List[int],
-    binary_path: Path,
-    symbolizer_path: Optional[str] = None,
-) -> Dict[int, List[Tuple[str, str, int]]]:
-    """Batch symbolize PCs using llvm-symbolizer.
-    
-    Returns mapping: pc -> list of (func_name, source_file, line_number)
-    where multiple entries represent inlined call frames (innermost first).
-    """
-    if not pcs:
-        return {}
-    if symbolizer_path is None:
-        symbolizer_path = find_llvm_symbolizer()
-
-    hex_pcs = [f"0x{pc:x}" for pc in pcs]
-    if symbolizer_path:
-        cmd = [symbolizer_path, f"--obj={binary_path}"] + hex_pcs
-    else:
-        # Fallback to Docker target-graph:llvm14
-        binary_abs = binary_path.resolve()
-        parent_dir = binary_abs.parent
-        bin_name = binary_abs.name
-        cmd = [
-            "docker", "run", "--rm",
-            "-v", f"{parent_dir}:/bin_dir",
-            "target-graph:llvm14",
-            "llvm-symbolizer", f"--obj=/bin_dir/{bin_name}"
-        ] + hex_pcs
-
-    res = subprocess.run(cmd, capture_output=True, text=True)
-    if res.returncode != 0:
-        return {}
-
-    # llvm-symbolizer separates output for each input address by an empty line (\n\n)
-    raw_blocks = res.stdout.split("\n\n")
-    blocks = [b.strip() for b in raw_blocks if b.strip()]
-    pc_to_locs: Dict[int, List[Tuple[str, str, int]]] = {}
-
-    for idx, pc in enumerate(pcs):
-        if idx >= len(blocks):
-            pc_to_locs[pc] = []
-            continue
-
-        b = blocks[idx]
-        lines = b.splitlines()
-        locs: List[Tuple[str, str, int]] = []
-        i = 0
-        while i + 1 < len(lines):
-            fn = lines[i].strip()
-            loc_str = lines[i + 1].strip()
-            i += 2
-            if loc_str and "??" not in loc_str:
-                parts = loc_str.rsplit(":", 2)
-                if len(parts) >= 2:
-                    file_path = parts[0]
-                    try:
-                        line_no = int(parts[1])
-                        if line_no > 0:
-                            locs.append((fn, file_path, line_no))
-                    except ValueError:
-                        pass
-        pc_to_locs[pc] = locs
-
-    # Forward probe for unmapped preamble PCs (e.g. line 0 compiler preamble at return address)
-    unmapped = [p for p in pcs if not pc_to_locs.get(p)]
-    if unmapped:
-        for off in [4, 8, 16]:
-            still_unmapped = [p for p in unmapped if not pc_to_locs.get(p)]
-            if not still_unmapped:
-                break
-            probe_pcs = [p + off for p in still_unmapped]
-            # Call helper directly on probe_pcs without recursion
-            hex_probes = [f"0x{p:x}" for p in probe_pcs]
-            if symbolizer_path:
-                probe_cmd = [symbolizer_path, f"--obj={binary_path}"] + hex_probes
-            else:
-                binary_abs = binary_path.resolve()
-                probe_cmd = [
-                    "docker", "run", "--rm",
-                    "-v", f"{binary_abs.parent}:/bin_dir",
-                    "target-graph:llvm14",
-                    "llvm-symbolizer", f"--obj=/bin_dir/{binary_abs.name}"
-                ] + hex_probes
-            res_probe = subprocess.run(probe_cmd, capture_output=True, text=True)
-            if res_probe.returncode == 0:
-                probe_blocks = [b.strip() for b in res_probe.stdout.split("\n\n") if b.strip()]
-                for p_idx, orig_p in enumerate(still_unmapped):
-                    if p_idx < len(probe_blocks):
-                        plines = probe_blocks[p_idx].splitlines()
-                        pi = 0
-                        plocs: List[Tuple[str, str, int]] = []
-                        while pi + 1 < len(plines):
-                            pfn = plines[pi].strip()
-                            ploc_str = plines[pi + 1].strip()
-                            pi += 2
-                            if ploc_str and "??" not in ploc_str:
-                                pparts = ploc_str.rsplit(":", 2)
-                                if len(pparts) >= 2:
-                                    try:
-                                        pln = int(pparts[1])
-                                        if pln > 0:
-                                            plocs.append((pfn, pparts[0], pln))
-                                    except ValueError:
-                                        pass
-                        if plocs:
-                            pc_to_locs[orig_p] = plocs
-
-    return pc_to_locs
-
-
-def trace_to_basic_blocks(
-    trace_file: Path,
-    binary_path: Path,
-    bb_mapper: BasicBlockMapper,
-    symbolizer_path: Optional[str] = None,
-) -> List[str]:
-    """Map ordered trace events to an ordered list of basic block IDs."""
+def trace_to_basic_blocks(trace_file: Path) -> List[str]:
+    """Return ordered BB IDs from a direct trace file, collapsing consecutive duplicates."""
     direct_bbs = parse_trace_bb_ids(trace_file)
-    if direct_bbs is not None:
-        ordered_bbs: List[str] = []
-        for bb in direct_bbs:
-            if not ordered_bbs or ordered_bbs[-1] != bb:
-                ordered_bbs.append(bb)
-        return ordered_bbs
-
-    pcs = parse_trace_pcs(trace_file)
-    if not pcs:
+    if not direct_bbs:
         return []
-
-    # Symbolize unique PCs to save time
-    unique_pcs = list(dict.fromkeys(pcs))
-    pc_map = symbolize_pcs(unique_pcs, binary_path, symbolizer_path=symbolizer_path)
-
-    # Pre-map unique PCs to basic blocks to avoid repeated mapper queries on large traces
-    pc_to_bbs: Dict[int, List[str]] = {}
-    for pc in unique_pcs:
-        locs = pc_map.get(pc, [])
-        matched_bbs: List[str] = []
-        for fn, file_path, line_no in locs:
-            matched_bbs = bb_mapper.map_source_location(file_path, line_no, function_name=fn)
-            if matched_bbs:
-                break
-        if not matched_bbs and locs:
-            for _, file_path, line_no in locs:
-                matched_bbs = bb_mapper.map_source_location(file_path, line_no)
-                if matched_bbs:
-                    break
-        pc_to_bbs[pc] = matched_bbs
-
     ordered_bbs: List[str] = []
-    for pc in pcs:
-        matched_bbs = pc_to_bbs.get(pc, [])
-        if matched_bbs:
-            for bb in matched_bbs:
-                if not ordered_bbs or ordered_bbs[-1] != bb:
-                    ordered_bbs.append(bb)
-
+    for bb in direct_bbs:
+        if not ordered_bbs or ordered_bbs[-1] != bb:
+            ordered_bbs.append(bb)
     return ordered_bbs

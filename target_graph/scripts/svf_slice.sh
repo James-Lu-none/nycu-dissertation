@@ -57,22 +57,6 @@ export PYTHONPATH="$ROOT_DIR/src:${PYTHONPATH:-}"
 PYTHON_BIN="${VIRTUAL_ENV:+$VIRTUAL_ENV/bin/python3}"
 if [[ -z "$PYTHON_BIN" || ! -x "$PYTHON_BIN" ]]; then PYTHON_BIN=python3; fi
 
-# Never use CASE_ID as the hashing input if this is an alias/relocated case.
-# Pass summary records the exact build/module pair used for bb_map + v2.
-CANONICAL_RECORD="$("$PYTHON_BIN" -m target_graph.svf.provenance \
-  --pass-summary "$CASE_DIR/pass_summary.json" \
-  --bitcode-name "$BC_NAME")"
-mapfile -t CANONICAL_FIELDS <<< "$CANONICAL_RECORD"
-if [[ ${#CANONICAL_FIELDS[@]} -ne 2 ||
-      -z "${CANONICAL_FIELDS[0]}" || -z "${CANONICAL_FIELDS[1]}" ]]; then
-  echo "Invalid original graph identity provenance" >&2
-  exit 1
-fi
-CANONICAL_BUILD_ID="${CANONICAL_FIELDS[0]}"
-CANONICAL_MODULE_NAME="${CANONICAL_FIELDS[1]}"
-if [[ "$CANONICAL_BUILD_ID" != "$CASE_ID" ]]; then
-  echo "[svf] alias case $CASE_ID -> canonical graph build $CANONICAL_BUILD_ID" >&2
-fi
 OUT_DIR="$CASE_DIR/svf_backend"
 mkdir -p "$OUT_DIR"
 if [[ -e "$OUT_DIR/svf_slice.json" ]]; then
@@ -80,26 +64,14 @@ if [[ -e "$OUT_DIR/svf_slice.json" ]]; then
   exit 1
 fi
 
-# Step 1: preserve original instruction/BB identities before SVF's builder.
-docker run --rm --user "$(id -u):$(id -g)" \
-  -v "$ROOT_DIR:/workspace" \
-  -e "TARGET_GRAPH_BUILD_ID=$CANONICAL_BUILD_ID" \
-  -e "TARGET_GRAPH_ID_MODULE_NAME=$CANONICAL_MODULE_NAME" \
-  -e "CASE_ID=$CASE_ID" -e "BC_NAME=$BC_NAME" \
-  "$SVF_IMAGE" bash -c '
-set -euo pipefail
-out="/workspace/cases/$CASE_ID/svf_backend"
-bc="/workspace/cases/$CASE_ID/$BC_NAME"
-plugin=/usr/local/lib/DGIdentityPass.so
-test -f "$plugin"
-opt -load-pass-plugin="$plugin" -passes=dg-tag \
-    -o "$out/tagged.bc" "$bc"
-TARGET_GRAPH_DG_EXPORT="$out/before.jsonl" \
-  opt -load-pass-plugin="$plugin" -passes=dg-export \
-    -disable-output "$out/tagged.bc"
-'
+# Step 1: verify pre-exported instruction map from bb-tag exists.
+INST_MAP="$CASE_DIR/inst_map.jsonl"
+if [[ ! -s "$INST_MAP" ]]; then
+  echo "Missing inst_map.jsonl in $CASE_DIR (rebuild with bb-tag)" >&2
+  exit 1
+fi
 
-CHECK_ARGS=(--before "$OUT_DIR/before.jsonl" --target-inst "$TARGET_INST")
+CHECK_ARGS=(--before "$INST_MAP" --target-inst "$TARGET_INST")
 if [[ -f "$CASE_DIR/bb_map.jsonl" ]]; then
   CHECK_ARGS+=(--bb-map "$CASE_DIR/bb_map.jsonl")
 fi
@@ -114,17 +86,18 @@ fi
 # No partial result is promoted if process times out or crashes.
 docker run --rm --user "$(id -u):$(id -g)" \
   -v "$ROOT_DIR:/workspace" \
-  -e "CASE_ID=$CASE_ID" -e "TARGET_INST=$TARGET_INST" \
+  -e "CASE_ID=$CASE_ID" -e "BC_NAME=$BC_NAME" -e "TARGET_INST=$TARGET_INST" \
   -e "MAX_NODES=$MAX_NODES" -e "MAX_EDGES=$MAX_EDGES" \
   -e "SVF_TIMEOUT_SEC=$TIMEOUT_SEC" \
   "$SVF_IMAGE" bash -c '
 set -euo pipefail
 out="/workspace/cases/$CASE_ID/svf_backend"
+bc="/workspace/cases/$CASE_ID/$BC_NAME"
 rm -f "$out/svfg_raw.tmp.json"
 cd "$out"
 timeout --signal=TERM --kill-after=10s "$SVF_TIMEOUT_SEC" \
   targetgraph-svf \
-    --input "$out/tagged.bc" \
+    --input "$bc" \
     --extapi-bc "/opt/SVF/Release-build/svf-llvm/extapi.bc" \
     --target-inst "$TARGET_INST" \
     --max-nodes "$MAX_NODES" \

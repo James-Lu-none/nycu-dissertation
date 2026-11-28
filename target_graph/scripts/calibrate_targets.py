@@ -31,31 +31,10 @@ def get_canonical_provenance(case_dir: Path, bc_name: str) -> Tuple[str, str]:
 
 
 def ensure_tagged_bc(case_id: str, case_dir: Path, bc_name: str, build_id: str, module_name: str, image: str = "target-graph:svf-llvm14") -> None:
-    out_dir = case_dir / "svf_backend"
-    out_dir.mkdir(parents=True, exist_ok=True)
-    tagged_bc = out_dir / "tagged.bc"
-    before_jsonl = out_dir / "before.jsonl"
-    for stale in (tagged_bc, before_jsonl):
-        if stale.exists():
-            stale.unlink()
-
-    c_script = f"""
-set -euo pipefail
-out="/workspace/cases/{case_id}/svf_backend"
-bc="/workspace/cases/{case_id}/{bc_name}"
-plugin=/usr/local/lib/DGIdentityPass.so
-opt -load-pass-plugin="$plugin" -passes=dg-tag -o "$out/tagged.bc" "$bc"
-TARGET_GRAPH_DG_EXPORT="$out/before.jsonl" opt -load-pass-plugin="$plugin" -passes=dg-export -disable-output "$out/tagged.bc"
-"""
-    cmd = [
-        "docker", "run", "--rm",
-        "-v", f"{ROOT_DIR}:/workspace",
-        "-e", f"TARGET_GRAPH_BUILD_ID={build_id}",
-        "-e", f"TARGET_GRAPH_ID_MODULE_NAME={module_name}",
-        image, "bash", "-c", c_script,
-    ]
-    subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
-    subprocess.run(["chmod", "-R", "a+rw", str(out_dir)], stderr=subprocess.DEVNULL)
+    del case_id, bc_name, build_id, module_name, image
+    inst_map = case_dir / "inst_map.jsonl"
+    if not inst_map.is_file() and not (case_dir / "svf_backend" / "before.jsonl").is_file():
+        raise FileNotFoundError(f"Missing inst_map.jsonl in {case_dir}; rebuild with bb-tag")
 
 
 def test_target_candidates(
@@ -95,8 +74,9 @@ def test_target_candidates(
 set -euo pipefail
 out="/workspace/cases/{case_id}/svf_backend"
 extapi="/opt/SVF/Release-build/svf-llvm/extapi.bc"
+bc=( /workspace/cases/{case_id}/*.bc )
 targetgraph-svf \\
-  --input "$out/tagged.bc" \\
+  --input "${{bc[0]}}" \\
   --extapi-bc "$extapi" \\
   --target-inst "{cand_str}" \\
   --max-nodes 100000 \\
@@ -230,7 +210,9 @@ def review_memory_access_candidates(
 
 def find_candidate_instructions(case_dir: Path, oracle: Dict[str, Any]) -> List[str]:
     bb_map_path = case_dir / "bb_map.jsonl"
-    before_path = case_dir / "svf_backend" / "before.jsonl"
+    before_path = case_dir / "inst_map.jsonl"
+    if not before_path.is_file():
+        before_path = case_dir / "svf_backend" / "before.jsonl"
     
     o_func = oracle.get("function", "")
     o_file = oracle.get("relative_source_file", "") or oracle.get("file", "")
@@ -492,9 +474,12 @@ def main():
 
             ensure_tagged_bc(cid, cdir, bc.name, build_id, module_name)
             mapper = BasicBlockMapper(cdir / "bb_map.jsonl")
+            inst_map_path = cdir / "inst_map.jsonl"
+            if not inst_map_path.is_file():
+                inst_map_path = cdir / "svf_backend" / "before.jsonl"
             diagnostic = inspect_target(
                 mapper.bb_records, direct_bbs, case.get("expected_oracle", {}),
-                old_target, cdir / "svf_backend" / "before.jsonl",
+                old_target, inst_map_path,
                 v2_nodes_path=cdir / "analysis_v2_nodes.jsonl",
                 max_reported_instructions=8192,
             )

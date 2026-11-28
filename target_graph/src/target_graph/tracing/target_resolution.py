@@ -80,7 +80,7 @@ def inspect_target(
                 if not raw.strip():
                     continue
                 rec = json.loads(raw)
-                inst_id = rec.get("id")
+                inst_id = rec.get("inst_id") or rec.get("id")
                 if inst_id == canonical_target_inst:
                     target_in_ir = True
                 bb_id = rec.get("bb_id")

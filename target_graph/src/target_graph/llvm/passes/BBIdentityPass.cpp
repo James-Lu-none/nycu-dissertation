@@ -62,6 +62,10 @@ public:
         if (EC) {
             report_fatal_error(Twine("Failed to open bb_map.jsonl: ") + EC.message());
         }
+        raw_fd_ostream instMapOut(outDir + "/inst_map.jsonl", EC, sys::fs::OF_Text);
+        if (EC) {
+            report_fatal_error(Twine("Failed to open inst_map.jsonl: ") + EC.message());
+        }
 
         for (Function &F : M) {
             if (F.isDeclaration()) continue;
@@ -72,7 +76,21 @@ public:
                 target_graph::writeBBIdMetadata(BB, bbId);
 
                 std::set<std::pair<std::string, unsigned>> debugLocs;
+                unsigned instOrdinal = 0;
+                auto &Ctx = M.getContext();
                 for (Instruction &I : BB) {
+                    const std::string instId = bbId + ":" + std::to_string(instOrdinal++);
+                    I.setMetadata(
+                        target_graph::kInstIdMetadata,
+                        MDNode::get(Ctx, {MDString::get(Ctx, instId)}));
+                    json::OStream IJ(instMapOut);
+                    IJ.object([&] {
+                        IJ.attribute("inst_id", instId);
+                        IJ.attribute("bb_id", bbId);
+                        IJ.attribute("function", funcName);
+                        IJ.attribute("opcode", std::string(I.getOpcodeName()));
+                    });
+                    instMapOut << "\n";
                     if (DILocation *Loc = I.getDebugLoc()) {
                         StringRef file = Loc->getFilename();
                         StringRef dir = Loc->getDirectory();

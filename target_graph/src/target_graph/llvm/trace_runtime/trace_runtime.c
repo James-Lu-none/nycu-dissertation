@@ -1,27 +1,20 @@
-/*
- * Ordered Basic Block Trace Runtime for SanitizerCoverage (-fsanitize-coverage=trace-pc-guard)
- * 
- * Flushes trace both on normal exit (via atexit) and on sanitizer faults (via __asan_on_error).
- * Uses raw write syscalls and in_trace reentrancy guards to prevent any recursion.
- */
-
-#include <stdint.h>
-#include <unistd.h>
+#define _POSIX_C_SOURCE 200809L
 #include <fcntl.h>
-#include <stdlib.h>
 #include <signal.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <unistd.h>
 
-#define TRACE_CAPACITY (16 * 1024 * 1024) // 1M entries
+#define TRACE_CAPACITY (16 * 1024 * 1024)
 
 static uint64_t trace_buffer[TRACE_CAPACITY];
 static size_t trace_count = 0;
 static int trace_initialized = 0;
-static int trace_mode_bb = 0;
 static volatile int in_trace = 0;
 
 // Minimal fast integer-to-hex formatting (no libc printf/malloc)
-static int format_entry(char *buf, size_t seq, uint64_t val, int is_bb_id) {
-    // Format: "123: 0x7fff1234\n" (PC mode) or "123: 0123456789abcdef\n" (BB ID mode)
+static int format_entry(char *buf, size_t seq, uint64_t bb_id) {
     char num_buf[32];
     int nlen = 0;
     if (seq == 0) {
@@ -35,7 +28,6 @@ static int format_entry(char *buf, size_t seq, uint64_t val, int is_bb_id) {
     }
 
     int pos = 0;
-    // Reverse seq number
     for (int i = nlen - 1; i >= 0; --i) {
         buf[pos++] = num_buf[i];
     }
@@ -43,27 +35,8 @@ static int format_entry(char *buf, size_t seq, uint64_t val, int is_bb_id) {
     buf[pos++] = ' ';
 
     static const char hex_digits[] = "0123456789abcdef";
-    if (is_bb_id) {
-        for (int shift = 60; shift >= 0; shift -= 4) {
-            buf[pos++] = hex_digits[(val >> shift) & 0xf];
-        }
-    } else {
-        buf[pos++] = '0';
-        buf[pos++] = 'x';
-        char hex_buf[32];
-        int hlen = 0;
-        if (val == 0) {
-            hex_buf[hlen++] = '0';
-        } else {
-            uint64_t temp = val;
-            while (temp > 0) {
-                hex_buf[hlen++] = hex_digits[temp & 0xf];
-                temp >>= 4;
-            }
-        }
-        for (int i = hlen - 1; i >= 0; --i) {
-            buf[pos++] = hex_buf[i];
-        }
+    for (int shift = 60; shift >= 0; shift -= 4) {
+        buf[pos++] = hex_digits[(bb_id >> shift) & 0xf];
     }
     buf[pos++] = '\n';
     return pos;
@@ -86,7 +59,7 @@ static void trace_flush(void) {
 
         for (size_t i = 0; i < trace_count; ++i) {
             char entry_str[64];
-            int elen = format_entry(entry_str, i, trace_buffer[i], trace_mode_bb);
+            int elen = format_entry(entry_str, i, trace_buffer[i]);
 
             if (chunk_pos + elen >= (int)sizeof(chunk)) {
                 write(fd, chunk, (size_t)chunk_pos);
@@ -151,34 +124,6 @@ static void trace_dtor(void) {
 }
 
 __attribute__((no_sanitize("all")))
-void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
-    if (start == stop || *start) return;
-    uint32_t id = 1;
-    for (uint32_t *x = start; x < stop; x++) {
-        *x = id++;
-    }
-    if (!trace_initialized) {
-        trace_initialized = 1;
-        atexit(trace_flush);
-        install_crash_handlers();
-    }
-}
-
-__attribute__((no_sanitize("all")))
-void __sanitizer_cov_trace_pc_guard(uint32_t *guard) {
-    (void)guard;
-    if (!trace_initialized || in_trace) return;
-    in_trace = 1;
-
-    uintptr_t pc = (uintptr_t)__builtin_return_address(0);
-    if (trace_count < TRACE_CAPACITY) {
-        trace_buffer[trace_count++] = (uint64_t)pc;
-    }
-
-    in_trace = 0;
-}
-
-__attribute__((no_sanitize("all")))
 void __target_graph_trace_bb(uint64_t bb_id) {
     if (!trace_initialized) {
         trace_ctor();
@@ -186,7 +131,6 @@ void __target_graph_trace_bb(uint64_t bb_id) {
     if (!trace_initialized || in_trace) return;
     in_trace = 1;
 
-    trace_mode_bb = 1;
     if (trace_count < TRACE_CAPACITY) {
         trace_buffer[trace_count++] = bb_id;
     }
@@ -194,7 +138,6 @@ void __target_graph_trace_bb(uint64_t bb_id) {
     in_trace = 0;
 }
 
-// ASan error callback
 __attribute__((no_sanitize("all")))
 void __asan_on_error(void) {
     trace_flush();

@@ -79,6 +79,7 @@ def materialize_single_case(
         (f"{target_bin}.bc", f"{target_bin}.bc"),
         ("pass_summary.json", "pass_summary.json"),
         ("bb_map.jsonl", "bb_map.jsonl"),
+        ("inst_map.jsonl", "inst_map.jsonl"),
     ]
     # Optional execution binaries
     opt_files = [

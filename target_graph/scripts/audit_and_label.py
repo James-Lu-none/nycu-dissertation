@@ -151,9 +151,12 @@ def audit_and_label_case(case_meta: Dict[str, Any], cases_dir: Path) -> Dict[str
         )
         # Record all exact DebugLoc owners before applying either ASan or
         # SVF gates. A stale target cannot hide behind an ASan frame mismatch.
+        inst_map_path = cdir / "inst_map.jsonl"
+        if not inst_map_path.is_file():
+            inst_map_path = cdir / "svf_backend" / "before.jsonl"
         diagnostic = inspect_target(
             mapper.bb_records, trace_bbs, oracle, target_inst,
-            cdir / "svf_backend" / "before.jsonl",
+            inst_map_path,
             v2_nodes_path=cdir / "analysis_v2_nodes.jsonl",
         )
         target_diagnostics_path.write_text(

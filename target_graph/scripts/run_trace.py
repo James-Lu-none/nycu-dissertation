@@ -23,11 +23,7 @@ if str(ROOT_DIR / "src") not in sys.path:
 import json
 from target_graph.llvm.mapping import BasicBlockMapper
 from target_graph.tracing.evidence import asan_evidence, sha256
-from target_graph.tracing.symbolizer import (
-    parse_trace_bb_ids,
-    parse_trace_pcs,
-    trace_to_basic_blocks,
-)
+from target_graph.tracing.symbolizer import parse_trace_bb_ids
 
 
 def write_trace_bbs_json(cid: str, cdir: Path, inst_bin: Path, trace_file: Path) -> Path:
