@@ -1,0 +1,17 @@
+{
+  "case_id": "jasper-1.900.1_imginfo_ASARUBBO-054",
+  "cve": "ISSUE-ASARUBBO-054",
+  "source_type": "git_repo_file",
+  "source_url": "https://github.com/asarubbo/poc/blob/master/00054-jasper-invalidread-jpc_undo_roi",
+  "original_filename": "00054-jasper-invalidread-jpc_undo_roi",
+  "sha256": "5e6d36e266441b0e82090e459872dc63449e33f0defc8ec08fc5d6086dea663e",
+  "size_bytes": 984,
+  "expected_oracle": {
+    "sanitizer": "SEGV",
+    "relative_source_file": "src/libjasper/jpc/jpc_dec.c",
+    "line": 1814,
+    "function": "jpc_undo_roi",
+    "oracle_line_text": "val = jas_matrix_get(x, i, j);",
+    "source_file_sha256": "6541bcdc3228aa4502ae5f14ecd36c7c2a853a7f792b4e7256af51f521a50b97"
+  }
+}

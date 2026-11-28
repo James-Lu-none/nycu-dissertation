@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "purpose": "Explicit fault-site instruction identity review; not verified vulnerability slice labels",
+  "cases": {
+    "bento4-1.5.0_mp42aac_ASARUBBO-336": {
+      "target_inst": "002d55dafb123847:6",
+      "faulting_instruction_evidence": "ASan SEGV WRITE 0x8 at PC 0x552da2; matching non-PIE ELF Build ID 10d68e45d3dd210691320f3bd13571e3fd0af8b1 disassembles 552da2 to mov DWORD PTR [rax],0x61766345, after call AP4_AvccAtom::Create and add rax,0x8. Original identity-tagged LLVM IR in the same program: 002d55dafb123847:5 is %270 = getelementptr inbounds %class.AP4_AvccAtom, ptr %268, i64 0, i32 0, i32 1, and 002d55dafb123847:6 is store i32 1635148613 (0x61766345), ptr %270. LLVM DebugLoc Ap4Atom.h:247, inlinedAt Ap4AtomFactory.cpp:499 matches ASan frames #0/#1. Direct LLVM BB-ID trace executed BB 002d55dafb123847. SVFG native probe maps :5 and :6, one seed each; only :6 performs the faulting write.",
+      "fault_pc": "0x552da2",
+      "fault_address": "0x8",
+      "memory_access": "WRITE",
+      "elf_type": "ET_EXEC",
+      "elf_build_id": "10d68e45d3dd210691320f3bd13571e3fd0af8b1",
+      "faulting_machine_instruction": "552da2: c7 00 45 63 76 61    mov DWORD PTR [rax],0x61766345",
+      "immediate_hex": "0x61766345",
+      "immediate_decimal": 1635148613,
+      "original_bitcode_sha256": "3fc3cdd6e2882176c799101e6b4497c880489c08ab38732a801289b6f1cd6fed",
+      "instrumented_binary_sha256": "f0c083f84ac2f826d9c4925df42cda48da1478e4ce355a6ae6add1f68ac4ea57",
+      "identity_tagged_bitcode_sha256": "779b7c0ab803aadce557a0c5974754243f2a684d071bf191728f8195f2955a7b",
+      "crash_stderr_sha256": "a003ec4a1293a2de3e677401c131126ebbf254227b8fb328aa7c14edeb2ad12e",
+      "source_location": "Source/C++/Core/Ap4Atom.h:247",
+      "inline_callsite": "Source/C++/Core/Ap4AtomFactory.cpp:499",
+      "llvm_owner": "AP4_AtomFactory::CreateAtomFromStream",
+      "llvm_pointer_operand": "%270",
+      "llvm_pointer_definition": "%270 = getelementptr inbounds %class.AP4_AvccAtom, ptr %268, i64 0, i32 0, i32 1",
+      "llvm_store": "store i32 1635148613, ptr %270, align 8",
+      "native_svf_seed_count": 1,
+      "review_conclusion": "Instruction is evidenced as crash-site memory write; backward SVFG slice still EXPLORATORY_ONLY and does not establish vulnerability-causal nodes or the pointer-operand-specific backward dependence."
+    }
+  }
+}

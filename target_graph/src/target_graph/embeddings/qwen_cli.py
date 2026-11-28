@@ -61,6 +61,9 @@ def main() -> None:
                     raw_file = spans_raw[0]["file"]
                     fname = Path(raw_file).name
                     candidate_paths = [
+                        case_dir / "src" / raw_file.replace("/build/", "").lstrip("/"),
+                        case_dir / "src" / raw_file.replace("/workspace/cases/", "").lstrip("/"),
+                        case_dir / "src" / raw_file.lstrip("/"),
                         case_dir / "src" / fname,
                         Path(raw_file),
                         root / raw_file.lstrip("/"),

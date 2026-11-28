@@ -1,0 +1,17 @@
+{
+  "case_id": "libtiff-4.0.6_tiffcp_ASARUBBO-0103",
+  "cve": "ISSUE-ASARUBBO-0103",
+  "source_type": "git_repo_file",
+  "source_url": "https://github.com/asarubbo/poc/blob/master/000103-libtiff-heapoverflow-writeCroppedImage",
+  "original_filename": "000103-libtiff-heapoverflow-writeCroppedImage",
+  "sha256": "7864b2882aaeceddc90a59f96fe73146d7cab8521ede202544d4b05df771d88b",
+  "size_bytes": 350,
+  "expected_oracle": {
+    "sanitizer": "heap-buffer-overflow",
+    "relative_source_file": "tools/tiffcp.c",
+    "line": 784,
+    "function": "tiffcp",
+    "oracle_line_text": "inknameslen += (strlen(cp) + 1);",
+    "source_file_sha256": "4cdda21c5744c99d51228554bc413d8bd8aab354e7a12125b0e1675a15d419e8"
+  }
+}

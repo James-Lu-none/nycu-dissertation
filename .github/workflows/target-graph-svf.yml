@@ -1,0 +1,313 @@
+name: target-graph-svf
+
+concurrency:
+  group: svf-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/target-graph-svf.yml"
+      - "target_graph/src/target_graph/svf/**"
+      - "target_graph/scripts/svf_slice.sh"
+      - "target_graph/docker/svf-llvm14/**"
+      - "target_graph/tests/unit/test_svf_validate.py"
+      - "target_graph/tests/unit/test_trace_audit.py"
+      - "target_graph/tests/unit/test_target_calibration.py"
+      - "target_graph/tests/unit/test_fault_site_approval.py"
+      - "target_graph/configs/target_approvals/**"
+      - "target_graph/configs/projects/benchmark_30_cases.yaml"
+      - "target_graph/tests/unit/test_fault_pc_review.py"
+      - "target_graph/scripts/review_fault_pc.py"
+      - "target_graph/tests/unit/test_target_resolution.py"
+      - "target_graph/scripts/calibrate_targets.py"
+      - "target_graph/scripts/graph_v2.sh"
+      - "target_graph/docs/2026-11-27_target_audit_rerun.md"
+      - "target_graph/src/target_graph/tracing/**"
+      - "target_graph/src/target_graph/llvm/passes/**"
+      - "target_graph/src/target_graph/llvm/trace_runtime/**"
+      - "target_graph/scripts/run_trace.py"
+      - "target_graph/scripts/audit_and_label.py"
+      - "target_graph/scripts/build_sources.py"
+  push:
+    paths:
+      - ".github/workflows/target-graph-svf.yml"
+      - "target_graph/src/target_graph/svf/**"
+      - "target_graph/scripts/svf_slice.sh"
+      - "target_graph/docker/svf-llvm14/**"
+      - "target_graph/tests/unit/test_svf_validate.py"
+      - "target_graph/tests/unit/test_trace_audit.py"
+      - "target_graph/tests/unit/test_target_calibration.py"
+      - "target_graph/tests/unit/test_fault_site_approval.py"
+      - "target_graph/configs/target_approvals/**"
+      - "target_graph/configs/projects/benchmark_30_cases.yaml"
+      - "target_graph/tests/unit/test_fault_pc_review.py"
+      - "target_graph/scripts/review_fault_pc.py"
+      - "target_graph/tests/unit/test_target_resolution.py"
+      - "target_graph/scripts/calibrate_targets.py"
+      - "target_graph/scripts/graph_v2.sh"
+      - "target_graph/docs/2026-11-27_target_audit_rerun.md"
+      - "target_graph/src/target_graph/tracing/**"
+      - "target_graph/src/target_graph/llvm/passes/**"
+      - "target_graph/src/target_graph/llvm/trace_runtime/**"
+      - "target_graph/scripts/run_trace.py"
+      - "target_graph/scripts/audit_and_label.py"
+      - "target_graph/scripts/build_sources.py"
+
+jobs:
+  python-unit:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install pytest pyyaml
+      - name: Fail-closed SVFG validation tests
+        run: |
+          PYTHONPATH=target_graph/src python -m pytest \
+            target_graph/tests/unit/test_svf_validate.py \
+            target_graph/tests/unit/test_dg_validate.py \
+            target_graph/tests/unit/test_trace_audit.py \
+            target_graph/tests/unit/test_target_calibration.py \
+            target_graph/tests/unit/test_fault_site_approval.py \
+            target_graph/tests/unit/test_target_resolution.py \
+            target_graph/tests/unit/test_fault_pc_review.py -q
+      - name: Check bash syntax
+        run: |
+          bash -n target_graph/scripts/svf_slice.sh
+          bash -n target_graph/scripts/graph_v2.sh
+
+
+  llvm14-direct-bb-trace:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build LLVM14 direct trace plugin
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build llvm-14-dev llvm-14-tools clang-14
+          cmake -S target_graph/src/target_graph/llvm/passes \
+            -B /tmp/trace-llvm14 -G Ninja \
+            -DLLVM_DIR=/usr/lib/llvm-14/lib/cmake/llvm
+          cmake --build /tmp/trace-llvm14 \
+            --target TraceInstrumentPass DGIdentityPass AnalysisV2Pass -j 2
+      - name: Compile original BC and compare native executed IDs
+        run: |
+          mkdir -p /tmp/native-trace
+          cat >/tmp/native-trace/test.c <<'EOF'
+          int main(void) {
+            volatile int x = 7;
+            return (x == 7) ? 0 : 1;
+          }
+          EOF
+          clang-14 -g -O0 -emit-llvm -c /tmp/native-trace/test.c \
+            -o /tmp/native-trace/original.bc
+          TARGET_GRAPH_BUILD_ID=native_ci \
+            opt-14 -load-pass-plugin=/tmp/trace-llvm14/libDGIdentityPass.so \
+            -passes=dg-tag -o /tmp/native-trace/tagged.bc \
+            /tmp/native-trace/original.bc
+          TARGET_GRAPH_DG_EXPORT=/tmp/native-trace/before.jsonl \
+            opt-14 -load-pass-plugin=/tmp/trace-llvm14/libDGIdentityPass.so \
+            -passes=dg-export -disable-output /tmp/native-trace/tagged.bc
+          TARGET_GRAPH_BUILD_ID=native_ci \
+            opt-14 -load-pass-plugin=/tmp/trace-llvm14/libTraceInstrumentPass.so \
+            -passes=target-graph-trace -o /tmp/native-trace/instrumented.bc \
+            /tmp/native-trace/original.bc
+          clang-14 -g -O0 -fsanitize=address -no-pie \
+            /tmp/native-trace/instrumented.bc \
+            target_graph/src/target_graph/llvm/trace_runtime/trace_runtime.c \
+            -o /tmp/native-trace/test_inst
+          TARGET_GRAPH_TRACE_FILE=/tmp/native-trace/bbs.txt \
+            /tmp/native-trace/test_inst
+          PYTHONPATH=target_graph/src python - <<'PY'
+          import json
+          from pathlib import Path
+          from target_graph.tracing.symbolizer import parse_trace_bb_ids
+          p = Path("/tmp/native-trace")
+          recorded = parse_trace_bb_ids(p/"bbs.txt")
+          original = {json.loads(x)["bb_id"] for x in (p/"before.jsonl").read_text().splitlines()}
+          assert recorded
+          assert set(recorded).issubset(original), "Direct runtime IDs do not match original LLVM graph"
+          print("Validated", len(recorded), "native events against", len(original), "original BB IDs")
+          PY
+      - name: Confirm inline callsite chain from real LLVM14 optimized bitcode
+        run: |
+          cat >/tmp/native-trace/inline.c <<'EOF'
+          __attribute__((always_inline)) static inline int inline_read(volatile int *p) {
+            return *p + 7;
+          }
+          int main(int argc, char **argv) {
+            volatile int input = argc;
+            return inline_read(&input) - 8;
+          }
+          EOF
+          clang-14 -g -O1 -emit-llvm -c /tmp/native-trace/inline.c \
+            -o /tmp/native-trace/inline.bc
+          TARGET_GRAPH_BUILD_ID=inline_ci \
+          TARGET_GRAPH_OUT_DIR=/tmp/native-trace \
+            opt-14 -load-pass-plugin=/tmp/trace-llvm14/libAnalysisV2Pass.so \
+            -passes=analysis-v2 -disable-output /tmp/native-trace/inline.bc
+          PYTHONPATH=target_graph/src python - <<'PY'
+          import json
+          from pathlib import Path
+          nodes = [
+              json.loads(line) for line in
+              Path("/tmp/native-trace/analysis_v2_nodes.jsonl").read_text().splitlines()
+          ]
+          inline = [
+              row for row in nodes if row.get("kind") == "instruction"
+              and row.get("inline_callsite_chain")
+          ]
+          assert inline, "Expected real LLVM DILocation inlinedAt chain"
+          assert all("line" in frame and "file" in frame
+                     for row in inline for frame in row["inline_callsite_chain"])
+          print("Inline DebugLoc chain:", len(inline), "LLVM instructions")
+          PY
+
+  svf-llvm14-build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install LLVM14, Z3 and build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential cmake ninja-build git clang-14 llvm-14-dev \
+            llvm-14-tools libz3-dev libncurses-dev
+      - name: Checkout pinned upstream SVF-2.9
+        run: |
+          git clone --quiet https://github.com/SVF-tools/SVF.git /tmp/svf
+          git -C /tmp/svf checkout --detach 0e56bc038bf207a1ca320b5f5ad241e13ab33e14
+          mkdir -p /tmp/svf/svf-llvm/tools/TargetGraph
+          cp target_graph/src/target_graph/svf/svf_target_slice.cpp \
+            /tmp/svf/svf-llvm/tools/TargetGraph/targetgraph-svf.cpp
+          cat > /tmp/svf/svf-llvm/tools/TargetGraph/CMakeLists.txt <<'EOF'
+          add_llvm_executable(targetgraph-svf targetgraph-svf.cpp)
+          target_link_libraries(targetgraph-svf PUBLIC ${llvm_libs} SvfLLVM)
+          set_target_properties(targetgraph-svf PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+          EOF
+          echo 'add_subdirectory(TargetGraph)' >> /tmp/svf/svf-llvm/tools/CMakeLists.txt
+      - name: Build the real Andersen + SVFG adapter against LLVM14
+        run: |
+          cmake -S /tmp/svf -B /tmp/svf-build -G Ninja \
+            -DLLVM_DIR=/usr/lib/llvm-14/lib/cmake/llvm \
+            -DZ3_DIR=/usr -DCMAKE_BUILD_TYPE=Release \
+            -DSVF_WARN_AS_ERROR=OFF
+          cmake --build /tmp/svf-build --target gen_extapi_ir targetgraph-svf -j 2
+          test -x /tmp/svf-build/bin/targetgraph-svf
+          test -s /tmp/svf-build/svf-llvm/extapi.bc
+      - name: Build LLVM original-instruction tag pass
+        run: |
+          cmake -S target_graph/src/target_graph/llvm/passes \
+            -B /tmp/identity-build -G Ninja \
+            -DLLVM_DIR=/usr/lib/llvm-14/lib/cmake/llvm
+          cmake --build /tmp/identity-build --target DGIdentityPass TraceInstrumentPass -j 2
+      - name: Native SVFG smoke test with LLVM instruction identities
+        run: |
+          mkdir -p /tmp/svf-fixture
+          cat > /tmp/svf-fixture/sample.c <<'EOF'
+          volatile int global_sink;
+          int main(void) {
+            int x = 7;
+            int *p = &x;
+            global_sink = *p;
+            return x;
+          }
+          EOF
+          clang-14 -g -O0 -emit-llvm -c /tmp/svf-fixture/sample.c \
+            -o /tmp/svf-fixture/original.bc
+          TARGET_GRAPH_BUILD_ID=svf_fixture \
+          TARGET_GRAPH_ID_MODULE_NAME=/canonical/original/path/sample.bc \
+            opt-14 -load-pass-plugin=/tmp/identity-build/libDGIdentityPass.so \
+            -passes=dg-tag -o /tmp/svf-fixture/tagged.bc \
+            /tmp/svf-fixture/original.bc
+          TARGET_GRAPH_DG_EXPORT=/tmp/svf-fixture/before.jsonl \
+            opt-14 -load-pass-plugin=/tmp/identity-build/libDGIdentityPass.so \
+            -passes=dg-export -disable-output /tmp/svf-fixture/tagged.bc
+          PYTHONPATH=target_graph/src python - <<'PY'
+          import json
+          from pathlib import Path
+          from target_graph.svf.validate import preflight
+          root = Path("/tmp/svf-fixture")
+          records = [json.loads(s) for s in (root/"before.jsonl").read_text().splitlines()]
+          import hashlib
+          expected_bb = hashlib.sha256(
+              b"svf_fixture:/canonical/original/path/sample.bc:main:0"
+          ).hexdigest()[:16]
+          assert records[0]["bb_id"] == expected_bb, (
+              "Identity tagger must honor canonical module path"
+          )
+          candidates = [r["id"] for r in records if r["function"]=="main" and r["opcode"]=="store"]
+          assert candidates, "Expected at least one LLVM store"
+          target = candidates[-1]
+          requested = target + ",ffffffffffffffff:0"
+          (root/"target.txt").write_text(requested)
+          preflight(root/"before.jsonl", requested)
+          print("Submitted tagged candidates:", requested)
+          PY
+          TARGET="$(cat /tmp/svf-fixture/target.txt)"
+          timeout 180 /tmp/svf-build/bin/targetgraph-svf \
+            --input /tmp/svf-fixture/tagged.bc --target-inst "$TARGET" \
+            --extapi-bc /tmp/svf-build/svf-llvm/extapi.bc \
+            --output /tmp/svf-fixture/svfg_raw.json
+          PYTHONPATH=target_graph/src python - <<'PY'
+          from pathlib import Path
+          from target_graph.svf.validate import validate_svf
+          root = Path("/tmp/svf-fixture")
+          target = (root/"target.txt").read_text()
+          report = validate_svf(root/"before.jsonl", root/"svfg_raw.json", target,
+                                root/"original.bc")
+          import json
+          raw = json.loads((root/"svfg_raw.json").read_text())
+          selected, missing = target.split(",")
+          counts = raw["candidate_seed_counts"]
+          assert [row["instruction_id"] for row in counts] == [selected, missing]
+          assert counts[0]["svfg_seed_count"] == len(raw["target_seed_svfg_ids"])
+          assert counts[0]["svfg_seed_count"] > 0
+          assert counts[1]["svfg_seed_count"] == 0
+          assert report["target"] == selected
+          assert report["instruction_ids"]
+          assert report["target_seed_svfg_ids"]
+          assert not report["validated_for_supervision"]
+          print("Native SVFG smoke test:", report["visited_svfg_nodes"], "nodes;",
+                len(report["basic_blocks"]), "original BBs")
+          PY
+
+
+      - name: Native LLVM14 direct BB-ID trace matches original IR graph
+        run: |
+          TARGET_GRAPH_BUILD_ID=direct_bb_ci \
+            opt-14 -load-pass-plugin=/tmp/identity-build/libDGIdentityPass.so \
+            -passes=dg-tag -o /tmp/svf-fixture/direct_tagged.bc \
+            /tmp/svf-fixture/original.bc
+          TARGET_GRAPH_DG_EXPORT=/tmp/svf-fixture/direct_before.jsonl \
+            opt-14 -load-pass-plugin=/tmp/identity-build/libDGIdentityPass.so \
+            -passes=dg-export -disable-output /tmp/svf-fixture/direct_tagged.bc
+          TARGET_GRAPH_BUILD_ID=direct_bb_ci \
+            opt-14 -load-pass-plugin=/tmp/identity-build/libTraceInstrumentPass.so \
+            -passes=target-graph-trace -o /tmp/svf-fixture/direct_trace.bc \
+            /tmp/svf-fixture/original.bc
+          clang-14 -g -O0 -no-pie -fsanitize=address \
+            /tmp/svf-fixture/direct_trace.bc \
+            target_graph/src/target_graph/llvm/trace_runtime/trace_runtime.c \
+            -o /tmp/svf-fixture/direct_inst
+          # Fixture returns 7 intentionally; its trace must still be persisted.
+          TARGET_GRAPH_TRACE_FILE=/tmp/svf-fixture/direct_events.txt \
+            /tmp/svf-fixture/direct_inst || test "$?" -eq 7
+          PYTHONPATH=target_graph/src python - <<'PY'
+          import json
+          from pathlib import Path
+          from target_graph.tracing.symbolizer import parse_trace_bb_ids
+          root = Path("/tmp/svf-fixture")
+          recorded = parse_trace_bb_ids(root / "direct_events.txt")
+          original = {
+            json.loads(line)["bb_id"] for line in
+            (root / "direct_before.jsonl").read_text().splitlines()
+          }
+          assert recorded, "Expected at least one direct LLVM BB trace"
+          assert set(recorded).issubset(original), "BB instrumentation/graph IDs disagree"
+          print("Direct native BB trace:", len(recorded), "events;", len(set(recorded)), "BBs")
+          PY

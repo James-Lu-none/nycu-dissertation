@@ -1,0 +1,17 @@
+{
+  "case_id": "binutils-2.29_readelf_ASARUBBO-382",
+  "cve": "ISSUE-ASARUBBO-382",
+  "source_type": "git_repo_file",
+  "source_url": "https://github.com/asarubbo/poc/blob/master/00382-binutils-heapoverflow-get_line_filename_and_dirname",
+  "original_filename": "00382-binutils-heapoverflow-get_line_filename_and_dirname",
+  "sha256": "10d6b520e98479762990bcb9e6fba84e395ff49cdf135e70e8c665b8c5de5e51",
+  "size_bytes": 31248,
+  "expected_oracle": {
+    "sanitizer": "heap-buffer-overflow",
+    "relative_source_file": "binutils/dwarf.c",
+    "line": 4609,
+    "function": "get_line_filename_and_dirname",
+    "oracle_line_text": "for (; *hdrptr != '\\0' && fileidx > 1; fileidx--)",
+    "source_file_sha256": "658f1c5ba8056ef3508b05bf2db85b631dcffbd73496768ca399157cf7e905cf"
+  }
+}

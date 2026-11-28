@@ -1,0 +1,17 @@
+{
+  "case_id": "jhead-3.04_jhead_ASARUBBO-083",
+  "cve": "ISSUE-ASARUBBO-083",
+  "source_type": "git_repo_file",
+  "source_url": "https://github.com/asarubbo/poc/blob/master/00083-libtiff-fpe-OJPEGDecodeRaw",
+  "original_filename": "00083-libtiff-fpe-OJPEGDecodeRaw",
+  "sha256": "bdcbe5fca874b6a6f0ce3986ba310aa9a18f8a9a20855713ba7cd33e7a760b3d",
+  "size_bytes": 416,
+  "expected_oracle": {
+    "sanitizer": "global-buffer-overflow",
+    "relative_source_file": "jhead.c",
+    "line": 1637,
+    "function": "main",
+    "oracle_line_text": "a = 0;",
+    "source_file_sha256": "f3e77813ab2843294201207e37f89bbfa11ea5221c58b8645ea10908ea1decd3"
+  }
+}

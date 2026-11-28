@@ -1,0 +1,17 @@
+{
+  "case_id": "bento4-1.5.0_mp42aac_ASARUBBO-337",
+  "cve": "ISSUE-ASARUBBO-337",
+  "source_type": "git_repo_file",
+  "source_url": "https://github.com/asarubbo/poc/blob/master/00337-bento4-NULLptr-AP4_AtomSampleTable_GetSample",
+  "original_filename": "00337-bento4-NULLptr-AP4_AtomSampleTable_GetSample",
+  "sha256": "5d2b8d40470a4b02ad1b1a789a1d65a3e9b29e7a421e5c10f4e7bc827290d289",
+  "size_bytes": 32631,
+  "expected_oracle": {
+    "sanitizer": "SEGV",
+    "relative_source_file": "Source/C++/Core/Ap4AtomSampleTable.cpp",
+    "line": 143,
+    "function": "AP4_AtomSampleTable::GetSample(unsigned",
+    "oracle_line_text": "result = m_SttsAtom->GetDts(index, dts, &duration);",
+    "source_file_sha256": "214e576c032066f965c6b8f694b3c206af4a83761c0ed0032c648b60c9a6b2b2"
+  }
+}

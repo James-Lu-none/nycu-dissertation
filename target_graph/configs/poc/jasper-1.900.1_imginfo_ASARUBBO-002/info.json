@@ -1,0 +1,17 @@
+{
+  "case_id": "jasper-1.900.1_imginfo_ASARUBBO-002",
+  "cve": "ISSUE-ASARUBBO-002",
+  "source_type": "git_repo_file",
+  "source_url": "https://github.com/asarubbo/poc/blob/master/00002-jasper-NULLptr-jp2_colr_destroy",
+  "original_filename": "00002-jasper-NULLptr-jp2_colr_destroy",
+  "sha256": "1bc61c5aced47220e4ad29160748b833cd361e4becb06cbee8deb031a8bb1948",
+  "size_bytes": 373,
+  "expected_oracle": {
+    "sanitizer": "SEGV",
+    "relative_source_file": "src/libjasper/jp2/jp2_cod.c",
+    "line": 444,
+    "function": "jp2_colr_destroy",
+    "oracle_line_text": "jas_free(colr->iccp);",
+    "source_file_sha256": "5329a78569e97a14e06e99cace9fdf40d0660e860cb31cac47d14e6619209bd9"
+  }
+}

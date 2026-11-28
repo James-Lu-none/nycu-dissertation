@@ -1,0 +1,17 @@
+{
+  "case_id": "zziplib-0.13.62_unzzipcat-mem_ASARUBBO-152",
+  "cve": "ISSUE-ASARUBBO-152",
+  "source_type": "git_repo_file",
+  "source_url": "https://github.com/asarubbo/poc/blob/master/00152-zziplib-heapoverflow-zzip_mem_entry_extra_block",
+  "original_filename": "00152-zziplib-heapoverflow-zzip_mem_entry_extra_block",
+  "sha256": "494bc7543a6dada1f422c4e65656797824865c55d1e20c36e599ca07b21066f2",
+  "size_bytes": 188,
+  "expected_oracle": {
+    "sanitizer": "heap-buffer-overflow",
+    "relative_source_file": "zzip/memdisk.c",
+    "line": 248,
+    "function": "zzip_mem_entry_extra_block",
+    "oracle_line_text": "while (*(short *) (ext->z_datatype))",
+    "source_file_sha256": "496029bb7d4c480f4b2fd276431e2951c8c8b4de2f838574e9facce60b05d2c2"
+  }
+}

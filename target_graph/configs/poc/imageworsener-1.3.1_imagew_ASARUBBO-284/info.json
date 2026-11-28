@@ -1,0 +1,17 @@
+{
+  "case_id": "imageworsener-1.3.1_imagew_ASARUBBO-284",
+  "cve": "ISSUE-ASARUBBO-284",
+  "source_type": "git_repo_file",
+  "source_url": "https://github.com/asarubbo/poc/blob/master/00284-imageworsener-heapoverflow-iw_get_ui16be",
+  "original_filename": "00284-imageworsener-heapoverflow-iw_get_ui16be",
+  "sha256": "6f2168d885c3c1768ce20efa9678b088c0e8892964218068bfa3f054748645b0",
+  "size_bytes": 1046,
+  "expected_oracle": {
+    "sanitizer": "heap-buffer-overflow",
+    "relative_source_file": "src/imagew-util.c",
+    "line": 422,
+    "function": "iw_get_ui16be",
+    "oracle_line_text": "return ((unsigned int)b[0]<<8) | (unsigned int)b[1];",
+    "source_file_sha256": "885d24c1992445d5a4444384d92776266f52a91596150bec4eec0b16b1193882"
+  }
+}

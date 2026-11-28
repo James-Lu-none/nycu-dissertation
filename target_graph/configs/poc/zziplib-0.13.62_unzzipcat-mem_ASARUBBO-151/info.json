@@ -1,0 +1,17 @@
+{
+  "case_id": "zziplib-0.13.62_unzzipcat-mem_ASARUBBO-151",
+  "cve": "ISSUE-ASARUBBO-151",
+  "source_type": "git_repo_file",
+  "source_url": "https://github.com/asarubbo/poc/blob/master/00151-zziplib-heapoverflow-__zzip_get64",
+  "original_filename": "00151-zziplib-heapoverflow-__zzip_get64",
+  "sha256": "f11c6adb4bcbe69d558b49dbd48894eeaaf5ad3520b0208a473c3d982410bde9",
+  "size_bytes": 151,
+  "expected_oracle": {
+    "sanitizer": "heap-buffer-overflow",
+    "relative_source_file": "zzip/memdisk.c",
+    "line": 182,
+    "function": "zzip_mem_entry_new",
+    "oracle_line_text": "item->zz_data = zzip_file_header_to_data(header);",
+    "source_file_sha256": "496029bb7d4c480f4b2fd276431e2951c8c8b4de2f838574e9facce60b05d2c2"
+  }
+}

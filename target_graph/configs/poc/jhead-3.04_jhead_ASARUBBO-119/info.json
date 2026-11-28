@@ -1,0 +1,17 @@
+{
+  "case_id": "jhead-3.04_jhead_ASARUBBO-119",
+  "cve": "ISSUE-ASARUBBO-119",
+  "source_type": "git_repo_file",
+  "source_url": "https://github.com/asarubbo/poc/blob/master/00119-libtiff-shift-long-tif_jpeg",
+  "original_filename": "00119-libtiff-shift-long-tif_jpeg",
+  "sha256": "1dfec57611f3eb1f8347e238080bf4bf197054e584016e46efabf0b81ae08994",
+  "size_bytes": 416,
+  "expected_oracle": {
+    "sanitizer": "global-buffer-overflow",
+    "relative_source_file": "jhead.c",
+    "line": 1637,
+    "function": "main",
+    "oracle_line_text": "a = 0;",
+    "source_file_sha256": "f3e77813ab2843294201207e37f89bbfa11ea5221c58b8645ea10908ea1decd3"
+  }
+}

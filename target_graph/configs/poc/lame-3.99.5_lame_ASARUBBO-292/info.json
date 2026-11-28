@@ -1,0 +1,17 @@
+{
+  "case_id": "lame-3.99.5_lame_ASARUBBO-292",
+  "cve": "ISSUE-ASARUBBO-292",
+  "source_type": "git_repo_file",
+  "source_url": "https://github.com/asarubbo/poc/blob/master/00292-lame-heapoverflow-fill_buffer_resample",
+  "original_filename": "00292-lame-heapoverflow-fill_buffer_resample",
+  "sha256": "d48fda10916743c16457bc67961a64c9820af125408567d0848c86aa811c75a8",
+  "size_bytes": 44,
+  "expected_oracle": {
+    "sanitizer": "heap-buffer-overflow",
+    "relative_source_file": "libmp3lame/util.c",
+    "line": 606,
+    "function": "fill_buffer_resample",
+    "oracle_line_text": "y = (j2 < 0) ? inbuf_old[BLACKSIZE + j2] : inbuf[j2];",
+    "source_file_sha256": "4b7ab3ebcca8d47a6a017772453e0f68ff0e7983bafea558254eaa60d95e1ed9"
+  }
+}
