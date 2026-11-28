@@ -83,20 +83,43 @@ public:
                     I.setMetadata(
                         target_graph::kInstIdMetadata,
                         MDNode::get(Ctx, {MDString::get(Ctx, instId)}));
+                    std::string instFile;
+                    unsigned instLine = 0;
+                    DILocation *InlinedAt = nullptr;
+                    if (DILocation *Loc = I.getDebugLoc()) {
+                        StringRef file = Loc->getFilename();
+                        StringRef dir = Loc->getDirectory();
+                        instFile = dir.empty() ? file.str() : (dir + "/" + file).str();
+                        instLine = Loc->getLine();
+                        InlinedAt = Loc->getInlinedAt();
+                        debugLocs.insert({instFile, instLine});
+                    }
                     json::OStream IJ(instMapOut);
                     IJ.object([&] {
                         IJ.attribute("inst_id", instId);
                         IJ.attribute("bb_id", bbId);
                         IJ.attribute("function", funcName);
                         IJ.attribute("opcode", std::string(I.getOpcodeName()));
+                        if (!instFile.empty()) {
+                            IJ.attribute("file", instFile);
+                            IJ.attribute("line", static_cast<int64_t>(instLine));
+                        }
+                        if (InlinedAt) {
+                            IJ.attributeArray("inline_callsite_chain", [&] {
+                                for (DILocation *Cur = InlinedAt; Cur != nullptr; Cur = Cur->getInlinedAt()) {
+                                    StringRef cFile = Cur->getFilename();
+                                    StringRef cDir = Cur->getDirectory();
+                                    std::string cFull = cDir.empty() ? cFile.str() : (cDir + "/" + cFile).str();
+                                    IJ.object([&] {
+                                        IJ.attribute("file", cFull);
+                                        IJ.attribute("line", static_cast<int64_t>(Cur->getLine()));
+                                        IJ.attribute("column", static_cast<int64_t>(Cur->getColumn()));
+                                    });
+                                }
+                            });
+                        }
                     });
                     instMapOut << "\n";
-                    if (DILocation *Loc = I.getDebugLoc()) {
-                        StringRef file = Loc->getFilename();
-                        StringRef dir = Loc->getDirectory();
-                        std::string fullPath = dir.empty() ? file.str() : (dir + "/" + file).str();
-                        debugLocs.insert({fullPath, Loc->getLine()});
-                    }
                 }
 
                 json::OStream J(bbMapOut);

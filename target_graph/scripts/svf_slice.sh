@@ -20,7 +20,6 @@ Usage:
 
 This runs Andersen + SVFG construction then BACKWARD VALUE-FLOW ONLY.
 It is NOT a complete SDG/CDG slicer or verified vulnerability label.
-Use analysis_v2.cli --list-targets to manually inspect candidate fault sites.
 EOF
   exit 2
 }
@@ -74,9 +73,6 @@ fi
 CHECK_ARGS=(--before "$INST_MAP" --target-inst "$TARGET_INST")
 if [[ -f "$CASE_DIR/bb_map.jsonl" ]]; then
   CHECK_ARGS+=(--bb-map "$CASE_DIR/bb_map.jsonl")
-fi
-if [[ -f "$CASE_DIR/analysis_v2_nodes.jsonl" ]]; then
-  CHECK_ARGS+=(--v2-nodes "$CASE_DIR/analysis_v2_nodes.jsonl")
 fi
 
 # Step 2: preflight BEFORE Andersen, avoiding expensive work on stale targets.

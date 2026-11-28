@@ -480,7 +480,6 @@ def main():
             diagnostic = inspect_target(
                 mapper.bb_records, direct_bbs, case.get("expected_oracle", {}),
                 old_target, inst_map_path,
-                v2_nodes_path=cdir / "analysis_v2_nodes.jsonl",
                 max_reported_instructions=8192,
             )
             result["identity_status"] = diagnostic["status"]
@@ -501,7 +500,6 @@ def main():
             )
             eligible_rows = [inst for inst in diagnostic["candidate_instructions"]
                              if isinstance(inst.get("instruction_id"), str) and
-                             inst.get("v2_instruction_identity_verified") is True and
                              inst.get("instruction_exact_oracle_source_line") is True and
                              inst["executed_in_direct_trace"] and
                              inst["value_flow_relevant_opcode"]]
@@ -528,10 +526,10 @@ def main():
             ]
             if not eligible:
                 result["status"] = (
-                    "NEEDS_V2_INSTRUCTION_DEBUGLOC"
+                    "NEEDS_INST_MAP_DEBUGLOC"
                     if diagnostic["inline_metadata_status"] in {
-                        "V2_NODES_NOT_AVAILABLE",
-                        "V2_IDS_NOT_ALIGNED_OR_STALE",
+                        "INST_MAP_NOT_AVAILABLE",
+                        "INST_MAP_MISSING_DEBUGLOC",
                     } else "NEEDS_ORACLE_TARGET_REVIEW"
                 )
                 if cid in approvals:

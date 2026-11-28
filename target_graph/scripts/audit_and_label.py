@@ -157,7 +157,6 @@ def audit_and_label_case(case_meta: Dict[str, Any], cases_dir: Path) -> Dict[str
         diagnostic = inspect_target(
             mapper.bb_records, trace_bbs, oracle, target_inst,
             inst_map_path,
-            v2_nodes_path=cdir / "analysis_v2_nodes.jsonl",
         )
         target_diagnostics_path.write_text(
             json.dumps(diagnostic, indent=2, ensure_ascii=False) + "\n",

@@ -15,7 +15,3 @@ add_definitions(${LLVM_DEFINITIONS_LIST})
 
 add_library(BBIdentityPass MODULE BBIdentityPass.cpp)
 target_compile_definitions(BBIdentityPass PRIVATE ${LLVM_DEFINITIONS})
-
-# Independent instruction-level analysis; legacy pass remains unchanged.
-add_library(AnalysisV2Pass MODULE AnalysisV2Pass.cpp)
-target_compile_definitions(AnalysisV2Pass PRIVATE ${LLVM_DEFINITIONS})

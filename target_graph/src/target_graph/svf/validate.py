@@ -81,7 +81,6 @@ def preflight(
     target: str,
     *,
     bb_map: Path | None = None,
-    v2_nodes: Path | None = None,
 ) -> dict[str, dict]:
     original = _records(before)
     if not original:
@@ -101,52 +100,11 @@ def preflight(
                 "Compare canonical build_id and module_name in pass_summary.json "
                 "before claiming a target-location failure"
             )
-    if v2_nodes is not None:
-        if not v2_nodes.is_file():
-            raise ValueError(f"Missing v2 nodes: {v2_nodes}")
-        v2_ids: set[str] = set()
-        wrong_semantics: list[str] = []
-        with v2_nodes.open(encoding="utf-8") as source:
-            for line_no, line in enumerate(source, 1):
-                if not line.strip():
-                    continue
-                row = json.loads(line)
-                if row.get("kind") != "instruction":
-                    continue
-                identity = row.get("inst_id") or row.get("id")
-                if not isinstance(identity, str) or identity in v2_ids:
-                    raise ValueError(
-                        f"Invalid/duplicate v2 instruction at line {line_no}"
-                    )
-                v2_ids.add(identity)
-                before_row = original.get(identity)
-                if before_row is None:
-                    continue
-                if (row.get("function") and before_row.get("function") and
-                        row["function"] != before_row["function"]):
-                    wrong_semantics.append(identity)
-                if (row.get("text") and before_row.get("opcode") and
-                        row["text"] != before_row["opcode"]):
-                    wrong_semantics.append(identity)
-        if set(original) != v2_ids:
-            raise ValueError(
-                "Original identities differ from analysis_v2_nodes.jsonl: "
-                f"only_tagged={len(set(original) - v2_ids)}, "
-                f"only_v2={len(v2_ids - set(original))}; "
-                "check build_id, module_name and IR provenance"
-            )
-        if wrong_semantics:
-            raise ValueError(
-                f"Instruction function/opcode mismatch for "
-                f"{len(set(wrong_semantics))} identities; "
-                "same IDs do not prove same IR instructions"
-            )
     requested_targets = [t.strip() for t in target.split(",") if t.strip()]
     if not any(t in original for t in requested_targets):
         raise ValueError(
             "Selected target instruction was not tagged in the original bitcode; "
-            "check whether the target ID came from a relocated/alias build. "
-            "Choose an original instruction from analysis_v2.cli --list-targets"
+            "check whether the target ID came from a relocated/alias build."
         )
     return original
 
@@ -158,9 +116,8 @@ def validate_svf(
     source_bc: Path,
     *,
     bb_map: Path | None = None,
-    v2_nodes: Path | None = None,
 ) -> dict[str, Any]:
-    original = preflight(before, target, bb_map=bb_map, v2_nodes=v2_nodes)
+    original = preflight(before, target, bb_map=bb_map)
     raw = json.loads(raw_path.read_text(encoding="utf-8"))
     if not isinstance(raw, dict) or raw.get("backend") != "SVF-2.9/SVFG":
         raise ValueError("Unexpected SVF backend / invalid raw output")
@@ -278,10 +235,9 @@ def main() -> None:
     parser.add_argument("--raw", type=Path)
     parser.add_argument("--source-bc", type=Path)
     parser.add_argument("--bb-map", type=Path)
-    parser.add_argument("--v2-nodes", type=Path)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
-    kwargs = {"bb_map": args.bb_map, "v2_nodes": args.v2_nodes}
+    kwargs = {"bb_map": args.bb_map}
     if args.mode == "preflight":
         original = preflight(args.before, args.target_inst, **kwargs)
         print(f"[svf] preflight OK: {len(original)} tagged original instructions")

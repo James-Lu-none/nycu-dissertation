@@ -23,11 +23,6 @@ def example(tmp_path):
     )
     bb_map = tmp_path / "bb_map.jsonl"
     bb_map.write_text('{"bb_id":"bb0"}\n{"bb_id":"bb1"}\n')
-    v2 = tmp_path / "analysis_v2_nodes.jsonl"
-    v2.write_text(
-        "".join(json.dumps({"id": inst, "kind": "instruction"}) + "\n"
-                for inst in ("bb0:0", "bb1:0", "bb1:1"))
-    )
     bc = tmp_path / "source.bc"
     bc.write_bytes(b"fixed same bitcode")
     raw = {
@@ -62,23 +57,23 @@ def example(tmp_path):
     }
     output = tmp_path / "raw.json"
     output.write_text(json.dumps(raw), encoding="utf-8")
-    return before, output, bc, bb_map, v2, raw
+    return before, output, bc, bb_map, raw
 
 
 def validate(example, raw_override=None):
-    before, output, bc, bb_map, v2, raw = example
+    before, output, bc, bb_map, raw = example
     if raw_override is not None:
         output.write_text(json.dumps(raw_override), encoding="utf-8")
     return validate_svf(
-        before, output, "bb1:0", bc, bb_map=bb_map, v2_nodes=v2
+        before, output, "bb1:0", bc, bb_map=bb_map
     )
 
 
 def test_preflight_rejects_stale_target_before_expensive_analysis(example):
-    before, _, _, bb_map, v2, _ = example
+    before, _, _, bb_map, _ = example
     with pytest.raises(ValueError, match="was not tagged"):
-        preflight(before, "stale:999", bb_map=bb_map, v2_nodes=v2)
-    assert len(preflight(before, "bb1:0", bb_map=bb_map, v2_nodes=v2)) == 3
+        preflight(before, "stale:999", bb_map=bb_map)
+    assert len(preflight(before, "bb1:0", bb_map=bb_map)) == 3
 
 
 def test_native_svfg_value_flow_is_exploratory_not_cdg(example):
@@ -125,17 +120,10 @@ def test_rejects_unknown_instruction_or_forged_edge(example):
 
 
 def test_rejects_build_id_mismatch_and_unverified_targets(example):
-    before, _, _, bb_map, v2, _ = example
-    v2.write_text('{"id":"wrong","kind":"instruction"}\n')
-    with pytest.raises(ValueError, match="differ"):
-        preflight(before, "bb1:0", bb_map=bb_map, v2_nodes=v2)
-    v2.write_text(
-        "".join(json.dumps({"id": inst, "kind": "instruction"}) + "\n"
-                for inst in ("bb0:0", "bb1:0", "bb1:1"))
-    )
+    before, _, _, bb_map, _ = example
     bb_map.write_text('{"bb_id":"bb0"}\n')
     with pytest.raises(ValueError, match="not present in bb_map"):
-        preflight(before, "bb1:0", bb_map=bb_map, v2_nodes=v2)
+        preflight(before, "bb1:0", bb_map=bb_map)
 
 
 
@@ -165,7 +153,7 @@ def test_provenance_missing_or_incomplete_is_not_guessed(tmp_path):
 
 
 def test_mismatched_alias_is_detected_before_target(example):
-    before, _, _, bb_map, v2, _ = example
+    before, _, _, bb_map, _ = example
     # Same underlying LLVM structure but different build/module hash.
     before.write_text(
         '{"id":"alias0:0","bb_id":"alias0","function":"main","opcode":"load"}\n'
@@ -173,32 +161,17 @@ def test_mismatched_alias_is_detected_before_target(example):
         encoding="utf-8",
     )
     with pytest.raises(ValueError, match="Original identities not present in bb_map"):
-        preflight(before, "alias1:0", bb_map=bb_map, v2_nodes=v2)
-
-
-def test_matching_id_but_wrong_opcode_is_not_accepted(example):
-    before, _, _, bb_map, v2, _ = example
-    rows = [
-        {"kind":"instruction", "id":"bb0:0", "function":"main", "text":"sub"},
-        {"kind":"instruction", "id":"bb1:0", "function":"main", "text":"store"},
-        {"kind":"instruction", "id":"bb1:1", "function":"main", "text":"ret"},
-    ]
-    v2.write_text("".join(json.dumps(row) + "\n" for row in rows))
-    with pytest.raises(ValueError, match="function/opcode mismatch"):
-        preflight(before, "bb1:0", bb_map=bb_map, v2_nodes=v2)
-
+        preflight(before, "alias1:0", bb_map=bb_map)
 
 
 def test_multi_candidate_resolves_single_target_and_checks_seeds(example):
-    before, output, bc, bb_map, v2, raw = example
+    before, output, bc, bb_map, raw = example
     requested = "bb0:0,bb1:0,bb1:1"
-    result = validate_svf(before, output, requested, bc,
-                          bb_map=bb_map, v2_nodes=v2)
+    result = validate_svf(before, output, requested, bc, bb_map=bb_map)
     assert result["target"] == "bb1:0"
     assert result["requested_target_candidates"] == requested.split(",")
     tampered = copy.deepcopy(raw)
     tampered["target_seed_svfg_ids"] = [5]  # other candidate, not resolved target
     output.write_text(json.dumps(tampered), encoding="utf-8")
     with pytest.raises(ValueError, match="Target seeds"):
-        validate_svf(before, output, requested, bc,
-                     bb_map=bb_map, v2_nodes=v2)
+        validate_svf(before, output, requested, bc, bb_map=bb_map)
